@@ -7,6 +7,10 @@ venv/
 # 评测产物（语料已入库，结果可随时重跑，不必入库）
 bench/results/
 
+# 编译产物（C++ 适配器，源码入库、二进制不入库）
+cpp/libime_bench
+cpp/*.o
+
 # 编辑器 / 系统
 .DS_Store
 
