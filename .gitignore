@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 评测产物（语料已入库，结果可随时重跑，不必入库）
+bench/results/
+
+# 编辑器 / 系统
+.DS_Store
+
+# WorkBuddy 项目记忆（本机私有，不入库）
+.workbuddy/
