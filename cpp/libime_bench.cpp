@@ -94,17 +94,20 @@ int main(int argc, char **argv) {
     if (lmPath.empty()) {
         // Debian 12 的语言模型叫 zh_CN.lm 且装在 triplet 目录下，Ubuntu 上是 sc.lm，都要覆盖
         lmPath = find_data({
+            "/usr/lib64/libime/zh_CN.lm",
             "/usr/lib/aarch64-linux-gnu/libime/zh_CN.lm",
             "/usr/lib/x86_64-linux-gnu/libime/zh_CN.lm",
             "/usr/lib/libime/zh_CN.lm",
             "/usr/share/libime/zh_CN.lm",
             "/usr/share/libime/sc.lm",
+            "/usr/lib64/libime/sc.lm",
             "/usr/lib/libime/sc.lm",
         }, "语言模型（来自 libime-data-language-model）");
     }
     if (dictPath.empty()) {
         dictPath = find_data({
             "/usr/share/libime/sc.dict",
+            "/usr/lib64/libime/sc.dict",
             "/usr/lib/libime/sc.dict",
             "/usr/lib/aarch64-linux-gnu/libime/sc.dict",
             "/usr/lib/x86_64-linux-gnu/libime/sc.dict",

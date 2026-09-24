@@ -14,6 +14,7 @@ bench/corpus/essay.txt
 # 编译产物（C++ 适配器，源码入库、二进制不入库）
 cpp/libime_bench
 cpp/*.o
+cpp/build/
 
 # 编辑器 / 系统
 .DS_Store

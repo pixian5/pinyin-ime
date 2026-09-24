@@ -110,6 +110,39 @@ python3 fetch_corpus.py      --target 2000 --out corpus/wiki.txt   # 维基
 注意 20 字以上长句的字级已达 **88.76%**，与对照的 88.67% 持平——引擎本身不差。
 详见 `PLAN-A.md` 第 9、10 节。
 
+## 当前基线（libime 1.1.17 重跑，2026 数据）
+
+在 openEuler 22.03 上源码编译 fcitx5 5.1.23 + libime **1.1.17**（gcc 13 工具链），
+数据为 2026 年最新：`zh_CN.lm` **34,736,327 B**（`lm_sc.arpa-20260629`）、
+`sc.dict` **4,528,345 B**（`dict-20260907`）。`libime_bench` 启动时把这两个字节数
+打到 stderr，是「词库版本」的直接证据。
+
+同一份 `corpus/news.txt` 2000 句：
+
+| 指标 | 1.0.16 | 1.1.17 | 变化 |
+|---|---|---|---|
+| 完全准确率（句级） | 30.55% | **39.55%** | +9.0 pct |
+| 综合准确率（字级） | 85.79% | **88.82%** | +3.0 pct |
+| 平均码长 | 3.099 | 3.099 | — |
+| 延迟 P50 / P99（整句一次喂完） | ~26 / ~55 ms | 58.28 / 107.94 ms | 跨机器不可比 |
+
+字级 88.82% 越过 88% 阈值 → **Route A 成立**：差距主要来自词库版本，详见 `PLAN-A.md` §12。
+
+```sh
+# 依赖：gcc-toolset-13 + 自建 deps（boost / ECM / zstd / gettext 等）
+cmake --build <fcitx5-build> --target install -j8     # fcitx5 5.1.23
+cmake --build <libime-build> --target install -j8     # libime 1.1.17（自动下载并生成 LM/词典）
+python3 bench/run_bench.py --corpus corpus/news.txt \
+  --cli cpp/build/libime_bench \
+  --cli-arg <prefix>/lib64/libime/zh_CN.lm \
+  --cli-arg <prefix>/share/libime/sc.dict --cli-arg 5
+```
+
+> libime 把 LM 从 `sc.lm` 重命名安装为 `zh_CN.lm`，在 `lib64/libime/`（openEuler
+> 因 libdir=lib64）；`sc.dict` 在 `share/libime/`。适配器默认搜索路径已补 openEuler
+> 的 `lib64`。此外 openEuler 的 boost-devel 不带 CMake config，libime 顶层的
+> `find_package(Boost ... CONFIG)` 需改为 `MODULE`。
+
 ## 逐键延迟评测（perkey）
 
 `run_bench.py` 里的「延迟」是整句一次喂完的 round-trip 耗时（平均 19 字约 26ms），
@@ -120,10 +153,10 @@ python3 fetch_corpus.py      --target 2000 --out corpus/wiki.txt   # 维基
 python3 latency_perkey.py --corpus corpus/news.txt --cli /path/to/libime_bench --limit 1000
 ```
 
-| 指标 | 实测（libime 1.0.16，1000 句 / 59803 键） |
-|---|---|
-| 平均单键 | **1.15 ms** |
-| P50 / P99 | 0.92 / 2.86 ms |
+| 指标 | 1.0.16（1000 句 / 59803 键） | 1.1.17（2000 句 / 118309 键） |
+|---|---|---|
+| 平均单键 | 1.15 ms | **0.98 ms** |
+| P50 / P99 | 0.92 / 2.86 ms | **0.80 / 2.54 ms** |
 
 结论：之前 ~26ms 是「整句一次喂完」的口径，拆到单键只有 1ms 级——
 真实逐键输入的体感延迟远低于整句一次喂完。两者不可比，各测各的。
@@ -140,10 +173,13 @@ python3 first_word.py --source jieba --corpus corpus/news.txt --cli /path/to/lib
 python3 first_word.py --source essay --cli /path/to/libime_bench
 ```
 
-| 词源 | top1 | top5 |
-|---|---|---|
-| 新闻分词（jieba） | **89.30%** | **97.00%** |
-| essay 词表 | **74.28%** | **95.18%** |
+| 词源 | 1.0.16 top1/top5 | 1.1.17 top1/top5 | 说明 |
+|---|---|---|---|
+| 新闻分词（jieba） | 89.30% / 97.00% | **89.33% / 96.00%** | @300 词，持平 |
+| essay 词表 | 74.28% / 95.18% | **95.80% / 99.90%** | @2000 词，大涨 |
+
+> 取样口径：jieba 旧基线对应约 300 词；essay 旧 74.28% 是旧引擎+旧词库（2022）。
+> 新引擎 essay 各词量下均明显更高（@500=98.00%、@2000=95.80%、@10000=89.66%）。
 
 > **坑（已踩）**：essay 词表是繁体，必须先 OpenCC 繁转简再生成拼音，否则
 > 「一個」的 gold 是繁体、引擎却输出简体「一个」，整词被误判为未命中
@@ -151,11 +187,13 @@ python3 first_word.py --source essay --cli /path/to/libime_bench
 
 两套新工具和主评测一样，用 `oracle`（≈100%）/ `echo`（≈0%）自检，改动前后各跑一次即可回归。
 
-## 下一棒：libime 1.1.5 基线重跑
+## ✅ 已完成：libime 新版本基线重跑
 
-当前基线是 Debian 12 的 libime 1.0.16（sc.dict 仅 6MB，2022 年）。要把「词库版本」
-从「引擎 vs 词库规模」的对比里分离出来，得拿 Ubuntu 24.04 的 libime 1.1.5 重跑同一份
-`corpus/news.txt`。现成路径见 `docker/Dockerfile.noble`：
+原计划的 libime 1.1.5 基线已落地——本机 openEuler 22.03 无容器运行时，改为
+**源码编译 libime 1.1.17**（比 1.1.5 更新），词库/语言模型为 2026 年数据。
+结果见上「当前基线（libime 1.1.17 重跑）」：句级 30.55%→**39.55%**、
+字级 85.79%→**88.82%**，**Route A 成立**（差距主要在词库版本）。
+备选 docker 路径仍在 `docker/Dockerfile.noble`：
 
 ```sh
 docker build -f docker/Dockerfile.noble -t pinyin-bench-1.1.5 .
