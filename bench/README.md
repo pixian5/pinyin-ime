@@ -143,6 +143,20 @@ python3 bench/run_bench.py --corpus corpus/news.txt \
 > 的 `lib64`。此外 openEuler 的 boost-devel 不带 CMake config，libime 顶层的
 > `find_package(Boost ... CONFIG)` 需改为 `MODULE`。
 
+## 换语言模型（LM）评测
+
+词库不是瓶颈（§13，rime-ice 88.4 万条无增益）后，下一步是**换语言模型**。流水线在
+`lm/`（训练 `train_lm.sh` + 诊断 `diagnose_vocab.py`），完整结果与根因见 `lm/README.md` 与 `PLAN-A.md` §14。
+
+| 模型 | 句级 | 字级 | 体量 |
+|---|---|---|---|
+| 官方 `zh_CN.lm`（本机 conda-forge/gcc-15 复现） | **39.60%** | **88.82%** | 34.7 MB |
+| 自训 `zh_CN_news.lm`（THUCNews 3-gram） | 34.20% | 88.29% | 121.4 MB |
+
+首版自训 LM **负向**：n-gram 数虽 5.5× 官方，但语料太小（52.9M 词）且时效差
+（2005–2011 → 评测是 2026 新闻），转移概率噪声/过时。诊断证实**词表覆盖反而更高**
+（99.4% vs 官方 97.3%），退化纯在概率质量。下一步换现代大语料（≥数亿词次）。
+
 ## 逐键延迟评测（perkey）
 
 `run_bench.py` 里的「延迟」是整句一次喂完的 round-trip 耗时（平均 19 字约 26ms），
