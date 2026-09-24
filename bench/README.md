@@ -220,6 +220,21 @@ libime 在 Debian 12 上的路径全是"非标准"的，第一次构建会连撞
 | 构造函数不接受 `std::string` | 重载匹配失败 | `UserLanguageModel(const char*)`、`dict->load(idx, const char*, fmt)` |
 | 语言模型文件名 | 找不到 `sc.lm` | Debian 上叫 **`zh_CN.lm`**，在 `/usr/lib/<triplet>/libime/` |
 
+## Route A：更大词典复测（无增益）
+
+换 rime-ice（雾凇拼音，LGPL-3.0）`base`+`ext`+`8105` 去重后 **884,332 条**
+（sc.dict 的 2.94 倍），`convert_rimeice.py` 转成 libime 二进制，LM `zh_CN.lm` 不变：
+
+| 指标（news.txt 2000 句） | sc.dict 300,471 条 | rime-ice 884,332 条 |
+|---|---|---|
+| 句级 / 字级准确率 | 39.55% / 88.82% | 39.45% / 88.84% |
+| 逐键延迟 avg / P50 / P99（ms） | 0.98 / 0.80 / 2.54 | 0.62 / 0.55 / 1.45 |
+| 首词 essay top1 / top5 | 95.80% / 99.90% | 95.65% / 99.90% |
+| 首词 jieba top1 / top5 | 80.40% / 93.10% | 80.25% / 93.00% |
+
+结论：词库规模不是瓶颈，准确率提升来自 LM（详见 PLAN-A §12/§13）。
+转换必须按「词内读音归一」给 cost（log 概率），全局词频留给 LM——见 `convert_rimeice.py`。
+
 ## 已知限制
 
 - 维基语料偏书面、专有名词多，和日常聊天有分布差异；后续应补新闻 / 口语 / 技术三类
