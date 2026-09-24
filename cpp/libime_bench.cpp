@@ -5,14 +5,20 @@
 //   标准输出：每行一组候选，\t 分隔，第一个是整句首选
 //
 // 用法：
-//   libime_bench [语言模型路径] [系统词典路径] [nbest]
+//   libime_bench [语言模型路径] [系统词典路径] [nbest]     # 整句模式
+//   libime_bench perkey [语言模型路径] [系统词典路径] [nbest]  # 逐键延迟模式
 // 不给参数时自动在常见位置搜索 sc.lm / sc.dict。
+// 逐键模式：每行输入仍是一串全拼，但逐字符喂给引擎并计每键耗时，
+// 输出每行对应一组 \t 分隔的毫秒数（第 i 个数 = 第 i 个有效键的耗时）。
 //
 // 注意：本文件在容器内编译验证，宿主是 macOS 时无法直接编译。
 #include <cstdlib>
+#include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -41,12 +47,33 @@ std::string find_data(const std::vector<std::string> &candidates, const char *wh
     std::exit(2);
 }
 
+// 逐键延迟计时：用高精度时钟测单次 ctx.type() 的耗时（毫秒）。
+using Clock = std::chrono::high_resolution_clock;
+
+double ms_since(Clock::time_point t0) {
+    return std::chrono::duration<double, std::milli>(Clock::now() - t0).count();
+}
+
+// 是否是合法的拼音输入字符（小写字母 + 隔音符 '）。
+bool is_pinyin_char(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '\'';
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
-    std::string lmPath = argc > 1 ? argv[1] : "";
-    std::string dictPath = argc > 2 ? argv[2] : "";
-    int nbest = argc > 3 ? std::atoi(argv[3]) : 5;
+    // 运行模式：argv[1] == "perkey" 进入逐键延迟模式，其余参数整体后移一位。
+    // 逐键模式测的是真实输入法「每敲一键、引擎增量更新」的单键耗时，
+    // 区别于默认整句模式把整串拼音一次性喂完（那是另一种口径，两者不可比）。
+    bool perkey = false;
+    int ai = 1;
+    if (argc > ai && std::string(argv[ai]) == "perkey") {
+        perkey = true;
+        ++ai;
+    }
+    std::string lmPath = argc > ai ? argv[ai++] : "";
+    std::string dictPath = argc > ai ? argv[ai++] : "";
+    int nbest = argc > ai ? std::atoi(argv[ai++]) : 5;
 
     if (lmPath.empty()) {
         // Debian 12 的语言模型叫 zh_CN.lm 且装在 triplet 目录下，Ubuntu 上是 sc.lm，都要覆盖
@@ -79,14 +106,31 @@ int main(int argc, char **argv) {
 
     std::string line;
     while (std::getline(std::cin, line)) {
-        if (line.empty()) {
-            std::cout << "\n";
+        ctx.clear();
+
+        if (perkey) {
+            // 逐键模式：逐字符 type 并计时，输出每键耗时（毫秒，\t 分隔）。
+            // 每行输入对应一行输出，保证与评测方严格一一对应；无有效字符则输出空行。
+            std::ostringstream os;
+            os << std::fixed << std::setprecision(3);
+            bool first = true;
+            for (char ch : line) {
+                if (!is_pinyin_char(ch)) continue;
+                auto t0 = Clock::now();
+                ctx.type(std::string(1, ch));
+                double ms = ms_since(t0);
+                if (!first) os << '\t';
+                os << ms;
+                first = false;
+            }
+            std::cout << os.str() << "\n";
             std::cout.flush();
             continue;
         }
-        ctx.clear();
+
+        // 整句模式（原协议）：整串一次喂完，输出整句首选 + 候选列表。
         for (char ch : line) {
-            if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '\'') {
+            if (is_pinyin_char(ch)) {
                 ctx.type(std::string(1, ch));
             }
         }

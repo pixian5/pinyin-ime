@@ -110,6 +110,47 @@ python3 fetch_corpus.py      --target 2000 --out corpus/wiki.txt   # 维基
 注意 20 字以上长句的字级已达 **88.76%**，与对照的 88.67% 持平——引擎本身不差。
 详见 `PLAN-A.md` 第 9、10 节。
 
+## 逐键延迟评测（perkey）
+
+`run_bench.py` 里的「延迟」是整句一次喂完的 round-trip 耗时（平均 19 字约 26ms），
+跟真实输入法「每敲一键、引擎增量更新」不是一回事。为此在 `cpp/libime_bench.cpp`
+加了 `perkey` 逐键模式，配合 `bench/latency_perkey.py` 量单键成本：
+
+```sh
+python3 latency_perkey.py --corpus corpus/news.txt --cli /path/to/libime_bench --limit 1000
+```
+
+| 指标 | 实测（libime 1.0.16，1000 句 / 59803 键） |
+|---|---|
+| 平均单键 | **1.15 ms** |
+| P50 / P99 | 0.92 / 2.86 ms |
+
+结论：之前 ~26ms 是「整句一次喂完」的口径，拆到单键只有 1ms 级——
+真实逐键输入的体感延迟远低于整句一次喂完。两者不可比，各测各的。
+
+## 首词命中率评测
+
+整句准确率测「整句一次上屏」，首词命中率测「想要的词在不在第一位、要不要翻页」，
+后者体感更直接。`bench/first_word.py` 支持两个词源：
+
+```sh
+# jieba 新闻分词词源
+python3 first_word.py --source jieba --corpus corpus/news.txt --cli /path/to/libime_bench
+# rime-essay 八股文词表（词+词频；词表缺省自动下载到 corpus/essay.txt）
+python3 first_word.py --source essay --cli /path/to/libime_bench
+```
+
+| 词源 | top1 | top5 |
+|---|---|---|
+| 新闻分词（jieba） | **89.30%** | **97.00%** |
+| essay 词表 | **74.28%** | **95.18%** |
+
+> **坑（已踩）**：essay 词表是繁体，必须先 OpenCC 繁转简再生成拼音，否则
+> 「一個」的 gold 是繁体、引擎却输出简体「一个」，整词被误判为未命中
+> （500 词从 88% 虚降到 51%）。`first_word.py` 已默认走 t2s。
+
+两套新工具和主评测一样，用 `oracle`（≈100%）/ `echo`（≈0%）自检，改动前后各跑一次即可回归。
+
 ## 容器构建踩坑记录
 
 libime 在 Debian 12 上的路径全是"非标准"的，第一次构建会连撞 6 个错误，都记在 `docker/Dockerfile` 里了：
@@ -129,5 +170,5 @@ libime 在 Debian 12 上的路径全是"非标准"的，第一次构建会连撞
 ## 已知限制
 
 - 维基语料偏书面、专有名词多，和日常聊天有分布差异；后续应补新闻 / 口语 / 技术三类
-- 尚未实现"首词命中率"（需要分词，计划接 jieba 后按词评测）
+- 首词命中率目前只在「完美全拼、无模糊音、无用户词库」条件下测，未覆盖模糊音/简拼场景
 - 评测不启用模糊音，也不加载用户词库——保证结果可复现

@@ -7,6 +7,10 @@ venv/
 # 评测产物（语料已入库，结果可随时重跑，不必入库）
 bench/results/
 
+# rime-essay 八股文词表：体积大(5.6MB)、许可「自有条款需单独确认」，
+# 由 first_word.py 按需自动下载，不入库
+bench/corpus/essay.txt
+
 # 编译产物（C++ 适配器，源码入库、二进制不入库）
 cpp/libime_bench
 cpp/*.o
