@@ -14,12 +14,14 @@
 // 注意：本文件在容器内编译验证，宿主是 macOS 时无法直接编译。
 #include <cstdlib>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <libime/core/lattice.h>
@@ -45,6 +47,20 @@ std::string find_data(const std::vector<std::string> &candidates, const char *wh
     }
     std::cerr << "libime_bench: 找不到 " << what << "，请用参数显式指定路径\n";
     std::exit(2);
+}
+
+// 启动时把语言模型/系统词典的路径与字节数打到 stderr，作为「词库版本」的直接证据。
+// 同一份 sc.dict 的大小是「词库规模」最关键的信号（如 Debian 12 的 sc.dict 仅约 6MB）。
+void report_data(const std::string &lm, const std::string &dict, int nbest) {
+    auto size_of = [](const std::string &p) -> unsigned long long {
+        std::error_code ec;
+        auto s = std::filesystem::file_size(p, ec);
+        return ec ? 0ULL : static_cast<unsigned long long>(s);
+    };
+    std::cerr << "libime_bench: nbest=" << nbest
+              << " lm=" << lm << " (" << size_of(lm) << " bytes)"
+              << " dict=" << dict << " (" << size_of(dict) << " bytes)\n";
+    std::cerr.flush();
 }
 
 // 逐键延迟计时：用高精度时钟测单次 ctx.type() 的耗时（毫秒）。
@@ -102,6 +118,8 @@ int main(int argc, char **argv) {
     ime.dict()->load(PinyinDictionary::SystemDict, dictPath.c_str(),
                      PinyinDictFormat::Binary);
     ime.setNBest(static_cast<size_t>(nbest));
+    // 落盘「词库版本」证据：nbest、lm/dict 路径与字节数。用 1.1.5 重跑时靠这行对比 sc.dict 规模。
+    report_data(lmPath, dictPath, nbest);
     PinyinContext ctx(&ime);
 
     std::string line;

@@ -151,6 +151,21 @@ python3 first_word.py --source essay --cli /path/to/libime_bench
 
 两套新工具和主评测一样，用 `oracle`（≈100%）/ `echo`（≈0%）自检，改动前后各跑一次即可回归。
 
+## 下一棒：libime 1.1.5 基线重跑
+
+当前基线是 Debian 12 的 libime 1.0.16（sc.dict 仅 6MB，2022 年）。要把「词库版本」
+从「引擎 vs 词库规模」的对比里分离出来，得拿 Ubuntu 24.04 的 libime 1.1.5 重跑同一份
+`corpus/news.txt`。现成路径见 `docker/Dockerfile.noble`：
+
+```sh
+docker build -f docker/Dockerfile.noble -t pinyin-bench-1.1.5 .
+docker run --rm -v "$PWD/bench":/bench -w /bench pinyin-bench-1.1.5 bash -c \
+  "python3 run_bench.py --corpus corpus/news.txt --cli /src/build/libime_bench"
+```
+
+`libime_bench` 启动时会往 stderr 打印 `lm`/`dict` 路径与字节数——对比这一行
+即可确认 sc.dict 规模有没有变。详见 `PLAN-A.md` 第 12 节。
+
 ## 容器构建踩坑记录
 
 libime 在 Debian 12 上的路径全是"非标准"的，第一次构建会连撞 6 个错误，都记在 `docker/Dockerfile` 里了：

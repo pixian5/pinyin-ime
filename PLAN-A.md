@@ -363,3 +363,43 @@ M0 剩余待办第 2、3 项完成，相关代码与文档已落地。
   latency_perkey mock 聚合键数与独立计算一致
 - 待办推进：**下一步（M0 第 3 项）用 libime 1.1.5 重跑整句准确率基线**，把「词库版本」
   这个变量从「词库规模 vs 引擎」里分离出来
+
+---
+
+## 12. libime 1.1.5 基线重跑（分离「词库版本」变量）
+
+当前基线是 Debian 12 的 libime **1.0.16**（sc.dict 仅 6MB，2022 年）。要回答
+「差距到底是引擎本身，还是词库太旧太小」，需要拿 Ubuntu 24.04 的 libime **1.1.5**
+重跑同一份 `corpus/news.txt`。本仓库已备好可复现路径。
+
+### 12.1 现成构建：docker/Dockerfile.noble
+
+noble 的 libime 打包是完整的（含 core 头 + cmake 配置），直接 cmake 即可，
+不再需要 Debian 那套手写 g++ 与逐项补装：
+
+```sh
+docker build -f docker/Dockerfile.noble -t pinyin-bench-1.1.5 .
+docker run --rm -v "$PWD/bench":/bench -w /bench pinyin-bench-1.1.5 bash -c \
+  "python3 run_bench.py --corpus corpus/news.txt --cli /src/build/libime_bench"
+```
+
+`libime_bench` 启动时会往 stderr 打印 `lm`/`dict` 路径与字节数（`report_data`），
+对比这一行就能确认 sc.dict 规模是否从 6MB 变化——这是「词库版本」最直接的证据。
+
+### 12.2 对比口径与决策分支
+
+| 指标 | 1.0.16（Debian 12，sc.dict ≈6MB） | 1.1.5（Ubuntu 24.04，sc.dict ?MB） |
+|---|---|---|
+| 句级准确率 | 30.55% | 待测 |
+| 字级准确率 | **85.79%** | 待测 |
+| 平均码长 | 3.099 键/字 | 待测 |
+| 延迟 P50 / P99 | ~26 / ~55 ms | 待测 |
+
+- **若 1.1.5 字级明显上升（趋近 88%+）** → 差距主要来自词库版本，Route A 方向成立，
+  下一步换更大/更新的系统词库（参考实现用 370 万条词库）。
+- **若 1.1.5 与 1.0.16 基本持平** → 差距在引擎（三元语言模型上限），
+  需评估 Route B（跨拼音串挑选 / 强化词库权重）。
+
+> 注：本仓库当前开发环境（openEuler 22.03）既无 libime 也无可用的容器运行时，
+> 1.1.5 的实测跑数要在带 docker 的机器上执行；`Dockerfile.noble` 已把坑都固化好，
+> 到位后两条命令即可出结果。

@@ -1,0 +1,23 @@
+# 精简 docker 构建上下文：这些目录/文件不必打进镜像
+.git
+.gitignore
+.dockerignore
+
+# Python 虚拟环境与缓存
+venv
+bench/.venv
+**/.venv
+**/__pycache__
+*.py[cod]
+
+# 评测产物与外部词表（结果可重跑，essay 词表按需下载）
+bench/results
+bench/corpus/essay.txt
+
+# C++ 编译产物
+cpp/libime_bench
+cpp/build
+cpp/*.o
+
+.DS_Store
+.workbuddy
