@@ -31,7 +31,7 @@ def _get_pypinyin():
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--corpus", nargs="*", default=None,
-                   help="语料文件路径（默认 bench/corpus/ 下 wiki + news + daily + recent）")
+                   help="语料文件路径（默认 bench/corpus/ 下 wiki + news + daily + recent + baike）")
     p.add_argument("--alpha", type=float, default=0.035,
                    help="缩放因子（默认 0.035，先验跨度 ≈0.30）")
     p.add_argument("--smooth", type=float, default=0.5,
@@ -55,6 +55,7 @@ def main() -> int:
             project_root / "bench" / "corpus" / "news.txt",
             project_root / "bench" / "corpus" / "daily.txt",
             project_root / "bench" / "corpus" / "recent.txt",
+            project_root / "bench" / "corpus" / "baike.txt",
         ]
 
     # 读取并合并语料

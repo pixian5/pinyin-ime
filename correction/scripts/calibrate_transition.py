@@ -41,7 +41,7 @@ def _get_pypinyin():
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--corpus", nargs="*", default=None,
-                   help="语料文件路径（默认 bench/corpus/ 下 wiki + news + daily + recent）")
+                   help="语料文件路径（默认 bench/corpus/ 下 wiki + news + daily + recent + baike）")
     p.add_argument("--smooth", type=float, default=0.5,
                    help="加一式平滑 s（默认 0.5）")
     p.add_argument("--out", default=None, help="输出 JSON 路径")
@@ -57,7 +57,8 @@ def main() -> int:
         corpus_files = [project_root / "bench" / "corpus" / "wiki.txt",
                         project_root / "bench" / "corpus" / "news.txt",
                         project_root / "bench" / "corpus" / "daily.txt",
-                        project_root / "bench" / "corpus" / "recent.txt"]
+                        project_root / "bench" / "corpus" / "recent.txt",
+                        project_root / "bench" / "corpus" / "baike.txt"]
     if args.out is None:
         out = project_root / "correction" / "data" / "bigram_costs.json"
     else:
