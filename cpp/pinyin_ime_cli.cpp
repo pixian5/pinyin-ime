@@ -23,20 +23,22 @@
 //   pinyin_ime_cli [选项] [语言模型路径] [系统词典路径] [nbest=5]
 //
 // 选项：
-//   -f, --fuzzy   启用模糊音（平翘舌 z/zh、c/ch、s/sh，前后鼻音 an/ang、en/eng、
-//                 in/ing、ian/iang、uan/uang，n/l、f/h、l/r，及键盘邻近纠错）
-//   -h, --help    显示本帮助
+//   -f, --fuzzy     启用模糊音（平翘舌 z/zh、c/ch、s/sh，前后鼻音 an/ang、en/eng、
+//                   in/ing、ian/iang、uan/uang，n/l、f/h、l/r，及键盘邻近纠错）
+//   --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）
+//   -h, --help      显示本帮助
 //
 // 已实现（M1 范围）：逐键输入、候选列表、选词上屏、整句首选、简拼（默认）、
-//   模糊音（--fuzzy）、会话内自学习、清屏。
-// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、用户词库持久化、双拼、
-//   中英切换、标点、候选分页。
+//   模糊音（--fuzzy）、自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏。
+// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、双拼、中英切换、标点、候选分页。
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <libime/core/userlanguagemodel.h>
@@ -79,8 +81,9 @@ void usage(const char *prog) {
         << "  行模式（stdin 非 TTY）：每行一段拼音（全拼或简拼）→ 候选\n"
         << "  交互模式（stdin 为 TTY）：逐键输入，数字/空格/回车上屏\n"
         << "选项:\n"
-        << "  -f, --fuzzy   启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
-        << "  -h, --help    显示本帮助\n"
+        << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
+        << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
+        << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n";
 }
 
@@ -98,7 +101,7 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
     return cands;
 }
 
-// 选中候选并（若已完全上屏）提交：打印、写入会话内自学习上下文、清空。
+// 选中候选并（若已完全上屏）提交：打印、写入自学习上下文、清空。
 // 返回是否发生了一次提交。
 bool select_and_commit(PinyinContext &ctx, size_t idx) {
     const auto &cands = ctx.candidatesToCursor();
@@ -110,7 +113,9 @@ bool select_and_commit(PinyinContext &ctx, size_t idx) {
             std::cout << "\r\x1b[2K"
                       << "「" << text << "」\n";
         }
-        ctx.learn();  // 会话内自学习（用户模型持久化见 README 待办）
+        // learn()：把选中句子加入用户语言模型历史，并把系统词典没有的词
+        // 自动 addWord 到 UserDict（libime 内建自动造词）；退出时经 save 落盘。
+        ctx.learn();
         ctx.clear();
         return true;
     }
@@ -142,7 +147,9 @@ struct RawTerm {
         if (!isatty(STDIN_FILENO)) return false;
         tcgetattr(STDIN_FILENO, &orig_);
         termios raw = orig_;
-        raw.c_lflag &= ~static_cast<tcflag_t>(ICANON | ECHO);
+        // 关键：必须同时关掉 ISIG，否则 Ctrl-C(\x03) 会被转成 SIGINT 直接杀进程、
+        // 走不到 break → save_user_data() 的持久化路径。
+        raw.c_lflag &= ~static_cast<tcflag_t>(ICANON | ECHO | ISIG);
         raw.c_cc[VMIN] = 1;
         raw.c_cc[VTIME] = 0;
         tcsetattr(STDIN_FILENO, TCSANOW, &raw);
@@ -159,8 +166,9 @@ struct RawTerm {
 }  // namespace
 
 int main(int argc, char **argv) {
-    // 解析参数：支持 -h/--help、-f/--fuzzy，位置参数为 [lm][dict][nbest]。
+    // 解析参数：支持 -h/--help、-f/--fuzzy、--user-data DIR；位置参数为 [lm][dict][nbest]。
     bool fuzzy = false;
+    std::string userDataDir;
     std::vector<std::string> positional;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -169,6 +177,12 @@ int main(int argc, char **argv) {
         } else if (a == "--help" || a == "-h") {
             usage(argv[0]);
             return 0;
+        } else if (a == "--user-data") {
+            if (i + 1 >= argc) {
+                std::cerr << "--user-data 缺少目录参数\n";
+                return 2;
+            }
+            userDataDir = argv[++i];
         } else if (a.size() >= 2 && a[0] == '-') {
             std::cerr << "未知参数: " << a << "（用 --help 查看用法）\n";
             return 2;
@@ -180,6 +194,11 @@ int main(int argc, char **argv) {
     std::string dictPath = positional.size() > 1 ? positional[1] : "";
     int nbest = positional.size() > 2 ? std::atoi(positional[2].c_str()) : 5;
     if (nbest < 1) nbest = 5;
+    if (userDataDir.empty()) {
+        if (const char *home = std::getenv("HOME"); home && *home) {
+            userDataDir = std::string(home) + "/.local/share/pinyin-ime";
+        }
+    }
 
     if (lmPath.empty()) {
         lmPath = find_data({
@@ -203,7 +222,7 @@ int main(int argc, char **argv) {
         }, "系统词典（sc.dict）");
     }
 
-    // 与 libime_bench.cpp 一致：UserLanguageModel 加载系统 LM 作为打分模型。
+    // 与 libime_bench.cpp 一致：UserLanguageModel 加载系统 LM 作为打分模型（静态 base）。
     PinyinIME ime(std::make_unique<PinyinDictionary>(),
                   std::make_unique<UserLanguageModel>(lmPath.c_str()));
     ime.dict()->load(PinyinDictionary::SystemDict, dictPath.c_str(),
@@ -214,6 +233,36 @@ int main(int argc, char **argv) {
         ime.setFuzzyFlags(common_fuzzy_flags());
         std::cerr << "pinyin_ime_cli: 模糊音已启用\n";
     }
+
+    // 用户词库 + 自学习历史持久化：简拼歧义大，让用户常用词/新词靠前的关键。
+    // user.history 存 UserLanguageModel 的增量历史（不含 34MB 系统 LM），
+    // user.dict 存 UserDict（含 learn() 自动造出来的用户词）。
+    std::string userHistPath, userDictPath;
+    const bool persist = !userDataDir.empty();
+    if (persist) {
+        std::error_code ec;
+        std::filesystem::create_directories(userDataDir, ec);
+        userHistPath = userDataDir + "/user.history";
+        userDictPath = userDataDir + "/user.dict";
+        if (std::filesystem::exists(userHistPath)) {
+            std::ifstream fin(userHistPath);
+            if (fin) ime.model()->load(fin);
+        }
+        if (std::filesystem::exists(userDictPath)) {
+            ime.dict()->load(PinyinDictionary::UserDict, userDictPath.c_str(),
+                             PinyinDictFormat::Binary);
+            std::cerr << "pinyin_ime_cli: 已加载用户数据 " << userDataDir << "\n";
+        }
+    }
+    auto save_user_data = [&]() {
+        if (!persist) return;
+        {
+            std::ofstream fout(userHistPath, std::ios::trunc);
+            if (fout) ime.model()->save(fout);
+        }
+        ime.dict()->save(PinyinDictionary::UserDict, userDictPath.c_str(),
+                         PinyinDictFormat::Binary);
+    };
 
     PinyinContext ctx(&ime);
 
@@ -234,6 +283,7 @@ int main(int argc, char **argv) {
             std::cout << '\n';
             std::cout.flush();
         }
+        save_user_data();
         return 0;
     }
 
@@ -273,5 +323,6 @@ int main(int argc, char **argv) {
         render();
     }
     std::cout << "\n";
+    save_user_data();
     return 0;
 }

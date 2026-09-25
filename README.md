@@ -212,6 +212,10 @@ KenLM 训练工具 `lmplz` 一并产出；冒烟 `nihao→你好 / zhongguo→�
   （无需额外开关）；`--fuzzy` 启用平翘舌（z/zh、c/ch、s/sh）、前后鼻音（an/ang、en/eng、
   in/ing、ian/iang、uan/uang）、n/l、f/h、l/r 及键盘邻近纠错（`PinyinFuzzyFlag`），
   常见打错也能命中首选。另有 `--help` 查看用法。
+- **用户词库自学习持久化（`--user-data DIR`）**：选词上屏时 `learn()` 把选中句子写入用户
+  语言模型历史、并把系统词典没有的词自动加入用户词典；退出时落盘 `user.history` + `user.dict`，
+  下次启动自动加载——让用户常用词/新词在简拼（歧义大）下更靠前。默认目录
+  `~/.local/share/pinyin-ime`。
 
 ### 构建与运行
 
@@ -381,8 +385,9 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 
 1. **Fcitx5 addon / 图形落地**：把 `pinyin_ime_cli` 的引擎逻辑接入 Fcitx5 addon，
    复用 `wetype.cpp` 的 `EngineProc` 进程外骨架（候选网格、40ms 防抖、异步 IO、崩溃自动重启）。
-2. **用户词库 / 自学习持久化**：当前 `learn()` 仅会话内生效；接入 `PinyinIME::save()` 到
-   **独立用户模型路径**（勿覆盖系统 `zh_CN.lm`），叠加用户词、误上屏撤回（PLAN-A §4②）。
+2. **用户词库 / 自学习**：会话内 `learn()` + 用户词自动造词已实现，且已落到**独立用户路径**
+   （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅。剩余：误上屏撤回、
+   崩溃时未保存增量丢损、跨设备同步（PLAN-A §4②）。
 3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
    libime 解码管线（需引擎重建，PLAN-A §4①）。
 4. **输入体验**：双拼、中英切换、标点 / 表情、候选分页（简拼与模糊音已就绪，见 M1 节）。
