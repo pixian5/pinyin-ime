@@ -21,3 +21,9 @@ cpp/build/
 
 # WorkBuddy 项目记忆（本机私有，不入库）
 .workbuddy/
+
+# 本机凭据与探路临时产物（勿入库）
+.gitcode_token
+.gitcode_credentials
+.git-credentials
+bench/corpus_probe/
