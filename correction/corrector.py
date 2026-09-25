@@ -32,6 +32,10 @@ from .trie import SyllableTrie
 MAX_SYLLABLE_LEN = max(len(s) for s in SYLLABLES)
 # 每个位置前沿保留的状态数（按 (代价, 音节数, 路径序) 剪枝）。
 BEAM_WIDTH = 64
+# DP 里每个 (起点,长度) 子串保留的候选数（按 信道+先验 代价取 top-K）。
+# 1 字符子串的编辑距离≤2 候选可达上百个，但尾巴几乎不可能翻盘（转移代价跨度远小于
+# 它们的 base 代价差），剪掉即可大幅加速整串 Viterbi，且不改变结果。
+CAND_CAP = 16
 
 _trie: Optional[SyllableTrie] = None
 
@@ -96,7 +100,9 @@ def correct(pinyin: str, max_dist: int = 2) -> Optional[Tuple[List[str], float]]
         for k in range(1, MAX_SYLLABLE_LEN + 1):
             if i + k > n:
                 break
-            cands[(i, k)] = _base_candidates(pinyin[i:i + k], max_dist)
+            _bc = _base_candidates(pinyin[i:i + k], max_dist)
+            _bc.sort(key=lambda t: t[2])  # 按 base 代价升序
+            cands[(i, k)] = _bc[:CAND_CAP]
 
     # best[i][last_syllable] = (最小总代价, 音节列表)；last_syllable 为 None 表示句首。
     best: List[Dict[Optional[str], Tuple[float, List[str]]]] = [

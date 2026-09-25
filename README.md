@@ -113,6 +113,21 @@ LM**；语料多样性对纠错模块有限，真正的杠杆在 Route A 的 LM 
 > LCCC/字幕等更大口语语料（Route A 方向）；`daily.txt` 只是让常见口语短语不被判成
 > 「没见过」的最小种子。
 
+**真实整句评测（`correction/sentence_eval.py`，留出对话测试集）**：把真实句子转拼音、
+随机打错一个音节、整串恢复，对比有/无上下文（样本小、仅方向性）：
+
+| 域 | delete | substitute | insert | adjacent（有上下文） |
+|---|---|---|---|---|
+| 对话（留出） | 0% | 45% | 50% | 50% |
+| 新闻 | 20% | 40% | 70% | 65% |
+| 维基 | 15% | 40% | 60% | 60% |
+| 百科 | 20% | 25% | 65% | 65% |
+
+三点结论：(1) **对话域最弱**——口语恰是输入法最该强的场景，而训练语料（新闻/百科）
+缺口语；(2) 上下文在「训练过的域」明显拉高 insert/substitute（新闻 insert 25%→70%）；
+(3) **delete 全局最弱**，是音节级最难消歧的错字类型。→ 下一个高价值动作是补**口语/
+对话训练语料**（LCCC/字幕方向），而非继续堆新闻/百科。
+
 ## 复现
 
 ```sh
@@ -145,6 +160,9 @@ cd bench && .venv/bin/python fetch_news_corpus.py --target 6000 --out corpus/rec
 
 # 8) 重抓百度百科语料（公开词条卡 API，需网络；词条表由 jieba 从语料抽名词生成）
 cd bench && .venv/bin/python fetch_baike_corpus.py --terms baike_terms.txt --out corpus/baike.txt
+
+# 9) 真实整句纠错评测（需 pypinyin；对话域是留出测试集）
+cd .. && python3 -m correction.sentence_eval
 ```
 
 评测产物 `bench/results/` 不入库（gitignore），随时按上述命令重跑。
@@ -188,6 +206,8 @@ cd bench && .venv/bin/python fetch_baike_corpus.py --terms baike_terms.txt --out
 | `bench/corpus/baike.txt` | 百度百科词条摘要（6129 句 / 150,032 字），供重训语料 |
 | `bench/fetch_baike_corpus.py` | 百度百科语料抓取（公开词条卡 API） |
 | `bench/baike_terms.txt` | 百度百科词条名列表（jieba 从语料抽名词生成） |
+| `bench/corpus/dialogue.txt` | 手写日常对话/口语/技术留出测试集（113 句，不进训练语料） |
+| `correction/sentence_eval.py` | 真实整句纠错评测（打错一个音节 → 整串恢复率） |
 | `ANALYSIS.md` | 竞品 / 技术调研 |
 
 > rime-ice 转换产物与 sc.dict 之外的生成文件都在构建机 `native-build/` 下，
