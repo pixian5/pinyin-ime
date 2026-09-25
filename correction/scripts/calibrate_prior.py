@@ -31,13 +31,15 @@ def _get_pypinyin():
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--corpus", nargs="*", default=None,
-                   help="语料文件路径（默认 bench/corpus/wiki.txt + news.txt）")
+                   help="语料文件路径（默认 bench/corpus/ 下 wiki + news + daily + recent）")
     p.add_argument("--alpha", type=float, default=0.035,
                    help="缩放因子（默认 0.035，先验跨度 ≈0.30）")
     p.add_argument("--smooth", type=float, default=0.5,
                    help="未覆盖音节的平滑频度（默认 0.5）")
     p.add_argument("--out", default="/tmp/prior_cost_table.py",
-                   help="输出文件路径")
+                   help="输出文件路径（--inplace 时忽略）")
+    p.add_argument("--inplace", action="store_true",
+                   help="原地重写 correction/prior.py（替换 FREQ_TOTAL/ALPHA/_COST_TABLE）")
     args = p.parse_args()
 
     lazy_pinyin = _get_pypinyin()
@@ -51,6 +53,8 @@ def main() -> int:
         corpus_files = [
             project_root / "bench" / "corpus" / "wiki.txt",
             project_root / "bench" / "corpus" / "news.txt",
+            project_root / "bench" / "corpus" / "daily.txt",
+            project_root / "bench" / "corpus" / "recent.txt",
         ]
 
     # 读取并合并语料
@@ -90,16 +94,25 @@ def main() -> int:
     print(f"最罕见: {sorted_items[-1]}")
     print(f"中位数: {sorted_items[210]}")
 
-    # 写出 Python 代码片段
-    out = Path(args.out)
-    with open(out, "w") as f:
-        f.write(f"FREQ_TOTAL = {total}\n")
-        f.write(f"ALPHA = {args.alpha:.4f}\n")
-        f.write("_COST_TABLE = {\n")
-        for s in SYLLABLES:
-            f.write(f"    {s!r}: {costs[s]},\n")
-        f.write("}\n")
-    print(f"\n已写入 {out}")
+    if args.inplace:
+        prior_path = Path(__file__).resolve().parents[1] / "prior.py"
+        src = prior_path.read_text(encoding="utf-8")
+        src = re.sub(r"FREQ_TOTAL = \d+.*", f"FREQ_TOTAL = {total}", src, count=1)
+        src = re.sub(r"ALPHA = [0-9.]+", f"ALPHA = {args.alpha:.4f}", src, count=1)
+        table = "".join(f"    {s!r}: {costs[s]},\n" for s in SYLLABLES)
+        src = re.sub(r"_COST_TABLE = \{.*?\}", "_COST_TABLE = {\n" + table + "}", src, count=1, flags=re.S)
+        prior_path.write_text(src, encoding="utf-8")
+        print(f"\n已原地更新 {prior_path}")
+    else:
+        out = Path(args.out)
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(f"FREQ_TOTAL = {total}\n")
+            f.write(f"ALPHA = {args.alpha:.4f}\n")
+            f.write("_COST_TABLE = {\n")
+            for s in SYLLABLES:
+                f.write(f"    {s!r}: {costs[s]},\n")
+            f.write("}\n")
+        print(f"\n已写入 {out}")
     return 0
 
 

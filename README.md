@@ -50,7 +50,7 @@
 
 **修复 1：音节先验从手工排序改为数据驱动。**
 原 `prior.py` 手工列 ~90 个常用音节，其余 330 个统一罚 2.20，淹没了信道代价（0~1.5）。
-改为从 wiki+news 73,579 字语料统计 420 音节频度，缩放 alpha=0.035，
+改为从 wiki+news+daily+recent **150,400 字**语料统计 420 音节频度（覆盖 396/420），缩放 alpha=0.035，
 先验范围 0.12~0.42（跨度 0.30 < 信道最小差 0.35），只做 tie-break。
 校准脚本：`python3 -m correction.scripts.calibrate_prior`
 
@@ -62,10 +62,10 @@
 
 | 指标 | 修复前 | 修复后 | 提升 |
 |---|---|---|---|
-| 未命中·delete top1 / top3 | 8.97% / 16.62% | 11.35% / 45.38% | +2.4 / +28.8 |
-| 未命中·insert top1 / top3 | 23.57% / 44.05% | 78.10% / 98.81% | +54.5 / +54.8 |
-| 未命中·substitute top1 / top3 | 6.90% / 20.24% | 28.10% / 59.76% | +21.2 / +39.5 |
-| 混淆排序 top2 | 23.26% | 87.21% | +64.0 |
+| 未命中·delete top1 / top3 | 8.97% / 16.62% | 11.35% / 45.91% | +2.4 / +29.3 |
+| 未命中·insert top1 / top3 | 23.57% / 44.05% | 77.86% / 98.81% | +54.3 / +54.8 |
+| 未命中·substitute top1 / top3 | 6.90% / 20.24% | 27.86% / 59.29% | +21.0 / +39.1 |
+| 混淆排序 top2 | 23.26% | 86.63% | +63.4 |
 
 > 边界：音节级纠错无法区分「打错成另一个合法音节」和「本来就该是它」
 > （如 zh→z 后 "zong" 仍合法）。这类「合法-合法」歧义要词级语言模型解，
@@ -83,7 +83,7 @@
   升级为**二元 Viterbi**（状态按 `(位置, 最后一个音节)` 展开——精确 bigram，
   不是近似 beam；仅做前沿 beam 剪枝控制规模）。
 - 校准脚本 `correction/scripts/calibrate_transition.py`：默认语料
-  `wiki.txt + news.txt + daily.txt`，**加一式平滑（s=0.5）**，避免 MLE 下
+  `wiki.txt + news.txt + daily.txt + recent.txt`，**加一式平滑（s=0.5）**，避免 MLE 下
   「罕见音节仅出现一次就 cost≈0」的过拟合。`daily.txt` 是新增的手写日常口语
   语料（70 句），补新闻类语料缺口语短语（如「你好」）的洞——否则 `nihao`
   会被整串错切成单音节 `niao`。
@@ -94,12 +94,18 @@
 
 | 错字类型 | 无上下文 top1 → 有上下文 top1 | top3 | flip / broken |
 |---|---|---|---|
-| delete | 13.98% → **24.36%**（+10.4） | 56.32% → 65.38% | 649 / 130 |
-| insert | 78.80% → 82.94%（+4.1） | 98.24% → 98.44% | 304 / 97 |
-| substitute | 31.28% → **43.16%**（+11.9） | 67.82% → 77.08% | 668 / 74 |
+| delete | 13.34% → **22.98%**（+9.6） | 57.10% → 61.22% | 626 / 144 |
+| insert | 79.50% → 82.32%（+2.8） | 98.68% → 98.24% | 286 / 145 |
+| substitute | 30.82% → **41.06%**（+10.2） | 66.52% → 74.08% | 614 / 102 |
 
 flip ≫ broken，说明转移模型是净收益，精准命中了此前标出的两个烂点
 （delete/substitute top1 偏低）。
+
+**近期语料 `recent.txt`**：人民网 RSS 当前新闻抓取（去重后 4000 句 / 76,534 字），
+已纳入默认校准。实测对纠错指标**近乎持平**（略降零点几到 1 个点）——因为它与已入库的
+`news.txt` 同源同分布（都是新闻），对音节/二元统计无增益。近期语料的真正价值在
+Route A 的 LM 训练（n-gram 概率对时效高度敏感，见 `lm/README.md` 的 THUCNews 15~20 年
+时效差诊断），不在纠错模块；这里把抓取+校准管线先备好。
 
 > 边界（诚实声明）：这只是**音节级**二元转移，不是整词/整句 LM（在 libime 侧）；
 > 二元表质量直接受语料覆盖影响。[C] 里 flip 集中在低频二元，说明真正的补强要靠
@@ -127,11 +133,14 @@ cd ..  # 项目根目录
 python3 -m correction.metric          # 纠错命中率
 python3 -m correction.tests.test_core  # 单元测试
 
-# 5) 先验校准（修改语料后重生成代价表）
-python3 -m correction.scripts.calibrate_prior --alpha 0.035
+# 5) 先验校准（修改语料后原地重写 prior.py）
+python3 -m correction.scripts.calibrate_prior --inplace --alpha 0.035
 
-# 6) 二元转移校准（修改语料后重生成转移代价表，含 daily.txt）
+# 6) 二元转移校准（修改语料后重生成转移代价表，默认含 daily + recent）
 python3 -m correction.scripts.calibrate_transition
+
+# 7) 重抓近期新闻语料（人民网 RSS，需网络；在 bench/ 下运行）
+cd bench && .venv/bin/python fetch_news_corpus.py --target 6000 --out corpus/recent.txt
 ```
 
 评测产物 `bench/results/` 不入库（gitignore），随时按上述命令重跑。
@@ -148,11 +157,11 @@ python3 -m correction.scripts.calibrate_transition
    （里程碑定义见 PLAN-A §5）。
 4. **M3 进展**：容错纠错模块已建（音节级 CHIME + 二元转移，先验已校准，未集成到
    libime）。本轮完成 (b) 词级消歧——`transition.py` 音节二元转移模型，
-   delete/substitute top1 分别 +10.4 / +11.9 pct（见上）。剩余：
+   delete/substitute top1 分别 +9.6 / +10.2 pct（见上，含近期语料 recent.txt）。剩余：
    (a) 集成到 libime 解码管线（需引擎重建）；(c) 用户自学习/个性化（Linux 普遍
    薄弱），见 PLAN-A §4。
-5. **语料扩展**：当前主测试集仅人民网新闻（平均 19.1 字/句，句级偏难）；
-   应补日常对话（LCCC）、口语、技术类，并重估句长分布对句级准确率的影响。
+5. **语料扩展**：已补 `recent.txt`（更多人民网新闻，但同分布对纠错无增益）；
+   真正要补的是日常对话（LCCC）、口语、技术类，并重估句长分布对句级准确率的影响。
 6. **可选（低优先级）**：rime-ice `tencent.dict.yaml`（981k 条）**无拼音字段**，
    需 pypinyin 补拼音才能加入；但鉴于本轮结论（词库规模非瓶颈），收益有限。
 
@@ -171,6 +180,7 @@ python3 -m correction.scripts.calibrate_transition
 | `correction/data/` | 二元转移代价数据（校准脚本生成，入库可复现） |
 | `bench/corpus/daily.txt` | 手写日常口语语料（70 句，补新闻语料欠口语短语的洞） |
 | `bench/corpus/news.txt` | 人民网新闻 2000 句，主测试集 |
+| `bench/corpus/recent.txt` | 近期人民网新闻（当前 RSS，去重后 4000 句），供重训语料 |
 | `ANALYSIS.md` | 竞品 / 技术调研 |
 
 > rime-ice 转换产物与 sc.dict 之外的生成文件都在构建机 `native-build/` 下，
