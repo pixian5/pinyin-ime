@@ -247,6 +247,34 @@ LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV/lib" \
 - 评测回归（M0 框架）：oracle 100%/100% 自检通过；libime 引擎 news.txt 2000 句
   **句级 39.65% / 字级 88.83% / 码长 3.099**，复现基线（39.55% / 88.82% / 3.099，差异为浮点噪声）✅
 
+### 简拼准确度评测（2026-09-26）
+
+新增 `bench/jianpin_eval.py`（整句简拼）与 `first_word.py --jianpin`（词级简拼），
+输入从全拼换成首字母简拼（每音节取首字母，复用 `pinyinbench.core.hanzi_to_jianpin`），
+量化「只打首字母」的还原率。
+
+| 口径 | 简拼 | 全拼（同口径对照） |
+|---|---|---|
+| 整句·句级 | 1.75% | 39.65% |
+| 整句·字级 | 27.97% | 88.83% |
+| 整句·平均码长 | **1.000 键/字** | 3.099 键/字 |
+| 词级 top1 / top5 | 14.15% / 30.92% | 77.30% / 91.74% |
+
+按词长分档（jieba 对 news.txt 分词 6649 个 2–6 字词，简拼 top1）:
+
+| 词长 | 词数 | top1 | top5 |
+|---|---|---|---|
+| 2 字 | 5028 | 6.1% | 23.2% |
+| 3 字 | 984 | 26.7% | 45.2% |
+| 4 字 | 611 | 57.0% | 69.6% |
+| 5 字 | 18 | 88.9% | 88.9% |
+| 6 字 | 8 | 87.5% | 87.5% |
+
+**结论**：简拼把平均码长从 3.099 压到 1 键/字（省 68% 击键），但纯首字母信息量有限，
+命中率随**词长**急剧变化——2 字词简拼歧义极大（top1 仅 6%），4 字词过半命中，
+5 字及以上（成语/短语/专名）接近无歧义（top1 ≈88%）。`bjdx→北京大学` 之所以稳定，
+正因其是 4 字且首字母组合唯一。**简拼适合长词/短语；短词歧义大，宜走全拼或候选选词**。
+
 > 说明：headless 沙箱无显示服务器，故「能打字」以终端 CLI 落地；Fcitx5 Qt addon 需图形环境，
 > 是 M1 的下一步（见「未来优化方向」）。
 
@@ -368,7 +396,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 |---|---|
 | `PLAN-A.md` | 路线决策、难度评估、全部基线数字与每步结论（主文档） |
 | `bench/README.md` | 评测框架用法、指标口径、基线、踩坑、已知限制 |
-| `bench/` | 评测框架 + `run_bench.py`/`first_word.py`/`latency_perkey.py`/`convert_rimeice.py` |
+| `bench/` | 评测框架 + `run_bench.py`/`first_word.py`/`latency_perkey.py`/`convert_rimeice.py`/`jianpin_eval.py`（简拼整句评测） |
 | `cpp/libime_bench.cpp` | libime 行协议适配器（整句 + perkey 模式） |
 | `cpp/pinyin_ime_cli.cpp` | M1 可运行输入法（命令行前端，交互 + 行模式，复用 libime 引擎） |
 | `correction/` | M3 纠错模块（CHIME 信道 + 音节先验 + 二元转移，纯 Python，不依赖 libime） |

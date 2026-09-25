@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pinyinbench.core import (                       # noqa: E402
     Case,
     dump_json,
+    hanzi_to_jianpin,
     hanzi_to_pinyin,
     load_sentences,
 )
@@ -178,6 +179,7 @@ def main() -> int:
     p.add_argument("--limit", type=int, help="只取前 N 个词（按词频/出现顺序）")
     p.add_argument("--min-len", type=int, default=DEFAULT_MIN_LEN)
     p.add_argument("--max-len", type=int, default=DEFAULT_MAX_LEN)
+    p.add_argument("--jianpin", action="store_true", help="用首字母简拼作为输入（每音节取首字母）")
     p.add_argument("--engine", default="oracle", help=f"内置引擎: {', '.join(ENGINES)}")
     p.add_argument("--cli", help="外部引擎可执行文件路径")
     p.add_argument("--cli-arg", action="append", default=[], help="传给外部引擎的额外参数")
@@ -196,7 +198,8 @@ def main() -> int:
     if not words:
         raise SystemExit("词表为空，请检查语料/词表路径与长度过滤参数")
 
-    cases = [Case(gold=w, pinyin=hanzi_to_pinyin(w)) for w in words]
+    to_pinyin = hanzi_to_jianpin if args.jianpin else hanzi_to_pinyin
+    cases = [Case(gold=w, pinyin=to_pinyin(w)) for w in words]
     # oracle 自检：按拼音去重，避免同音词（如「公式/公示」）让 oracle 只能返回一个而 <100%。
     # 真实引擎（--cli）用完整词表——同音词选词正是「首词命中率」要测的能力。
     run_cases = dedup_by_pinyin(cases) if (not args.cli and args.engine == "oracle") else cases

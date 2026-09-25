@@ -36,6 +36,11 @@ def hanzi_to_pinyin(text: str) -> str:
     return "".join(lazy_pinyin(text, style=Style.NORMAL))
 
 
+def hanzi_to_jianpin(text: str) -> str:
+    """汉字串 -> 首字母简拼（每音节取首字母，如「北京大学」→ bjdx）。"""
+    return "".join(lazy_pinyin(text, style=Style.FIRST_LETTER))
+
+
 def load_sentences(path: str | Path,
                    min_len: int = MIN_SENT_LEN,
                    max_len: int = MAX_SENT_LEN) -> list[str]:
