@@ -16,6 +16,13 @@ export PKG_CONFIG_PATH="$ENV/lib/pkgconfig:$ENV/share/pkgconfig"
 export LDFLAGS="-Wl,-rpath,$ENV/lib"
 export LD_LIBRARY_PATH="$ENV/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
+# 国内直连 download.fcitx-im.org / github 慢，统一走本地 mihomo 代理（可空=直连）
+PROXY="${PROXY:-http://127.0.0.1:7890}"
+if [ -n "$PROXY" ]; then
+    export http_proxy="$PROXY" https_proxy="$PROXY" all_proxy="$PROXY"
+    export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" ALL_PROXY="$PROXY"
+fi
+
 # ---------- fcitx5 ----------
 FCITX_BUILD=$BUILD/fcitx5
 mkdir -p "$FCITX_BUILD"
