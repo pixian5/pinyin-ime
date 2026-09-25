@@ -8,3 +8,7 @@ find_package(LibIMEPinyin REQUIRED)
 
 add_executable(libime_bench libime_bench.cpp)
 target_link_libraries(libime_bench PRIVATE LibIME::Pinyin LibIME::Core)
+
+# M1：可运行输入法（命令行前端，交互 + 行模式）
+add_executable(pinyin_ime_cli pinyin_ime_cli.cpp)
+target_link_libraries(pinyin_ime_cli PRIVATE LibIME::Pinyin LibIME::Core)

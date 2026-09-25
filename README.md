@@ -1,8 +1,9 @@
 # pinyin-ime
 
-用 libime 做「好用的拼音输入法」。当前处于 **M0（评测阶段）**：先量化「好用」、
-用数据驱动技术路线，而不是先写引擎。路线决策与文化详见 [PLAN-A.md](PLAN-A.md)，
-评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
+用 libime 做「好用的拼音输入法」。**M0 评测框架、Route A 语言模型实验、M3 纠错模块均已完成**，
+当前推进 **M1：最小可运行输入法**（`cpp/pinyin_ime_cli.cpp`，复用 libime 引擎的交互式命令行输入法，
+已打通「打字 → 候选 → 选词上屏」，headless 沙箱即可验证「能打字」）。路线决策与技术选型详见
+[PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
 ## 当前进度（截至 2026-09）
 
@@ -196,6 +197,52 @@ KenLM 训练工具 `lmplz` 一并产出；冒烟 `nihao→你好 / zhongguo→�
 > 许可红线：真正的《现代汉语词典》含释义、受版权保护，扫描版是盗版不能用；
 > 可公开用的是它的**纯词条表**（词条近乎客观事实，风险远低于释义）。
 
+## M1：最小可运行输入法（能打字，2026-09-26）
+
+按 PLAN-A §5 的 M1「能打字、评测可跑」，落地一个**命令行的可运行输入法**
+`cpp/pinyin_ime_cli.cpp`（复用 libime 引擎；Fcitx5 图形 addon 是 M1 的剩余项）。
+它把 `libime_bench` 的 `PinyinIME + PinyinContext` API 升级成真正的交互前端：
+
+- **行模式**（stdin 非 TTY）：每行一段连续全拼 → 输出 `\t` 分隔候选（第一项整句首选），
+  供脚本 / 评测回归，协议与 `libime_bench` 一致。
+- **交互模式**（stdin 为 TTY）：raw mode 逐键输入；`a-z / '` 输入拼音、退格删除、
+  `1-9` 选词上屏、空格 / 回车首选上屏、Esc 清空、Ctrl-C 退出。preedit 显示拼音音节切分，
+  候选实时刷新，提交走 `selectCandidatesToCursor()` + `learn()`（会话内自学习）。
+
+### 构建与运行
+
+```sh
+# 1) 引擎构建（一次性，见 scripts/setup_build_env.sh + build_conda_forge.sh）
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh
+#    产出 libime 1.1.17 + zh_CN.lm(34,736,327 B) + sc.dict(4,489,669 B)，逐字节复现基线
+
+# 2) 编译 CLI + 行协议适配器（conda 工具链）
+ENV=/workspace/native-build/mamba-env; OPT=/workspace/native-build/opt
+export PATH="$ENV/bin:$PATH"
+cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$OPT/fcitx5;$OPT/libime;$ENV"
+cmake --build cpp/build
+
+# 3) 行模式冒烟
+LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV/lib" \
+  bash -c 'printf "nihao\nzhongguo\n" | cpp/build/pinyin_ime_cli "$0" "$1" 5' \
+  "$OPT/libime/lib/libime/zh_CN.lm" "$OPT/libime/share/libime/sc.dict"
+
+# 4) 交互模式（真人打字，需 TTY）
+LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV/lib" \
+  cpp/build/pinyin_ime_cli "$OPT/libime/lib/libime/zh_CN.lm" "$OPT/libime/share/libime/sc.dict"
+```
+
+### 验证结果
+
+- 冒烟：`nihao→你好`、`zhongguo→中国`、`woshiyige→我是一个`、`beijingdaxue→北京大学` ✅
+- 交互（伪终端实测）：逐键 `ni hao` 候选实时刷新、空格上屏「你好」 ✅
+- 评测回归（M0 框架）：oracle 100%/100% 自检通过；libime 引擎 news.txt 2000 句
+  **句级 39.65% / 字级 88.83% / 码长 3.099**，复现基线（39.55% / 88.82% / 3.099，差异为浮点噪声）✅
+
+> 说明：headless 沙箱无显示服务器，故「能打字」以终端 CLI 落地；Fcitx5 Qt addon 需图形环境，
+> 是 M1 的下一步（见「未来优化方向」）。
+
 ## 数据与产物存放位置（三处）
 
 > git 只放「可复现源码 + 小体积评测语料」；大体积语料走 S3；编译产物留在各构建机
@@ -280,8 +327,9 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
    杠杆在语言模型。下一步评估（a）更大词表/更高阶 n-gram 的 ARPA LM，
    或（b）本地打分模型重排序；并与（c）用户词库/自学习叠加看增益。
    语料方向：维基百科 + 字幕/对话，避开新闻类（敏感词风险 + 语料偏窄导致 LM 退化）。
-2. **M1：fork libime + Fcitx5 addon**（复用 wetype.cpp 的 `EngineProc` 前端资产），
-   先做到「能打字、评测可跑」，再进下一步调优。
+2. **M1：fork libime + Fcitx5 addon**（复用 wetype.cpp 的 `EngineProc` 前端资产）。
+   「能打字、评测可跑」已由 `cpp/pinyin_ime_cli.cpp`（命令行前端）达成 ✅；剩余是接
+   **Fcitx5 addon**（Qt 图形前端，需显示服务器，见「未来优化方向」）。
 3. **M2：词库与语言模型调优（评测驱动）**，目标综合（字级）准确率 > 当前基线
    （里程碑定义见 PLAN-A §5）。
 4. **M3 进展**：容错纠错模块已建（音节级 CHIME + 二元转移，先验已校准，未集成到
@@ -294,6 +342,19 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 6. **可选（低优先级）**：rime-ice `tencent.dict.yaml`（981k 条）**无拼音字段**，
    需 pypinyin 补拼音才能加入；但鉴于本轮结论（词库规模非瓶颈），收益有限。
 
+## 未来优化方向（按优先级）
+
+1. **Fcitx5 addon / 图形落地**：把 `pinyin_ime_cli` 的引擎逻辑接入 Fcitx5 addon，
+   复用 `wetype.cpp` 的 `EngineProc` 进程外骨架（候选网格、40ms 防抖、异步 IO、崩溃自动重启）。
+2. **用户词库 / 自学习持久化**：当前 `learn()` 仅会话内生效；接入 `PinyinIME::save()` 到
+   **独立用户模型路径**（勿覆盖系统 `zh_CN.lm`），叠加用户词、误上屏撤回（PLAN-A §4②）。
+3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
+   libime 解码管线（需引擎重建，PLAN-A §4①）。
+4. **输入体验**：模糊音（z↔zh、l↔n、in↔ing）、简拼、双拼、中英切换、标点 / 表情、候选分页。
+5. **光标移动 / 逐词分段**：`selectCandidatesToCursor` 已支持逐词选，补光标左右移动、逐段确认。
+6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
+   （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
+
 ## 目录
 
 | 路径 | 说明 |
@@ -302,6 +363,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 | `bench/README.md` | 评测框架用法、指标口径、基线、踩坑、已知限制 |
 | `bench/` | 评测框架 + `run_bench.py`/`first_word.py`/`latency_perkey.py`/`convert_rimeice.py` |
 | `cpp/libime_bench.cpp` | libime 行协议适配器（整句 + perkey 模式） |
+| `cpp/pinyin_ime_cli.cpp` | M1 可运行输入法（命令行前端，交互 + 行模式，复用 libime 引擎） |
 | `correction/` | M3 纠错模块（CHIME 信道 + 音节先验 + 二元转移，纯 Python，不依赖 libime） |
 | `correction/scripts/calibrate_prior.py` | 先验校准脚本（从语料统计音节频度生成代价表） |
 | `correction/transition.py` | 音节二元转移代价（词级上下文，数据驱动，LAMBDA=0.15） |
