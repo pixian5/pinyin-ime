@@ -208,6 +208,10 @@ KenLM 训练工具 `lmplz` 一并产出；冒烟 `nihao→你好 / zhongguo→�
 - **交互模式**（stdin 为 TTY）：raw mode 逐键输入；`a-z / '` 输入拼音、退格删除、
   `1-9` 选词上屏、空格 / 回车首选上屏、Esc 清空、Ctrl-C 退出。preedit 显示拼音音节切分，
   候选实时刷新，提交走 `selectCandidatesToCursor()` + `learn()`（会话内自学习）。
+- **简拼（默认）+ 模糊音（`--fuzzy`）**：首字母输入如 `bjdx→北京大学` 由 libime 原生支持
+  （无需额外开关）；`--fuzzy` 启用平翘舌（z/zh、c/ch、s/sh）、前后鼻音（an/ang、en/eng、
+  in/ing、ian/iang、uan/uang）、n/l、f/h、l/r 及键盘邻近纠错（`PinyinFuzzyFlag`），
+  常见打错也能命中首选。另有 `--help` 查看用法。
 
 ### 构建与运行
 
@@ -237,6 +241,9 @@ LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV/lib" \
 
 - 冒烟：`nihao→你好`、`zhongguo→中国`、`woshiyige→我是一个`、`beijingdaxue→北京大学` ✅
 - 交互（伪终端实测）：逐键 `ni hao` 候选实时刷新、空格上屏「你好」 ✅
+- 简拼（首字母输入，默认开启）：`bjdx→北京大学`、`zg→中国`、`zggh→中国国航`、`tx→体系`、`js→技术` ✅
+- 模糊音（`--fuzzy`）：`cifan→吃饭`、`senme→什么`、`zeli→这里`、`lanfang→南方` 四例
+  从「打错」全部命中首选（无 `--fuzzy` 时依次是 此番 / 森么 / 啫喱 / 兰芳）✅
 - 评测回归（M0 框架）：oracle 100%/100% 自检通过；libime 引擎 news.txt 2000 句
   **句级 39.65% / 字级 88.83% / 码长 3.099**，复现基线（39.55% / 88.82% / 3.099，差异为浮点噪声）✅
 
@@ -350,7 +357,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
    **独立用户模型路径**（勿覆盖系统 `zh_CN.lm`），叠加用户词、误上屏撤回（PLAN-A §4②）。
 3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
    libime 解码管线（需引擎重建，PLAN-A §4①）。
-4. **输入体验**：模糊音（z↔zh、l↔n、in↔ing）、简拼、双拼、中英切换、标点 / 表情、候选分页。
+4. **输入体验**：双拼、中英切换、标点 / 表情、候选分页（简拼与模糊音已就绪，见 M1 节）。
 5. **光标移动 / 逐词分段**：`selectCandidatesToCursor` 已支持逐词选，补光标左右移动、逐段确认。
 6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
    （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
