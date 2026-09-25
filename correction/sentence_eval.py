@@ -119,8 +119,17 @@ def main() -> int:
         ("百科", root / "baike.txt"),
     ]
     if args.domains:
+        # 帮助文本里写的是英文名，但键是中文——直接按英文过滤会被**静默丢弃**，
+        # 得到零个域和一张空表（不报错，极易误读为「无增益」）。这里两种都认。
+        alias = {"dialogue": "对话", "news": "新闻", "wiki": "维基", "baike": "百科"}
         by_name = {d[0]: d[1] for d in all_domains}
-        domains = [(n, by_name[n]) for n in args.domains if n in by_name]
+        want = [alias.get(n, n) for n in args.domains]
+        unknown = [w for w in want if w not in by_name]
+        if unknown:
+            raise SystemExit(
+                f"未知域名 {unknown}；可选: dialogue/news/wiki/baike "
+                f"（或中文 对话/新闻/维基/百科）")
+        domains = [(n, by_name[n]) for n in want]
     else:
         domains = all_domains
 
