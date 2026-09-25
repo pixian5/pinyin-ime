@@ -71,6 +71,41 @@
 > （如 zh→z 后 "zong" 仍合法）。这类「合法-合法」歧义要词级语言模型解，
 > 不在本模块职责内。delete/substitute top1 偏低是此限制的体现。
 
+### M3 词级上下文消歧（音节二元转移）— 突破 delete/substitute top1 天花板
+
+上一节的边界是「合法-合法」歧义只能靠词级模型解。本轮给 Viterbi 叠加
+**音节二元转移代价**（上一音节 → 当前音节的平滑概率，数据驱动），把上一音节
+的上下文纳入消歧：
+
+- 新增 `correction/transition.py`：惰性加载 `correction/data/bigram_costs.json`，
+  代价 = `LAMBDA · (-ln P(cur|prev))`，`LAMBDA = 0.15`。
+- `corrector.py` 增加 `correct_syllable_in_context(query, prev)`，并把整串 `correct()`
+  升级为**二元 Viterbi**（状态按 `(位置, 最后一个音节)` 展开——精确 bigram，
+  不是近似 beam；仅做前沿 beam 剪枝控制规模）。
+- 校准脚本 `correction/scripts/calibrate_transition.py`：默认语料
+  `wiki.txt + news.txt + daily.txt`，**加一式平滑（s=0.5）**，避免 MLE 下
+  「罕见音节仅出现一次就 cost≈0」的过拟合。`daily.txt` 是新增的手写日常口语
+  语料（70 句），补新闻类语料缺口语短语（如「你好」）的洞——否则 `nihao`
+  会被整串错切成单音节 `niao`。
+- 指标 `correction/metric.py [C]`：对语料里见过的二元 `(prev, s)`，把 `s` 打成
+  非合法错串，对比「无上下文 ↔ 有 prev 上下文」的 top1。
+
+结果（`python3 -m correction.metric`，[C] 采样 5000 个二元）：
+
+| 错字类型 | 无上下文 top1 → 有上下文 top1 | top3 | flip / broken |
+|---|---|---|---|
+| delete | 13.98% → **24.36%**（+10.4） | 56.32% → 65.38% | 649 / 130 |
+| insert | 78.80% → 82.94%（+4.1） | 98.24% → 98.44% | 304 / 97 |
+| substitute | 31.28% → **43.16%**（+11.9） | 67.82% → 77.08% | 668 / 74 |
+
+flip ≫ broken，说明转移模型是净收益，精准命中了此前标出的两个烂点
+（delete/substitute top1 偏低）。
+
+> 边界（诚实声明）：这只是**音节级**二元转移，不是整词/整句 LM（在 libime 侧）；
+> 二元表质量直接受语料覆盖影响。[C] 里 flip 集中在低频二元，说明真正的补强要靠
+> LCCC/字幕等更大口语语料（Route A 方向）；`daily.txt` 只是让常见口语短语不被判成
+> 「没见过」的最小种子。
+
 ## 复现
 
 ```sh
@@ -94,6 +129,9 @@ python3 -m correction.tests.test_core  # 单元测试
 
 # 5) 先验校准（修改语料后重生成代价表）
 python3 -m correction.scripts.calibrate_prior --alpha 0.035
+
+# 6) 二元转移校准（修改语料后重生成转移代价表，含 daily.txt）
+python3 -m correction.scripts.calibrate_transition
 ```
 
 评测产物 `bench/results/` 不入库（gitignore），随时按上述命令重跑。
@@ -108,9 +146,11 @@ python3 -m correction.scripts.calibrate_prior --alpha 0.035
    先做到「能打字、评测可跑」，再进下一步调优。
 3. **M2：词库与语言模型调优（评测驱动）**，目标综合（字级）准确率 > 当前基线
    （里程碑定义见 PLAN-A §5）。
-4. **M3 进展**：容错纠错模块已建（音节级 CHIME，先验已校准，未集成到 libime）。
-   下一步：(a) 集成到 libime 解码管线（需引擎重建）；(b) 词级消歧提升 delete/substitute top1；
-   (c) 用户自学习/个性化（Linux 普遍薄弱），见 PLAN-A §4。
+4. **M3 进展**：容错纠错模块已建（音节级 CHIME + 二元转移，先验已校准，未集成到
+   libime）。本轮完成 (b) 词级消歧——`transition.py` 音节二元转移模型，
+   delete/substitute top1 分别 +10.4 / +11.9 pct（见上）。剩余：
+   (a) 集成到 libime 解码管线（需引擎重建）；(c) 用户自学习/个性化（Linux 普遍
+   薄弱），见 PLAN-A §4。
 5. **语料扩展**：当前主测试集仅人民网新闻（平均 19.1 字/句，句级偏难）；
    应补日常对话（LCCC）、口语、技术类，并重估句长分布对句级准确率的影响。
 6. **可选（低优先级）**：rime-ice `tencent.dict.yaml`（981k 条）**无拼音字段**，
@@ -124,8 +164,12 @@ python3 -m correction.scripts.calibrate_prior --alpha 0.035
 | `bench/README.md` | 评测框架用法、指标口径、基线、踩坑、已知限制 |
 | `bench/` | 评测框架 + `run_bench.py`/`first_word.py`/`latency_perkey.py`/`convert_rimeice.py` |
 | `cpp/libime_bench.cpp` | libime 行协议适配器（整句 + perkey 模式） |
-| `correction/` | M3 音节级纠错模块（CHIME 噪声通道，纯 Python，不依赖 libime） |
+| `correction/` | M3 纠错模块（CHIME 信道 + 音节先验 + 二元转移，纯 Python，不依赖 libime） |
 | `correction/scripts/calibrate_prior.py` | 先验校准脚本（从语料统计音节频度生成代价表） |
+| `correction/transition.py` | 音节二元转移代价（词级上下文，数据驱动，LAMBDA=0.15） |
+| `correction/scripts/calibrate_transition.py` | 二元转移校准脚本（加一式平滑，输出 data/bigram_costs.json） |
+| `correction/data/` | 二元转移代价数据（校准脚本生成，入库可复现） |
+| `bench/corpus/daily.txt` | 手写日常口语语料（70 句，补新闻语料欠口语短语的洞） |
 | `bench/corpus/news.txt` | 人民网新闻 2000 句，主测试集 |
 | `ANALYSIS.md` | 竞品 / 技术调研 |
 

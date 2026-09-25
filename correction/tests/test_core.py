@@ -16,12 +16,14 @@ from correction import (
     SYLLABLE_SET,
     NUM_SYLLABLES,
     correct_syllable,
+    correct_syllable_in_context,
     correct,
     best_corrected,
     get_trie,
     levenshtein,
 )
 from correction.channel import channel_score, confusion_siblings
+from correction.transition import transition_cost, observed_bigrams
 
 
 class TestEditDistance(unittest.TestCase):
@@ -142,6 +144,34 @@ class TestCorrectSentence(unittest.TestCase):
         # 编辑距离≤2 纠错的本性，比如 "qq" 能被纠成 "sa"）。真正区分「这串根本不
         # 是拼音」要靠词级语言模型给置信度阈值，属 PLANA §4.1 之外的后续工作。
         # 因此这里不把「乱串返回 None」当契约。
+
+
+class TestTransition(unittest.TestCase):
+    def test_bos_transition_is_zero(self):
+        # 句首不应重复计一元先验（prior 已承担）
+        self.assertEqual(transition_cost(None, "de"), 0.0)
+
+    def test_seen_cheaper_than_unseen(self):
+        # 语料里见过的「中国」zhong→guo 应比没见过的 zhong→chua 便宜
+        self.assertLess(transition_cost("zhong", "guo"),
+                        transition_cost("zhong", "chua"))
+
+    def test_observed_bigrams_loaded(self):
+        self.assertGreater(len(observed_bigrams()), 1000)
+
+
+class TestCorrectSyllableInContext(unittest.TestCase):
+    def test_context_disambiguates(self):
+        # 单字母 "i" 打错自 "yi"：无上下文时键盘邻接让别的音节排第一；
+        # 前一个音节是 "ke"（可以）时，二元转移把 "yi" 顶到第一。
+        self.assertNotEqual(correct_syllable("i")[0][0], "yi")
+        self.assertEqual(correct_syllable_in_context("i", "ke")[0][0], "yi")
+
+    def test_exact_still_ranks_first_with_context(self):
+        # 「合法输入信任优先」在有上下文时依然成立
+        for s in ("ke", "yi", "zhong", "guo"):
+            top = correct_syllable_in_context(s, "ke")[0][0]
+            self.assertEqual(top, s)
 
 
 if __name__ == "__main__":
