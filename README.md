@@ -196,6 +196,31 @@ KenLM 训练工具 `lmplz` 一并产出；冒烟 `nihao→你好 / zhongguo→�
 > 许可红线：真正的《现代汉语词典》含释义、受版权保护，扫描版是盗版不能用；
 > 可公开用的是它的**纯词条表**（词条近乎客观事实，风险远低于释义）。
 
+## 数据与产物存放位置（三处）
+
+> git 只放「可复现源码 + 小体积评测语料」；大体积语料走 S3；编译产物留在各构建机
+> `native-build/`（不入库、可重跑）。
+
+| 位置 | 存什么 |
+|---|---|
+| **Git 仓库** | 全部脚本/文档 + 小评测语料（news/recent/baike/wiki/daily/dialogue/lccc_eval） |
+| **S3（CST Cloud）** | 大体积语料（LCCC 原始 611MB + 清洗 1.06GB）+ THUOCL 词库 |
+| **构建机 `native-build/`** | libime/fcitx5 编译产物、`zh_CN.lm`/`sc.dict`、`lmplz`、清洗中间产物（可重跑） |
+
+### S3 明细（CST Cloud 科技云 · 桶 `xbz` · 前缀 `pinyin-ime/`）
+
+endpoint `https://s3.cstcloud.cn`，ACL private（需自有凭证才能访问，本仓库不含任何密钥）。
+
+| S3 路径（相对 `s3.cstcloud.cn`） | 内容 | 大小 | 谁生成 |
+|---|---|---|---|
+| `xbz/pinyin-ime/corpus/LCCC-large.zip` | LCCC 原始数据（modelscope `OmniData/LCCC`） | 611MB | `bench/fetch_lccc.py` 的输入源 |
+| `xbz/pinyin-ime/corpus/lccc_full.txt` | 全量清洗口语语料（30,548,768 句） | 1.06GB | `bench/fetch_lccc.py` 清洗产物 |
+| `xbz/pinyin-ime/dict/thuocl/` | THUOCL 词库（MIT，11 分类，`词\t词频`） | ~2.7MB | 手工下载 |
+
+拉取（用你自己的 rclone/S3 凭证，`<remote>` 指向 `s3.cstcloud.cn`）：
+
+    rclone copy <remote>:xbz/pinyin-ime/corpus/ ./corpus/
+
 ## 复现
 
 ```sh
