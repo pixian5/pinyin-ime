@@ -29,9 +29,11 @@
 //   -h, --help      显示本帮助
 //
 // 已实现（M1 范围）：逐键输入、候选列表、选词上屏、整句首选、简拼（默认）、
-//   模糊音（--fuzzy）、自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏。
-// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、双拼、中英切换、标点、候选分页。
+//   模糊音（--fuzzy）、双拼（--shuangpin / --sp-scheme）、候选分页（[,] 翻页）、
+//   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏。
+// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、中英切换、标点/表情。
 #include <cstdio>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -46,6 +48,7 @@
 #include <libime/pinyin/pinyindictionary.h>
 #include <libime/pinyin/pinyinencoder.h>
 #include <libime/pinyin/pinyinime.h>
+#include <libime/pinyin/shuangpinprofile.h>
 
 #ifdef __unix__
 #include <termios.h>
@@ -81,10 +84,13 @@ void usage(const char *prog) {
         << "  行模式（stdin 非 TTY）：每行一段拼音（全拼或简拼）→ 候选\n"
         << "  交互模式（stdin 为 TTY）：逐键输入，数字/空格/回车上屏\n"
         << "选项:\n"
+        << "  -s, --shuangpin  启用双拼（默认小鹤；用 --sp-scheme 指定方案）\n"
+        << "  --sp-scheme NAME 双拼方案：xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
-        << "简拼（首字母输入）默认开启：bjdx → 北京大学\n";
+        << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
+        << "交互模式候选分页：1-9 选字，逗号[,]/句号[.] 上一页/下一页\n";
 }
 
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
@@ -138,6 +144,35 @@ PinyinFuzzyFlags common_fuzzy_flags() {
     };
 }
 
+// 双拼内置方案名 → 枚举（未知方案回退小鹤）。
+ShuangpinBuiltinProfile sp_profile_from(std::string name) {
+    for (auto &c : name) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+    if (name == "ziranma") return ShuangpinBuiltinProfile::Ziranma;
+    if (name == "ms" || name == "微软") return ShuangpinBuiltinProfile::MS;
+    if (name == "ziguang" || name == "紫光") return ShuangpinBuiltinProfile::Ziguang;
+    if (name == "abc" || name == "智能abc") return ShuangpinBuiltinProfile::ABC;
+    if (name == "zhongwenzhixing" || name == "中文之星") return ShuangpinBuiltinProfile::Zhongwenzhixing;
+    if (name == "pinyinjiajia" || name == "拼音加加") return ShuangpinBuiltinProfile::PinyinJiajia;
+    if (name == "xiaohe" || name == "小鹤") return ShuangpinBuiltinProfile::Xiaohe;
+    if (name == "gb") return ShuangpinBuiltinProfile::GB;
+    std::cerr << "pinyin_ime_cli: 未知双拼方案 \"" << name
+              << "\"（可用 xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb），回退小鹤\n";
+    return ShuangpinBuiltinProfile::Xiaohe;
+}
+
+std::string sp_display_name(ShuangpinBuiltinProfile p) {
+    switch (p) {
+    case ShuangpinBuiltinProfile::Ziranma: return "自然码";
+    case ShuangpinBuiltinProfile::MS: return "微软";
+    case ShuangpinBuiltinProfile::Ziguang: return "紫光";
+    case ShuangpinBuiltinProfile::ABC: return "智能ABC";
+    case ShuangpinBuiltinProfile::Zhongwenzhixing: return "中文之星";
+    case ShuangpinBuiltinProfile::PinyinJiajia: return "拼音加加";
+    case ShuangpinBuiltinProfile::GB: return "国标";
+    case ShuangpinBuiltinProfile::Xiaohe: default: return "小鹤";
+    }
+}
+
 // ---- 交互模式（termios raw mode，Linux / BSD）----
 struct RawTerm {
 #ifdef __unix__
@@ -168,11 +203,22 @@ struct RawTerm {
 int main(int argc, char **argv) {
     // 解析参数：支持 -h/--help、-f/--fuzzy、--user-data DIR；位置参数为 [lm][dict][nbest]。
     bool fuzzy = false;
+    bool shuangpin = false;
+    std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--fuzzy" || a == "-f") {
+        if (a == "--shuangpin" || a == "-s") {
+            shuangpin = true;
+        } else if (a == "--sp-scheme") {
+            if (i + 1 >= argc) {
+                std::cerr << "--sp-scheme 缺少方案名\n";
+                return 2;
+            }
+            spScheme = argv[++i];
+            shuangpin = true;  // 指定方案即启用双拼
+        } else if (a == "--fuzzy" || a == "-f") {
             fuzzy = true;
         } else if (a == "--help" || a == "-h") {
             usage(argv[0]);
@@ -266,6 +312,13 @@ int main(int argc, char **argv) {
 
     PinyinContext ctx(&ime);
 
+    if (shuangpin) {
+        ShuangpinBuiltinProfile sp = sp_profile_from(spScheme);
+        ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
+        ctx.setUseShuangpin(true);
+        std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
     RawTerm raw;
     if (!raw.enable()) {
         // ---- 行模式：每行一段全拼/简拼 → 候选列表 ----
@@ -288,14 +341,26 @@ int main(int argc, char **argv) {
     }
 
     // ---- 交互模式 ----
+    // 交互下多拉候选以支持分页（每页 9 个、最多 5 页；行模式输出数量仍走 nbest）
+    ime.setNBest(std::max<size_t>(static_cast<size_t>(nbest), 45));
+    const size_t kPageSize = 9;  // 匹配 1-9 选字键
+    size_t page = 0;
+
     auto render = [&]() {
         std::cout << "\r\x1b[2K";  // 清当前行
         std::string pre = ctx.preedit();
         std::cout << (pre.empty() ? "拼音: _" : "拼音: " + pre) << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
-        size_t show = std::min<size_t>(cands.size(), static_cast<size_t>(nbest));
-        for (size_t i = 0; i < show; ++i) {
-            std::cout << (i + 1) << "." << cands[i].toString() << "  ";
+        const size_t total = cands.size();
+        const size_t maxPage = total == 0 ? 0 : (total - 1) / kPageSize;
+        if (page > maxPage) page = maxPage;
+        const size_t begin = page * kPageSize;
+        const size_t end = std::min<size_t>(total, begin + kPageSize);
+        for (size_t i = begin; i < end; ++i) {
+            std::cout << (i - begin + 1) << "." << cands[i].toString() << "  ";
+        }
+        if (total > kPageSize) {
+            std::cout << "  [" << (page + 1) << "/" << (maxPage + 1) << "页 ,上一页 .下一页]";
         }
         std::cout.flush();
     };
@@ -313,10 +378,16 @@ int main(int argc, char **argv) {
             ctx.clear();
         } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
             ctx.backspace();
+        } else if (ch == ',' || ch == '[') {  // 上一页
+            if (page > 0) --page;
+        } else if (ch == '.' || ch == ']') {  // 下一页
+            const auto &cands = ctx.candidatesToCursor();
+            const size_t maxPage = cands.size() == 0 ? 0 : (cands.size() - 1) / kPageSize;
+            if (page < maxPage) ++page;
         } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
             select_and_commit(ctx, 0);
-        } else if (ch >= '1' && ch <= '9') {  // 数字：选第 N 号上屏
-            select_and_commit(ctx, static_cast<size_t>(ch - '1'));
+        } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
+            select_and_commit(ctx, page * kPageSize + static_cast<size_t>(ch - '1'));
         } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
             ctx.type(std::string(1, ch));
         }
