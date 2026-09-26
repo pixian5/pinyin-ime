@@ -241,6 +241,22 @@ LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV/lib" \
   cpp/build/pinyin_ime_cli "$OPT/libime/lib/libime/zh_CN.lm" "$OPT/libime/share/libime/sc.dict"
 ```
 
+### 一键复现 + 自动回归（2026-09-26，本沙箱）
+
+构建 / 运行 / 自检均改为一键脚本（构建目录可用 `NB` 环境变量覆盖，默认
+`/workspace/native-build`，三个构建脚本统一走该变量）：
+
+```sh
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh  # 一次性构建 + 编译
+echo "nihao" | bash scripts/run_cli.sh   # 行模式；去掉管道直接跑即交互模式
+bash scripts/smoke_test.sh               # 「能打字」自动回归（top1 断言）
+```
+
+本沙箱 2026-09-26 从零复现：conda-forge 工具链当前检出 gcc **16.2.0**
+（脚本按 gcc 15 设计、conda-forge 已前移，编译/运行仍正常），libime 1.1.17 +
+`zh_CN.lm`（34.7MB）+ `sc.dict`（4.5MB）逐项产出；`smoke_test.sh` 12/12 通过
+（全拼 / 简拼 / 模糊音），交互模式（伪终端逐键 `nihao` 空格上屏「你好」）通过。
+
 ### 验证结果
 
 - 冒烟：`nihao→你好`、`zhongguo→中国`、`woshiyige→我是一个`、`beijingdaxue→北京大学` ✅
@@ -383,6 +399,11 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 
 ## 未来优化方向（按优先级）
 
+> 本次（2026-09-26）已把「构建 → 运行 → 自检」做成可复现一键脚本
+> （`build_cli.sh` / `run_cli.sh` / `smoke_test.sh`），后续每步改动可用
+> `bash scripts/smoke_test.sh` 做回归护栏；下述第 1 项（图形 addon）仍需显示服务器，
+> 本 headless 沙箱无法验收，留待带图形环境再落地。
+
 1. **Fcitx5 addon / 图形落地**：把 `pinyin_ime_cli` 的引擎逻辑接入 Fcitx5 addon，
    复用 `wetype.cpp` 的 `EngineProc` 进程外骨架（候选网格、40ms 防抖、异步 IO、崩溃自动重启）。
 2. **用户词库 / 自学习**：会话内 `learn()` + 用户词自动造词已实现，且已落到**独立用户路径**
@@ -419,6 +440,10 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 | `correction/sentence_eval.py` | 真实整句纠错评测（打错一个音节 → 整串恢复率） |
 | `ANALYSIS.md` | 竞品 / 技术调研 |
 | `scripts/setup_build_env.sh` | 从零搭原生构建环境（micromamba+conda-forge，含 4-gram 补丁与源码下载） |
+| `scripts/build_conda_forge.sh` | conda-forge 工具链源码编译 fcitx5 + libime（产出 libime 库 / zh_CN.lm / sc.dict / lmplz） |
+| `scripts/build_cli.sh` | 编译 cpp 下的 CLI 与行协议适配器 |
+| `scripts/run_cli.sh` | 一键运行输入法（自动注入运行库路径） |
+| `scripts/smoke_test.sh` | 「能打字」自动回归（全拼/简拼/模糊音 top1 断言） |
 | `bench/fetch_lccc.py` | LCCC 口语语料下载 + 清洗（modelscope 源） |
 | `bench/make_lccc_eval.py` | 从清洗产物抽口语留出评测集 |
 | `bench/corpus/lccc_eval.txt` | 口语留出评测集（1866 句，口语域基线） |

@@ -3,7 +3,7 @@
 # 系统 /usr 为只读，无法用 dnf，故全部依赖走 /workspace/native-build/mamba-env。
 set -euo pipefail
 
-NB=/workspace/native-build
+NB=${NB:-/workspace/native-build}
 ENV=$NB/mamba-env
 OPT=$NB/opt
 BUILD=$NB/build
