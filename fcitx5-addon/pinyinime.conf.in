@@ -1,0 +1,12 @@
+[Addon]
+Name=Pinyin IME
+Comment=Pinyin input method built on libime
+Type=@FCITX_ADDON_TYPE@
+Library=libpinyinime
+Category=InputMethod
+Version=@PINYINIME_VERSION@
+OnDemand=False
+Configurable=True
+
+[Addon/Dependencies]
+0=core:@Fcitx5Core_VERSION@

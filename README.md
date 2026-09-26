@@ -407,6 +407,71 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 
 评测产物 `bench/results/` 不入库（gitignore），随时按上述命令重跑。
 
+## Fcitx5 addon（系统级输入法，2026-09-27）
+
+把命令行输入法的引擎逻辑真正接进 Fcitx5 框架，注册一个叫 `pinyinime` 的输入法。
+新增目录 `fcitx5-addon/`（外部 addon：`libpinyinime.so` + `pinyinime.conf`）。
+
+**结构**（对照 fcitx5 官方 `keyboard` addon 的骨架，两类分工）：
+
+- `PinyinIMEEngine : InputMethodEngine` —— 每 addon 一个，持共享的
+  `libime::PinyinIME`（词典 `sc.dict` + 语言模型 `zh_CN.lm`，跨输入上下文共享）。
+- `PinyinIMEState : InputContextProperty` —— 每输入上下文一个，持独立的
+  `libime::PinyinContext`（候选 / 预编辑 / 选中状态），经 `FactoryFor<>` 按需创建。
+
+**按键处理**（`keyEvent`）：`a-z / '` 进拼音、退格删、空格/回车整句上屏、`1-9`
+选字（全局索引 `page_*pageSize + (N-1)`）、`-`/`,`/`=`/`.` 翻页、`Esc` 清空；
+上屏走 `selectCandidatesToCursor()` + `learn()`；预编辑 `preedit()`、候选
+`candidatesToCursor()` 经 `CommonCandidateList`（`DisplayOnlyCandidateWord`）渲染，
+数字选字在引擎里自行处理（与官方 pinyin 一致）。用户词库/自学习历史落
+`~/.local/share/pinyin-ime/{user.history,user.dict}`。配置：`NBest`/`PageSize`/
+`DataDir`/`UserDataDir`/`EnableFuzzy`。
+
+**验证状态（本沙箱）**：对 fcitx5 5.1.23 + libime 1.1.17 编译通过、链接与工厂符号
+（`fcitx_addon_factory_instance_pinyinime`）导出正常、`pinyinime.conf` 生成正确
+（`Type=SharedLibrary` / `Category=InputMethod` / 依赖 `core:5.1.23`）。**实机运行仍需
+显示服务器 + Fcitx5 守护进程**，本 headless 沙箱无法验收；装到有桌面的 Linux 机即可实测。
+
+### 实机安装（Ubuntu 26.04 示例）
+
+> 前置判断：Ubuntu **GNOME** 默认是 IBus，接 Fcitx5 要手动切换（`im-config` 选
+> fcitx5，注销重登）；KDE（Kubuntu/Plasma）自带 fcitx 生态、更顺。二者选一，别让
+> IBus 和 Fcitx5 同时抢会话。
+
+```sh
+# 1) 依赖：fcitx5 框架 + libime/fcitx5 开发头 + 构建工具
+sudo apt update
+sudo apt install -y fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4   fcitx5-frontend-qt5 fcitx5-configtool im-config   libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev   libimecore-dev libimepinyin-dev libime-data libime-data-language-model   cmake ninja-build git build-essential
+
+# 2) 克隆 + 编译 addon（不用 docker，直接用发行版 libime/fcitx5）
+git clone https://gitcode.com/laotongtian/pinyin-ime.git
+cd pinyin-ime/fcitx5-addon
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+sudo cmake --install build   # 装到 lib/<arch>/fcitx5/ 与 share/fcitx5/addon/
+
+# 3) 确认数据文件位置（找不到就在 conf 里设 DataDir）
+dpkg -L libime-data-language-model | grep 'zh_CN.lm'
+dpkg -L libime-data | grep 'sc.dict' || dpkg -L libimepinyin0 | grep 'sc.dict'
+
+# 4) 切到 Fcitx5（GNOME 必做，KDE 可跳过）
+im-config    # 选 fcitx5 → 确定 → 注销重新登录
+
+# 5) 启用 pinyinime：fcitx5-configtool →「输入法」→ 添加 → 搜 “拼音”/“pinyinime”
+#    注销重登后 Ctrl+Space / Super+Space 切换中英，即可打拼音。
+```
+
+> Ubuntu 仓库自带 `fcitx5-chinese-addons`（内置 pinyin，装上即用）；本项目这个
+> addon 是「自己造输入法」的落地——解码/候选/上屏全由 `pinyinime.cpp` 控制，
+> 方便继续改词库 / LM / 纠错。
+
+### 已知限制 / 下一步
+
+- 首版只做**整句拼音 + 数字选字 + 翻页**；中文标点、中英切换、光标移动、逐词分段
+  等体验项待从 CLI 迁移过来（模糊音已有 `EnableFuzzy` 开关）。
+- 尚未在真实桌面回归；候选窗由 fcitx5 自带 `classicui`/`kimpanel` 模块渲染，本
+  addon 不自带 Qt UI。
+
 ## 待开发目标（接手从这里继续）
 
 1. **换更好的语言模型（Route A 真正的下一步）**：本轮已证明「词典更大不涨准确率」，
@@ -435,8 +500,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 > 与 `python3 scripts/test_interactive.py` 做回归护栏；下述第 1 项（图形 addon）仍需
 > 显示服务器，本 headless 沙箱无法验收，留待带图形环境再落地。
 
-1. **Fcitx5 addon / 图形落地**：把 `pinyin_ime_cli` 的引擎逻辑接入 Fcitx5 addon，
-   复用 `wetype.cpp` 的 `EngineProc` 进程外骨架（候选网格、40ms 防抖、异步 IO、崩溃自动重启）。
+1. **Fcitx5 addon / 图形落地**：✅ 已落地首版（`fcitx5-addon/`，见「Fcitx5 addon」一节）——引擎解码 / 候选 / 上屏已接入，沙箱内编译与符号导出验证通过；剩余：实机验收，中文标点 / 中英切换 / 光标移动等体验项迁移，以及（可选）`EngineProc` 进程外骨架（40ms 防抖 / 异步 IO / 崩溃重启）。
 2. **用户词库 / 自学习**：会话内 `learn()` + 用户词自动造词已实现，且已落到**独立用户路径**
    （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅。剩余：误上屏撤回、
    崩溃时未保存增量丢损、跨设备同步（PLAN-A §4②）。
@@ -475,6 +539,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 | `scripts/build_cli.sh` | 编译 cpp 下的 CLI 与行协议适配器 |
 | `scripts/run_cli.sh` | 一键运行输入法（自动注入运行库路径） |
 | `scripts/smoke_test.sh` | 「能打字」自动回归（全拼/简拼/模糊音/双拼 top1 断言） |
+| `fcitx5-addon/` | Fcitx5 系统级输入法 addon（注册 `pinyinime`，复用 libime 引擎；`pinyinime.h/.cpp` + `CMakeLists.txt`） |
 | `scripts/test_interactive.py` | 交互模式回归（pty 驱动：整句上屏 / 中英切换 / 中文标点） |
 | `bench/fetch_lccc.py` | LCCC 口语语料下载 + 清洗（modelscope 源） |
 | `bench/make_lccc_eval.py` | 从清洗产物抽口语留出评测集 |

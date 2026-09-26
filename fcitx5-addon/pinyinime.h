@@ -1,0 +1,118 @@
+/*
+ * pinyin-ime — Fcitx5 addon（输入法引擎）
+ *
+ * 把 libime 的拼音解码（PinyinIME + PinyinContext）接进 Fcitx5 框架，注册一个
+ * 「pinyinime」输入法。这是本项目从「命令行输入法」走向「系统级输入法」的落地件。
+ *
+ * 架构（对照 fcitx5 官方 keyboard addon 的成熟骨架）：
+ *   PinyinIMEEngine : InputMethodEngine   —— 每个 addon 一个，持共享的
+ *       libime::PinyinIME（词典 + 语言模型，跨输入上下文共享）。
+ *   PinyinIMEState  : InputContextProperty —— 每个输入上下文一个，持独立的
+ *       libime::PinyinContext（候选 / 预编辑 / 选中状态）。
+ *
+ * 许可：跟随项目与 fcitx5 / libime（LGPL-2.1-or-later）。
+ */
+#ifndef _FCITX_MODULES_PINYINIME_PINYINIME_H_
+#define _FCITX_MODULES_PINYINIME_PINYINIME_H_
+
+#include <fcitx-config/configuration.h>
+#include <fcitx-config/iniparser.h>
+#include <fcitx-config/option.h>
+#include <fcitx-utils/i18n.h>
+#include <fcitx-utils/key.h>
+#include <fcitx/inputcontextproperty.h>
+#include <fcitx/inputmethodengine.h>
+#include <fcitx/instance.h>
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <libime/core/userlanguagemodel.h>
+#include <libime/pinyin/pinyincontext.h>
+#include <libime/pinyin/pinyindictionary.h>
+#include <libime/pinyin/pinyinime.h>
+
+namespace fcitx {
+
+FCITX_CONFIGURATION(
+    PinyinIMEConfig,
+    Option<int> nbest{this, "NBest", _("Number of candidates"), 5};
+    Option<int> pageSize{this, "PageSize", _("Candidates per page"), 9};
+    Option<std::string> dataDir{this, "DataDir", _("Data directory"),
+                                "/usr/share/libime"};
+    Option<std::string> userDataDir{
+        this, "UserDataDir", _("User data directory"),
+        "~/.local/share/pinyin-ime"};
+    Option<bool> enableFuzzy{this, "EnableFuzzy", _("Enable fuzzy pinyin"),
+                             false};);
+
+class PinyinIMEEngine;
+
+class PinyinIMEState : public InputContextProperty {
+public:
+    PinyinIMEState(PinyinIMEEngine *engine, InputContext *inputContext);
+
+    // 清空当前输入状态并清掉 UI。
+    void reset();
+    // 重建候选（更新 page_/maxPage_），并刷新 preedit + candidate UI。
+    void refreshUI(const InputMethodEntry &entry);
+    // 选中第 idx（全局索引，已含翻页偏移）个候选；整句选完即上屏。
+    void selectCandidate(const InputMethodEntry &entry, size_t idx);
+    // 翻页：dir=-1 上一页 / +1 下一页。
+    void flipPage(const InputMethodEntry &entry, int dir);
+
+    PinyinIMEEngine *engine_;
+    InputContext *inputContext_;
+    libime::PinyinContext context_;
+    size_t page_ = 0;
+    size_t maxPage_ = 0;
+    KeyList selectionKeys_;
+
+    size_t pageSize() const;
+
+private:
+    void updateUI(const InputMethodEntry &entry);
+    void commitText(const std::string &text);
+};
+
+class PinyinIMEEngine final : public InputMethodEngine {
+public:
+    PinyinIMEEngine(Instance *instance);
+    ~PinyinIMEEngine() override;
+
+    void keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) override;
+    std::vector<InputMethodEntry> listInputMethods() override;
+    void deactivate(const InputMethodEntry &entry,
+                    InputContextEvent &event) override;
+    void reset(const InputMethodEntry &entry, InputContextEvent &event) override;
+
+    const PinyinIMEConfig &config() const { return config_; }
+    const Configuration *getConfig() const override { return &config_; }
+    void setConfig(const RawConfig &config) override {
+        config_.load(config, true);
+        safeSaveAsIni(config_, "conf/pinyinime.conf");
+        reloadConfig();
+    }
+    void reloadConfig() override;
+
+    libime::PinyinIME *ime() { return ime_.get(); }
+    // 用户词库 / 自学习历史落盘（destructor 与 deactivate 时调用）。
+    void saveUserData();
+
+    auto factory() { return &factory_; }
+
+private:
+    bool ensureDataLoaded();
+
+    Instance *instance_;
+    PinyinIMEConfig config_;
+    std::unique_ptr<libime::PinyinIME> ime_;
+    std::string userHistPath_, userDictPath_;
+    FactoryFor<PinyinIMEState> factory_{
+        [this](InputContext &ic) { return new PinyinIMEState(this, &ic); }};
+};
+
+} // namespace fcitx
+
+#endif // _FCITX_MODULES_PINYINIME_PINYINIME_H_
