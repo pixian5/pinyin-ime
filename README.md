@@ -269,6 +269,25 @@ bash scripts/smoke_test.sh               # 「能打字」自动回归（top1 �
   n-best（交互态 `setNBest(45)`）供翻页；短输入（单声母）则把该声母下全部单字候选
   呈现出来可翻页。
 
+### 中英切换 + 中文标点（2026-09-27，本沙箱从零复现构建）
+
+让命令行输入法从「能打字」向「能真正日用」再走一步，补上两个此前「待实现」的体验项：
+
+- **中英切换（`Tab`）**：交互模式下按 `Tab` 在中文/英文态之间切换。英文态下输入
+  `a-z / 0-9 / 空格 / 半角标点` 原样进入一行缓冲（状态行显示 `英文: <缓冲>`），
+  回车整行上屏、退格删末字符、`Esc` 清缓冲并切回中文、`Tab` 仅切回中文。解决
+  「打字半途想敲英文只能清空重来」的根本不顺手。
+- **中文标点（半角 → 全角）**：`,`→`，`、`.`→`。`、`;`→`；`、`:`→`：`、`?`→`？`、
+  `!`→`！`、`(`→`（`、`)`→`）`、`[`→`【`、`]`→`】`、`\`→`、`、`"`→`“`（朴素单边开引号，
+  智能配对留待下一步）。空闲时按标点**直接上屏**；打拼音中按标点会**先上屏当前首选**
+  再出标点，复用已有 `select_and_commit`，不新增解码逻辑（纯前端）。
+- **回归护栏**：新增 `scripts/test_interactive.py`（pty 驱动，headless 可跑），
+  断言四条链路——整句上屏、中英切换、空闲标点、打拼音中先上屏再标点；行模式
+  `smoke_test.sh` 仍 20/20 通过（基线与改动均在本沙箱逐字节复现）。
+
+> 实现说明：中英切换与中文标点都是**交互前端**（`termios` raw 循环）内的状态机改动，
+> 不触碰 libime 解码管线，因此无需重建引擎、也不影响行模式评测口径。
+
 ### 验证结果
 
 - 冒烟：`nihao→你好`、`zhongguo→中国`、`woshiyige→我是一个`、`beijingdaxue→北京大学` ✅
@@ -411,10 +430,10 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 
 ## 未来优化方向（按优先级）
 
-> 本次（2026-09-26）已把「构建 → 运行 → 自检」做成可复现一键脚本
-> （`build_cli.sh` / `run_cli.sh` / `smoke_test.sh`），后续每步改动可用
-> `bash scripts/smoke_test.sh` 做回归护栏；下述第 1 项（图形 addon）仍需显示服务器，
-> 本 headless 沙箱无法验收，留待带图形环境再落地。
+> 已把「构建 → 运行 → 自检」做成可复现一键脚本（`build_cli.sh` / `run_cli.sh` /
+> `smoke_test.sh` / `test_interactive.py`），后续每步改动可用 `bash scripts/smoke_test.sh`
+> 与 `python3 scripts/test_interactive.py` 做回归护栏；下述第 1 项（图形 addon）仍需
+> 显示服务器，本 headless 沙箱无法验收，留待带图形环境再落地。
 
 1. **Fcitx5 addon / 图形落地**：把 `pinyin_ime_cli` 的引擎逻辑接入 Fcitx5 addon，
    复用 `wetype.cpp` 的 `EngineProc` 进程外骨架（候选网格、40ms 防抖、异步 IO、崩溃自动重启）。
@@ -423,7 +442,7 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
    崩溃时未保存增量丢损、跨设备同步（PLAN-A §4②）。
 3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
    libime 解码管线（需引擎重建，PLAN-A §4①）。
-4. **输入体验**：双拼✅、候选分页✅（本次已实现，见 M1「双拼 + 候选分页」）；剩余：中英切换、标点 / 表情。
+4. **输入体验**：双拼✅、候选分页✅、中英切换✅、中文标点✅（本次已实现，见 M1「中英切换 + 中文标点」）；剩余：引号智能配对、表情、候选部首/偏旁检索。
 5. **光标移动 / 逐词分段**：`selectCandidatesToCursor` 已支持逐词选，补光标左右移动、逐段确认。
 6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
    （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
@@ -455,7 +474,8 @@ LD_LIBRARY_PATH=/workspace/native-build/opt/libime/lib:/workspace/native-build/o
 | `scripts/build_conda_forge.sh` | conda-forge 工具链源码编译 fcitx5 + libime（产出 libime 库 / zh_CN.lm / sc.dict / lmplz） |
 | `scripts/build_cli.sh` | 编译 cpp 下的 CLI 与行协议适配器 |
 | `scripts/run_cli.sh` | 一键运行输入法（自动注入运行库路径） |
-| `scripts/smoke_test.sh` | 「能打字」自动回归（全拼/简拼/模糊音 top1 断言） |
+| `scripts/smoke_test.sh` | 「能打字」自动回归（全拼/简拼/模糊音/双拼 top1 断言） |
+| `scripts/test_interactive.py` | 交互模式回归（pty 驱动：整句上屏 / 中英切换 / 中文标点） |
 | `bench/fetch_lccc.py` | LCCC 口语语料下载 + 清洗（modelscope 源） |
 | `bench/make_lccc_eval.py` | 从清洗产物抽口语留出评测集 |
 | `bench/corpus/lccc_eval.txt` | 口语留出评测集（1866 句，口语域基线） |

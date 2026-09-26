@@ -30,8 +30,10 @@
 //
 // 已实现（M1 范围）：逐键输入、候选列表、选词上屏、整句首选、简拼（默认）、
 //   模糊音（--fuzzy）、双拼（--shuangpin / --sp-scheme）、候选分页（[,] 翻页）、
-//   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏。
-// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、中英切换、标点/表情。
+//   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏、
+//   中英切换（Tab 切换，英文态原样透传）、中文标点（半角标点自动转全角，
+//   打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）。
+// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、引号智能配对、表情。
 #include <cstdio>
 #include <cctype>
 #include <cstdlib>
@@ -171,6 +173,32 @@ std::string sp_display_name(ShuangpinBuiltinProfile p) {
     case ShuangpinBuiltinProfile::GB: return "国标";
     case ShuangpinBuiltinProfile::Xiaohe: default: return "小鹤";
     }
+}
+
+// 中文标点：半角 ASCII 标点 → 全角中文标点。纯前端（不进拼音解码），
+// 只负责「上屏标点」这一件事。返回空串表示该字符无对应中文标点。
+std::string chinese_punct(char ch) {
+    switch (ch) {
+    case ',': return "，";
+    case '.': return "。";
+    case ';': return "；";
+    case ':': return "：";
+    case '?': return "？";
+    case '!': return "！";
+    case '(': return "（";
+    case ')': return "）";
+    case '[': return "【";
+    case ']': return "】";
+    case '\\': return "、";
+    case '"': return "“";  // 朴素单边开引号；智能配对留待下一步
+    default: return "";
+    }
+}
+
+// 上屏一行已提交文本（先清掉状态行再打印，保证状态线始终在底部）。
+void output_line(const std::string &s) {
+    std::cout << "\r\x1b[2K" << s << "\n";
+    std::cout.flush();
 }
 
 // ---- 交互模式（termios raw mode，Linux / BSD）----
@@ -345,9 +373,16 @@ int main(int argc, char **argv) {
     ime.setNBest(std::max<size_t>(static_cast<size_t>(nbest), 45));
     const size_t kPageSize = 9;  // 匹配 1-9 选字键
     size_t page = 0;
+    bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
+    std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
 
     auto render = [&]() {
         std::cout << "\r\x1b[2K";  // 清当前行
+        if (englishMode) {
+            std::cout << "英文: " << (engBuf.empty() ? "_" : engBuf) << "  [Tab 切回中文]";
+            std::cout.flush();
+            return;
+        }
         std::string pre = ctx.preedit();
         std::cout << (pre.empty() ? "拼音: _" : "拼音: " + pre) << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
@@ -365,7 +400,7 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-C 退出\n";
     render();
 
     char ch;
@@ -374,22 +409,53 @@ int main(int argc, char **argv) {
             std::cout << "\n";
             break;
         }
-        if (ch == 0x1b) {  // Esc：清空
-            ctx.clear();
-        } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
-            ctx.backspace();
-        } else if (ch == ',' || ch == '[') {  // 上一页
-            if (page > 0) --page;
-        } else if (ch == '.' || ch == ']') {  // 下一页
-            const auto &cands = ctx.candidatesToCursor();
-            const size_t maxPage = cands.size() == 0 ? 0 : (cands.size() - 1) / kPageSize;
-            if (page < maxPage) ++page;
-        } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
-            select_and_commit(ctx, 0);
-        } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
-            select_and_commit(ctx, page * kPageSize + static_cast<size_t>(ch - '1'));
-        } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
-            ctx.type(std::string(1, ch));
+        if (englishMode) {
+            // ---- 英文模式：字母/数字/空格原样入缓冲，回车整行上屏，Tab / Esc 切回中文 ----
+            if (ch == '\t') {  // Tab：仅切回中文，缓冲保留
+                englishMode = false;
+            } else if (ch == 0x1b) {  // Esc：清缓冲并切回中文
+                engBuf.clear();
+                englishMode = false;
+            } else if (ch == 0x7f || ch == 0x08) {  // 退格：删缓冲末字符
+                if (!engBuf.empty()) engBuf.pop_back();
+            } else if (ch == '\r' || ch == '\n') {  // 回车：整行上屏
+                if (!engBuf.empty()) { output_line(engBuf); engBuf.clear(); }
+            } else if (ch == ' ') {
+                engBuf.push_back(' ');
+            } else if (ch >= 0x20 && ch < 0x7f) {  // 可打印 ASCII：原样入缓冲
+                engBuf.push_back(ch);
+            }
+        } else {
+            // ---- 中文模式 ----
+            std::string punct = chinese_punct(ch);
+            if (ch == 0x1b) {  // Esc：清空
+                ctx.clear();
+            } else if (ch == '\t') {  // Tab：切英文
+                englishMode = true;
+                engBuf.clear();
+            } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
+                ctx.backspace();
+            } else if (ch == ',' || ch == '[') {  // 打拼音时上一页；空闲时作中文标点
+                if (ctx.empty() && !punct.empty()) output_line(punct);
+                else if (page > 0) --page;
+            } else if (ch == '.' || ch == ']') {  // 打拼音时下一页；空闲时作中文标点
+                if (ctx.empty() && !punct.empty()) {
+                    output_line(punct);
+                } else {
+                    const auto &cands = ctx.candidatesToCursor();
+                    const size_t maxPage = cands.size() == 0 ? 0 : (cands.size() - 1) / kPageSize;
+                    if (page < maxPage) ++page;
+                }
+            } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
+                select_and_commit(ctx, 0);
+            } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
+                select_and_commit(ctx, page * kPageSize + static_cast<size_t>(ch - '1'));
+            } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
+                ctx.type(std::string(1, ch));
+            } else if (!punct.empty()) {  // 标点：空闲直接上屏；打拼音中先上首选再出标点
+                if (!ctx.empty()) select_and_commit(ctx, 0);
+                output_line(punct);
+            }
         }
         render();
     }
