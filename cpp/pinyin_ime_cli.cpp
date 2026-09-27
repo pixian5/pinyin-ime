@@ -32,8 +32,8 @@
 //   模糊音（--fuzzy）、双拼（--shuangpin / --sp-scheme）、候选分页（[,] 翻页）、
 //   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏、
 //   中英切换（Tab 切换，英文态原样透传）、中文标点（半角标点自动转全角，
-//   打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）。
-// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、引号智能配对、表情。
+//   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）。
+// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、表情。
 #include <cstdio>
 #include <cctype>
 #include <cstdlib>
@@ -190,7 +190,6 @@ std::string chinese_punct(char ch) {
     case '[': return "【";
     case ']': return "】";
     case '\\': return "、";
-    case '"': return "“";  // 朴素单边开引号；智能配对留待下一步
     default: return "";
     }
 }
@@ -374,6 +373,7 @@ int main(int argc, char **argv) {
     const size_t kPageSize = 9;  // 匹配 1-9 选字键
     size_t page = 0;
     bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
+    bool quoteOpen = false;    // 引号智能配对：开“/闭”交替
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
 
     auto render = [&]() {
@@ -452,6 +452,10 @@ int main(int argc, char **argv) {
                 select_and_commit(ctx, page * kPageSize + static_cast<size_t>(ch - '1'));
             } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
                 ctx.type(std::string(1, ch));
+            } else if (ch == '"') {  // 引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏首选
+                if (!ctx.empty()) select_and_commit(ctx, 0);
+                output_line(quoteOpen ? "”" : "“");
+                quoteOpen = !quoteOpen;
             } else if (!punct.empty()) {  // 标点：空闲直接上屏；打拼音中先上首选再出标点
                 if (!ctx.empty()) select_and_commit(ctx, 0);
                 output_line(punct);
