@@ -56,6 +56,8 @@
 #include <libime/pinyin/pinyinime.h>
 #include <libime/pinyin/shuangpinprofile.h>
 
+#include "pinyin_corrector.h"
+
 #ifdef __unix__
 #include <sys/select.h>
 #include <sys/time.h>
@@ -100,6 +102,7 @@ void usage(const char *prog) {
         << "选项:\n"
         << "  -s, --shuangpin  启用双拼（默认小鹤；用 --sp-scheme 指定方案）\n"
         << "  --sp-scheme NAME 双拼方案：xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb\n"
+        << "  --correct       先经 M3 纠错（CHIME+二元转移）修复打错的拼音再解码\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
@@ -317,6 +320,7 @@ int read_key() {
 int main(int argc, char **argv) {
     // 解析参数：支持 -h/--help、-f/--fuzzy、--user-data DIR；位置参数为 [lm][dict][nbest]。
     bool fuzzy = false;
+    bool correctPinyin = false;  // --correct：先经 M3 纠错再解码
     bool shuangpin = false;
     std::string spScheme = "xiaohe";
     std::string userDataDir;
@@ -332,6 +336,8 @@ int main(int argc, char **argv) {
             }
             spScheme = argv[++i];
             shuangpin = true;  // 指定方案即启用双拼
+        } else if (a == "--correct") {
+            correctPinyin = true;
         } else if (a == "--fuzzy" || a == "-f") {
             fuzzy = true;
         } else if (a == "--help" || a == "-h") {
@@ -457,6 +463,11 @@ int main(int argc, char **argv) {
         std::string line;
         while (std::getline(std::cin, line)) {
             ctx.clear();
+            // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
+            if (correctPinyin) {
+                std::string fixed = pinyin_corrector::correct_to_string(line);
+                if (!fixed.empty()) line = fixed;
+            }
             for (char ch : line) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }

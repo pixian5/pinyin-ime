@@ -571,14 +571,14 @@ im-config    # 选 fcitx5 → 确定 → 注销重新登录
    （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅；✅ 上屏即落盘
    （崩溃 / 被 kill 最多丢最后一次上屏的增量，CLI 与 addon 双侧）。剩余：误上屏撤回、跨设备同步
    （PLAN-A §4②）。
-3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
-   libime 解码管线（需引擎重建，PLAN-A §4①）。
+3. **容错纠错集成**：✅ 已用 C++ 原生移植（`cpp/pinyin_corrector.*` + `--correct`）替换 Python 每行
+   fork 桥接，对拍逐字一致；剩余：接入交互态/addon、与 libime 引擎级联做解码后重排。
 4. **输入体验**：双拼✅、候选分页✅、中英切换✅、中文标点✅、双引号智能配对✅、单引号智能配对✅
    （`'` 空闲配对开‘/闭’、打拼音中仍是隔音符 `xi'an`；CLI 与 addon 双侧）；剩余：表情、
    候选部首/偏旁检索、候选窗内水平移动选字。
 5. **光标移动 / 逐词分段**：✅ 已实现（`pinyinBeforeCursor/AfterCursor` 按词边界步进，方向键移动候选光标；CLI + addon 双侧，见 M1「光标移动 / 逐词分段」）；✅ `Home/End` 跳句首句尾（2026-09-28 落地，CLI + addon 双侧）；剩余可选项：在候选窗内水平移动选字。
-6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
-   （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
+6. **换更好的语言模型**：✅ 已用 500 万句对话语料训出 73MB 对话域 LM，对话字级 87.78%→93.80%；
+   ⚠️ 纯对话会过拟合、新闻域崩盘 → 剩余：**混合语料**（对话 + 维基/通用）按配比重训拿两域均衡。
 
 ## 目录
 
@@ -761,3 +761,47 @@ cmake --build fcitx5-addon/build
    替换行模式每行 fork 的桥接。
 4. **输入体验**：表情、候选部首/偏旁检索、候选窗内水平移动选字、误上屏撤回。
 5. **跨设备同步**（用户词库，PLAN-A §4②）。
+
+
+## 开发进度（2026-09-28 · 第4轮：M3 纠错 C++ 原生移植 + 真正拉大语料重训 LM）
+
+按上一轮列出的两个「最高杠杆」逐一推进，两项都落地并评测：
+
+### ① M3 纠错 native 集成（C++ 无 Python 依赖）✅
+- 把 `correction/corrector.py` 的 `correct()` **移植到 C++**：`cpp/pinyin_corrector.{h,cpp}`
+  （音节 Trie + 编辑距离剪枝 + 加权 noisy-channel + 平翘舌/前后鼻音混淆 + 二元 Viterbi）。
+- 数据固化：新增 `correction/generate_cpp_data.py` 从 `syllables.py` / `prior.py` /
+  `bigram_costs.json`（全部 ASCII 拼音，无敏感文本）生成 `cpp/correction_data.h`
+  （420 音节 + 先验 + 62553 二元转移），运行时零文件依赖、零 Python fork。
+- CLI 新增 `--correct`：行模式解码前先经 C++ 纠正（替换上一轮 `fix_pinyin.py` 每行 fork 桥接）。
+- **对拍自检**：`cpp/pinyin_corrector_test`（CMake 目标）与 `correction.fix_pinyin.py` 同协议，
+  **35/35 例逐字一致**（含 `zhing→zhong`、`zongguo→zhong'guo` 等难点）。
+- 端到端：`senme` 直解「森么」→ `--correct`「什么」；`zongguo`「宗国」→「中国」。
+
+### ② 拉大语料重训 LM（Route A 真落地）✅ 带重要发现
+- 语料：modelscope `OmniData/LCCC`（中文对话，611MB zip → 流式清洗 **500 万句**、**2887 万词**），
+  sc.dict 最大匹配分词（唯一词 12.7 万）。
+- 训练：`lmplz -o 3`（127,406 词表 / 654 万二元 / 1594 万三元，ARPA 711MB）→
+  `libime_slm_build_binary -q 4` → **73MB 对话域 LM**。
+- 评测（`run_bench.py` 同口径，对照基线 34MB `zh_CN.lm`）：
+
+  | 域 | 指标 | 基线 | 新对话 LM | 变化 |
+  |---|---|---|---|---|
+  | 对话 lccc_eval | 句级 | 49.24% | **66.24%** | **+17.0** |
+  | 对话 lccc_eval | 字级 | 87.78% | **93.80%** | **+6.02** |
+  | 新闻 news（哨兵） | 句级 | 39.55% | 9.85% | −29.7 |
+  | 新闻 news（哨兵） | 字级 | 88.82% | 76.16% | −12.7 |
+
+- **结论（诚实）**：Route A「换更好 LM」**成立且放大收益**——对话域（此前最短板）被 500 万句
+  对话语料直接打到字级 93.80%。**但纯对话语料过拟合**，新闻域崩盘（与 README 早前记录的
+  LCCC 400K 实验同构：口语占比过高把 LM 挤成「对话专用表」）。下一步是**混合语料**
+  （对话 + 维基/通用，按域配比）重训拿两域均衡抬升。
+
+### 回归护栏（全绿）
+`smoke_test.sh` 20/20、`test_interactive.py` 12/12、C++/Python 纠错对拍逐字一致、addon 编译通过。
+
+### 未来优化方向（下一轮聚焦）
+1. **混合语料重训均衡 LM**：对话 5M 句已成，下一轮加维基/通用语料（避开新闻敏感源）按配比重训。
+2. **M3 纠错接入交互态 + addon**：`pinyin_corrector` 已是自包含 C++，可直接被 addon include。
+3. **Fcitx5 addon 实机验收**（headless 无显示服务器）。
+4. **输入体验**：表情、候选部首/偏旁检索、误上屏撤回、跨设备同步。
