@@ -613,3 +613,52 @@ im-config    # 选 fcitx5 → 确定 → 注销重新登录
 
 > rime-ice 转换产物与 sc.dict 之外的生成文件都在构建机 `native-build/` 下，
 > 不入库；入库的是可复现的源码（`convert_rimeice.py`）与评测脚本。
+## 开发进度（2026-09-28 · 接手后首轮：headless 从零复现 + 镜像/代理落地）
+
+本轮目标「做成真正能跑起来的输入法」达成——在新沙箱从零复现全套构建并全量回归通过，全程未用 docker：
+
+- **环境**：headless 沙箱，系统 gcc 10.3.1、dnf 无 gcc-toolset / fcitx5 包 → 走
+  `scripts/setup_build_env.sh` 的 conda-forge 工具链（本机检出 **gcc 16.2.0** + cmake 4.2.3、
+  ninja 4.x）。构建产物落在 `NB=/root/workspace/native-build`（本机持久工作区；脚本默认
+  `/workspace/native-build`，统一用 `NB` 覆盖且与仓库脚本约定一致）。
+- **镜像 / 代理**：conda-forge 走清华 tuna 镜像；micromamba / fcitx5 / libime / kenlm 等
+  GitHub / codeload 源全部走 mihomo 代理 `http://127.0.0.1:7890`（无镜像前缀）。
+- **逐字节复现**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B，与 README 基线一致。
+- **引擎编译**：fcitx5 5.1.23 + libime 1.1.17（含 kenlm + zh_CN.lm + sc.dict）+ `lmplz`。
+- **CLI 编译**：`cpp/build/pinyin_ime_cli` + `cpp/build/libime_bench` 通过。
+- **回归护栏全绿**：`smoke_test.sh` **20/20**（全拼/简拼/模糊音/双拼），
+  `test_interactive.py` **8/8**（整句上屏 / 中英切换 / 中文标点 / 引号配对 / 光标移动+逐词分段）。
+
+### 本轮复现命令（固化，可一键重跑）
+
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890                      # mihomo 代理，国外源走它
+bash scripts/setup_build_env.sh                         # 环境 + 工具链 + 源码
+bash scripts/build_conda_forge.sh                       # 引擎编译
+bash scripts/build_cli.sh                               # 编译 CLI
+echo nihao | bash scripts/run_cli.sh                    # 行模式
+bash scripts/smoke_test.sh                              # 20 例回归
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"
+```
+
+### 未来优化方向（下一轮按优先级聚焦，详见「待开发目标」）
+
+1. **Route A 换语言模型**：用维基 + 字幕/对话语料（避开新闻类语料源）训练更高阶 n-gram /
+   本地重排序，抬整句准确率（现基线句级 39.55% / 口语域 49.24%）。
+2. **M3 纠错集成**：把 `correction/`（CHIME 信道 + 音节二元转移）接进 libime 解码管线
+   （需引擎重建）。
+3. **用户词库/自学习**：误上屏撤回、崩溃未落盘增量防丢、跨设备同步。
+4. **输入体验**：表情、单引号智能配对（与 `xi'an` 隔音符冲突，需另设触发规则）、Home/End
+   跳句首句尾、候选部首/偏旁检索。
+5. **Fcitx5 addon 实机验收**：首版已编译 + 符号导出通过，剩余带显示服务器的桌面机实测。
+
+### 本轮其他发现（镜像踩坑，供后续参考）
+
+- 华为云 `mirrors.huaweicloud.com/anaconda/cloud/conda-forge` 镜像的 repodata `.zst` 分片
+  与 libmamba 不兼容（报 `ZSTD decompression error: Unknown frame descriptor`），已弃用；
+  阿里云 / 腾讯云的同路径 conda-forge 一返回 404。建议固化用清华 tuna（仓库默认）或教育网
+  cernet 镜像。
