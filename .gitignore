@@ -29,3 +29,6 @@ fcitx5-addon/build/
 .gitcode_credentials
 .git-credentials
 bench/corpus_probe/
+
+# 本地构建日志与临时编辑脚本（勿入库）
+.build/

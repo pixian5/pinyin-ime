@@ -55,7 +55,7 @@ LIBIME_TAG=1.1.17
 
 if [ ! -d "$NB/src/fcitx5-$FCITX_VER" ]; then
     echo "=== 下载 fcitx5 $FCITX_VER（GitHub archive；download.fcitx-im.org 该路径 404）==="
-    curl -L --retry 5 -o "$NB/src/fcitx5.tar.gz" \
+    curl -L --retry 5 "${PROXY_ARG[@]}" -o "$NB/src/fcitx5.tar.gz" \
         "https://github.com/fcitx/fcitx5/archive/refs/tags/$FCITX_VER.tar.gz"
     tar -xzf "$NB/src/fcitx5.tar.gz" -C "$NB/src"
     # github archive 已解包为 fcitx5-$FCITX_VER 目录，无需再改名（原 mv 是自移动、会报错）
