@@ -32,8 +32,9 @@
 //   模糊音（--fuzzy）、双拼（--shuangpin / --sp-scheme）、候选分页（[,] 翻页）、
 //   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏、
 //   中英切换（Tab 切换，英文态原样透传）、中文标点（半角标点自动转全角，
-//   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）。
-// 待实现（见 README「未来优化方向」）：光标移动/逐词分段、表情。
+//   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）、
+//   光标左右移动（逐词分段：方向键按词边界移动候选光标）。
+// 待实现（见 README「未来优化方向」）：表情、候选部首/偏旁检索。
 #include <cstdio>
 #include <cctype>
 #include <cstdlib>
@@ -53,6 +54,8 @@
 #include <libime/pinyin/shuangpinprofile.h>
 
 #ifdef __unix__
+#include <sys/select.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 #endif
@@ -225,6 +228,60 @@ struct RawTerm {
     // 非 unix 或无 TTY 时退化为行模式。
 };
 
+// 交互模式「逻辑键」：普通可见字符返回其字节值；控制/方向键返回负值常量。
+enum : int {
+    kKeyEof = -100,
+    kKeyEsc = -1,
+    kKeyLeft = -2,
+    kKeyRight = -3,
+    kKeyUp = -4,
+    kKeyDown = -5,
+};
+
+// 读一个逻辑键：处理方向键转义序列（\x1b[D 左 / \x1b[C 右 等）；单独 Esc 返回 kKeyEsc。
+int read_key() {
+    unsigned char ch = 0;
+    ssize_t n = read(STDIN_FILENO, &ch, 1);
+    if (n <= 0) {
+        return kKeyEof;
+    }
+    if (ch != 0x1b) {
+        return ch;
+    }
+    // 可能是单独 Esc，也可能是 \x1b[... 转义序列：短超时探测后续字节。
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 50000;  // 50ms
+    if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0) {
+        return kKeyEsc;  // 单独 Esc
+    }
+    unsigned char c2 = 0;
+    if (read(STDIN_FILENO, &c2, 1) != 1 || (c2 != '[' && c2 != 'O')) {
+        return kKeyEsc;
+    }
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 50000;
+    if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0) {
+        return kKeyEsc;
+    }
+    unsigned char c3 = 0;
+    if (read(STDIN_FILENO, &c3, 1) != 1) {
+        return kKeyEsc;
+    }
+    switch (c3) {
+    case 'A': return kKeyUp;
+    case 'B': return kKeyDown;
+    case 'C': return kKeyRight;
+    case 'D': return kKeyLeft;
+    default: return kKeyEsc;
+    }
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -383,8 +440,15 @@ int main(int argc, char **argv) {
             std::cout.flush();
             return;
         }
-        std::string pre = ctx.preedit();
-        std::cout << (pre.empty() ? "拼音: _" : "拼音: " + pre) << "  |  ";
+        auto [pre, cursorPos] = ctx.preeditWithCursor();
+        if (cursorPos > pre.size()) {
+            cursorPos = pre.size();
+        }
+        std::string preStr = pre;
+        if (!preStr.empty() && cursorPos <= preStr.size()) {
+            preStr.insert(cursorPos, "▏");
+        }
+        std::cout << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
         const size_t total = cands.size();
         const size_t maxPage = total == 0 ? 0 : (total - 1) / kPageSize;
@@ -400,21 +464,22 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，←/→ 逐词移动光标，Ctrl-C 退出\n";
     render();
 
-    char ch;
-    while (read(STDIN_FILENO, &ch, 1) == 1) {
-        if (ch == 0x03) {  // Ctrl-C
+    int key;
+    while ((key = read_key()) != kKeyEof) {
+        if (key == 0x03) {  // Ctrl-C
             std::cout << "\n";
             break;
         }
         if (englishMode) {
+            char ch = static_cast<char>(key);
             // ---- 英文模式：字母/数字/空格原样入缓冲，回车整行上屏，Tab / Esc 切回中文 ----
-            if (ch == '\t') {  // Tab：仅切回中文，缓冲保留
-                englishMode = false;
-            } else if (ch == 0x1b) {  // Esc：清缓冲并切回中文
+            if (key == kKeyEsc) {  // Esc：清缓冲并切回中文
                 engBuf.clear();
+                englishMode = false;
+            } else if (ch == '\t') {  // Tab：仅切回中文，缓冲保留
                 englishMode = false;
             } else if (ch == 0x7f || ch == 0x08) {  // 退格：删缓冲末字符
                 if (!engBuf.empty()) engBuf.pop_back();
@@ -425,12 +490,25 @@ int main(int argc, char **argv) {
             } else if (ch >= 0x20 && ch < 0x7f) {  // 可打印 ASCII：原样入缓冲
                 engBuf.push_back(ch);
             }
+        } else if (key == kKeyEsc) {  // 中文模式 Esc：清空当前输入
+            ctx.clear();
+        } else if (key == kKeyLeft) {  // 左箭头：候选光标移到上一词边界（逐词分段）
+            int b = ctx.pinyinBeforeCursor();
+            if (b >= 0) {
+                page = 0;
+                ctx.setCursor(static_cast<size_t>(b));
+            }
+        } else if (key == kKeyRight) {  // 右箭头：候选光标移到下一词边界
+            int a = ctx.pinyinAfterCursor();
+            if (a >= 0) {
+                page = 0;
+                ctx.setCursor(static_cast<size_t>(a));
+            }
         } else {
-            // ---- 中文模式 ----
+            // ---- 中文模式（普通按键）----
+            char ch = static_cast<char>(key);
             std::string punct = chinese_punct(ch);
-            if (ch == 0x1b) {  // Esc：清空
-                ctx.clear();
-            } else if (ch == '\t') {  // Tab：切英文
+            if (ch == '\t') {  // Tab：切英文
                 englishMode = true;
                 engBuf.clear();
             } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）

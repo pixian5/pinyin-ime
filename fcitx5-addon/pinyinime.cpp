@@ -193,11 +193,12 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         return;
     }
 
-    // 预编辑（当前敲的拼音）
-    const std::string pre = context_.preedit();
+    // 预编辑（当前敲的拼音）+ 候选光标位置（逐词分段）
+    auto [pre, cursorPos] = context_.preeditWithCursor();
     Text preeditText;
     if (!pre.empty()) {
         preeditText.append(pre);
+        preeditText.setCursor(static_cast<int>(cursorPos));
     }
 
     // 候选（当前页）
@@ -465,6 +466,29 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_Escape)) {
         if (!ctx.empty()) {
             state->reset();
+            event.filterAndAccept();
+        }
+        return;
+    }
+
+    // 左右箭头：候选光标按词边界移动（逐词分段）；无拼音时不消费，交给应用移动文本光标
+    if (event.key().check(FcitxKey_Left) ||
+        event.key().check(FcitxKey_Right)) {
+        if (!ctx.empty()) {
+            if (event.key().check(FcitxKey_Left)) {
+                int b = ctx.pinyinBeforeCursor();
+                if (b >= 0) {
+                    state->page_ = 0;
+                    ctx.setCursor(static_cast<size_t>(b));
+                }
+            } else {
+                int a = ctx.pinyinAfterCursor();
+                if (a >= 0) {
+                    state->page_ = 0;
+                    ctx.setCursor(static_cast<size_t>(a));
+                }
+            }
+            state->refreshUI(entry);
             event.filterAndAccept();
         }
         return;
