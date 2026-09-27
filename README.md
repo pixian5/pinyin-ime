@@ -573,7 +573,7 @@ im-config    # 选 fcitx5 → 确定 → 注销重新登录
 3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
    libime 解码管线（需引擎重建，PLAN-A §4①）。
 4. **输入体验**：双拼✅、候选分页✅、中英切换✅、中文标点✅、引号智能配对✅（CLI 与 Fcitx5 addon 双侧均已实现）；剩余：表情、候选部首/偏旁检索、单引号配对（`'` 与拼音隔音符冲突，需另设触发规则）。
-5. **光标移动 / 逐词分段**：✅ 已实现（`pinyinBeforeCursor/AfterCursor` 按词边界步进，方向键移动候选光标；CLI + addon 双侧，见 M1「光标移动 / 逐词分段」）；剩余可选项：`Home/End` 跳到句首句尾、在候选窗内水平移动选字。
+5. **光标移动 / 逐词分段**：✅ 已实现（`pinyinBeforeCursor/AfterCursor` 按词边界步进，方向键移动候选光标；CLI + addon 双侧，见 M1「光标移动 / 逐词分段」）；✅ `Home/End` 跳句首句尾（2026-09-28 落地，CLI + addon 双侧）；剩余可选项：在候选窗内水平移动选字。
 6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
    （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
 
@@ -662,3 +662,51 @@ python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
   与 libmamba 不兼容（报 `ZSTD decompression error: Unknown frame descriptor`），已弃用；
   阿里云 / 腾讯云的同路径 conda-forge 一返回 404。建议固化用清华 tuna（仓库默认）或教育网
   cernet 镜像。
+
+
+## 开发进度（2026-09-28 · 第2轮：Home/End 跳句首句尾 + 全栈重建，回归 20/20 + 10/10）
+
+本轮在全新 headless 沙箱从零复现全套构建（未用 docker），并在「能打字」基础上补上
+一个真实输入体验项——**Home/End 跳句首句尾**（候选光标一键跳到整句拼音的首/尾），
+CLI 与 Fcitx5 addon 双侧同步实现。
+
+- **从零重建（镜像 + 代理）**：conda 源走清华 tuna 镜像；micromamba / fcitx5 / libime /
+  kenlm 等 GitHub/codeload 源走 mihomo 代理 `http://127.0.0.1:7890`（本回合代理提前就绪，
+  未用镜像前缀）。工具链检出 gcc 16.2.0 + cmake 4.2.3 + ninja；引擎产物 `zh_CN.lm`
+  34,736,327 B、`sc.dict` 4,489,669 B 逐字节复现基线。
+- **Home/End（新功能）**：`pinyin_ime_cli` 的 `read_key()` 重构为 `read_esc_byte()` 助手，
+  新增识别 `\x1b[H`/`\x1b[F`（xterm）、`\x1bOH`/`\x1bOF`（应用模式）、
+  `\x1b[1~/4~/7~/8~`（旧终端）四族序列；主循环 **Home→`setCursor(0)`、End→`setCursor(size())`**
+  （`size()` 即输入总字符数，`PinyinContext` 继承自 `fcitx::InputBuffer`）。addon 侧在
+  `keyEvent` 增加 `FcitxKey_Home/End` 分支（无拼音时不消费，交给应用移动文本光标）。
+  语义：光标在 0 与结尾时 `candidatesToCursor()` 均等于全句候选（`needCandidatesToCursor()`
+  返回 false），故 Home/End 只改候选光标位置、不改变整句上屏结果。
+- **回归护栏**：`test_interactive.py` 新增 ⑨Home / ⑩End 两例（`←` 到词中 → Home/End 跳回 →
+  空格整句上屏，断言「我是一个」；若 Home/End 未实现，`\x1b[H/F` 会被误当 Esc 清空、
+  断言失败）。交互回归 **8 → 10 例全过**；`smoke_test.sh` 仍 **20/20**。
+- **addon 编译 + 符号导出**：`libpinyinime.so` 编译通过，`fcitx_addon_factory_instance_pinyinime`
+  导出正常，`pinyinime.conf` 生成正确（依赖 `core:5.1.23`）。
+
+### 本轮复现命令（固化）
+
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+bash scripts/smoke_test.sh                                  # 20 例
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 10 例
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build
+```
+
+### 未来优化方向（下一轮按优先级聚焦，与「未来优化方向（按优先级）」同步）
+
+1. **Fcitx5 addon 实机验收**：编译 + 符号导出已通过，剩余带显示服务器的桌面机实测（headless 沙箱无显示服务器）。
+2. **Route A 换语言模型**：用维基 + 字幕/对话语料（避开新闻类敏感语料）训练更高阶 n-gram / 本地重排序，抬整句准确率。
+3. **M3 纠错集成**：把 `correction/`（CHIME 信道 + 音节二元转移）接进 libime 解码管线（需引擎重建）。
+4. **输入体验**：表情、单引号智能配对（与 `xi'an` 隔音符冲突，需另设触发规则）、候选窗内水平移动选字、候选部首/偏旁检索。
+5. **用户词库/自学习**：误上屏撤回、崩溃未落盘增量防丢、跨设备同步。

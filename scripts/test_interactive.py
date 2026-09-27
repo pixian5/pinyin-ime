@@ -115,6 +115,14 @@ def main():
           ("send", "\x1b[D"), ("send", "\x1b[D"), ("send", " "),
           ("sleep", 0.2)],
          ["「我是一个」"]),
+        # ⑨ Home：← 到词中（此时空格不致整句上屏），Home 跳回句首后空格整句上屏
+        ([("send", "woshiyige"), ("send", "\x1b[D"), ("send", "\x1b[H"),
+          ("send", " "), ("sleep", 0.2)],
+         ["「我是一个」"]),
+        # ⑩ End：← 到词中，End 跳回句尾后空格整句上屏
+        ([("send", "woshiyige"), ("send", "\x1b[D"), ("send", "\x1b[F"),
+          ("send", " "), ("sleep", 0.2)],
+         ["「我是一个」"]),
     ]
 
     ok = 0

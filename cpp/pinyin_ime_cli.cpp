@@ -33,7 +33,8 @@
 //   自学习 + 用户词库持久化（--user-data，选词上屏自动造词）、清屏、
 //   中英切换（Tab 切换，英文态原样透传）、中文标点（半角标点自动转全角，
 //   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）、
-//   光标左右移动（逐词分段：方向键按词边界移动候选光标）。
+//   光标左右移动（逐词分段：方向键按词边界移动候选光标）、
+//   Home/End（候选光标跳句首/句尾）。
 // 待实现（见 README「未来优化方向」）：表情、候选部首/偏旁检索。
 #include <cstdio>
 #include <cctype>
@@ -95,7 +96,7 @@ void usage(const char *prog) {
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
-        << "交互模式候选分页：1-9 选字，逗号[,]/句号[.] 上一页/下一页\n";
+        << "候选翻页：逗号[,]/句号[.] 上一页/下一页；←/→ 逐词移动，Home/End 跳句首句尾\n";
 }
 
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
@@ -236,9 +237,31 @@ enum : int {
     kKeyRight = -3,
     kKeyUp = -4,
     kKeyDown = -5,
+    kKeyHome = -6,
+    kKeyEnd = -7,
 };
 
-// 读一个逻辑键：处理方向键转义序列（\x1b[D 左 / \x1b[C 右 等）；单独 Esc 返回 kKeyEsc。
+// 与 read_key 共用：50ms 超时内读一个后续字节，失败返回 -1（解析转义序列用）。
+int read_esc_byte() {
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 50000;  // 50ms
+    if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0) {
+        return -1;
+    }
+    unsigned char c = 0;
+    if (read(STDIN_FILENO, &c, 1) != 1) {
+        return -1;
+    }
+    return c;
+}
+
+// 读一个逻辑键：处理方向键（\x1b[D 左 / \x1b[C 右 / \x1b[A 上 / \x1b[B 下）与
+// Home/End（\x1b[H / \x1b[F，应用模式 \x1bOH / \x1bOF，旧终端 \x1b[1~ / \x1b[4~）；
+// 单独 Esc 返回 kKeyEsc。
 int read_key() {
     unsigned char ch = 0;
     ssize_t n = read(STDIN_FILENO, &ch, 1);
@@ -249,28 +272,12 @@ int read_key() {
         return ch;
     }
     // 可能是单独 Esc，也可能是 \x1b[... 转义序列：短超时探测后续字节。
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds);
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 50000;  // 50ms
-    if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0) {
+    int c2 = read_esc_byte();
+    if (c2 < 0 || (c2 != '[' && c2 != 'O')) {
         return kKeyEsc;  // 单独 Esc
     }
-    unsigned char c2 = 0;
-    if (read(STDIN_FILENO, &c2, 1) != 1 || (c2 != '[' && c2 != 'O')) {
-        return kKeyEsc;
-    }
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds);
-    tv.tv_sec = 0;
-    tv.tv_usec = 50000;
-    if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0) {
-        return kKeyEsc;
-    }
-    unsigned char c3 = 0;
-    if (read(STDIN_FILENO, &c3, 1) != 1) {
+    int c3 = read_esc_byte();
+    if (c3 < 0) {
         return kKeyEsc;
     }
     switch (c3) {
@@ -278,6 +285,16 @@ int read_key() {
     case 'B': return kKeyDown;
     case 'C': return kKeyRight;
     case 'D': return kKeyLeft;
+    case 'H': return kKeyHome;  // \x1b[H / \x1bOH
+    case 'F': return kKeyEnd;   // \x1b[F / \x1bOF
+    case '1': case '7': {       // \x1b[1~ / \x1b[7~（旧终端 Home）
+        if (read_esc_byte() == '~') return kKeyHome;
+        return kKeyEsc;
+    }
+    case '4': case '8': {       // \x1b[4~ / \x1b[8~（旧终端 End）
+        if (read_esc_byte() == '~') return kKeyEnd;
+        return kKeyEsc;
+    }
     default: return kKeyEsc;
     }
 }
@@ -464,7 +481,7 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，←/→ 逐词移动光标，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，←/→ 逐词移动光标，Home/End 跳句首句尾，Ctrl-C 退出\n";
     render();
 
     int key;
@@ -504,6 +521,12 @@ int main(int argc, char **argv) {
                 page = 0;
                 ctx.setCursor(static_cast<size_t>(a));
             }
+        } else if (key == kKeyHome) {  // Home：候选光标跳到句首
+            page = 0;
+            ctx.setCursor(0);
+        } else if (key == kKeyEnd) {   // End：候选光标跳到句尾（输入末尾）
+            page = 0;
+            ctx.setCursor(static_cast<size_t>(ctx.size()));
         } else {
             // ---- 中文模式（普通按键）----
             char ch = static_cast<char>(key);

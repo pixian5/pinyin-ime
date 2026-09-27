@@ -494,6 +494,22 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
+    // Home/End：候选光标跳句首/句尾；无拼音时不消费，交给应用移动文本光标
+    if (event.key().check(FcitxKey_Home) ||
+        event.key().check(FcitxKey_End)) {
+        if (!ctx.empty()) {
+            state->page_ = 0;
+            if (event.key().check(FcitxKey_Home)) {
+                ctx.setCursor(0);
+            } else {
+                ctx.setCursor(static_cast<size_t>(ctx.size()));
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+        }
+        return;
+    }
+
     // 空格 / 回车：上屏首选
     if (event.key().check(FcitxKey_space) ||
         event.key().check(FcitxKey_Return)) {
