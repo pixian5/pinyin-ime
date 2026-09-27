@@ -34,10 +34,12 @@
 //   中英切换（Tab 切换，英文态原样透传）、中文标点（半角标点自动转全角，
 //   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）、
 //   光标左右移动（逐词分段：方向键按词边界移动候选光标）、
-//   Home/End（候选光标跳句首/句尾）。
-// 待实现（见 README「未来优化方向」）：表情、候选部首/偏旁检索。
+//   Home/End（候选光标跳句首/句尾）、单引号智能配对（空闲‘/’交替，打拼音中仍是隔音符）、
+//   上屏即落盘（崩溃/被 kill 最多丢最后一次上屏的增量）。
+// 待实现（见 README「未来优化方向」）：表情、候选部首/偏旁检索、误上屏撤回、跨设备同步。
 #include <cstdio>
 #include <cctype>
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -64,6 +66,12 @@
 using namespace libime;
 
 namespace {
+
+#ifdef __unix__
+// 崩溃/终止信号优雅落盘：置位后阻塞中的 read() 被 EINTR 打断，主循环退出时 save_user_data()。
+volatile sig_atomic_t g_quit = 0;
+void on_signal(int) { g_quit = 1; }
+#endif
 
 // 是否是合法的拼音输入字符（小写字母 + 隔音符 '）。
 bool is_pinyin_char(char ch) {
@@ -263,6 +271,11 @@ int read_esc_byte() {
 // Home/End（\x1b[H / \x1b[F，应用模式 \x1bOH / \x1bOF，旧终端 \x1b[1~ / \x1b[4~）；
 // 单独 Esc 返回 kKeyEsc。
 int read_key() {
+#ifdef __unix__
+    if (g_quit) {
+        return kKeyEof;
+    }
+#endif
     unsigned char ch = 0;
     ssize_t n = read(STDIN_FILENO, &ch, 1);
     if (n <= 0) {
@@ -420,6 +433,24 @@ int main(int argc, char **argv) {
         std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
     }
 
+#ifdef __unix__
+    {
+        struct sigaction sa{};
+        sa.sa_handler = on_signal;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;  // 不带 SA_RESTART：让阻塞中的 read() 可被 EINTR 打断
+        sigaction(SIGTERM, &sa, nullptr);
+        sigaction(SIGHUP, &sa, nullptr);
+    }
+#endif
+
+    // 上屏即落盘：崩溃/被 kill 时最多丢「最后一次上屏」的增量（防丢措施，与 addon 对齐）。
+    auto commit = [&](size_t idx) {
+        if (select_and_commit(ctx, idx)) {
+            save_user_data();
+        }
+    };
+
     RawTerm raw;
     if (!raw.enable()) {
         // ---- 行模式：每行一段全拼/简拼 → 候选列表 ----
@@ -447,7 +478,8 @@ int main(int argc, char **argv) {
     const size_t kPageSize = 9;  // 匹配 1-9 选字键
     size_t page = 0;
     bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
-    bool quoteOpen = false;    // 引号智能配对：开“/闭”交替
+    bool quoteOpen = false;    // 双引号智能配对：开“/闭”交替
+    bool singleQuoteOpen = false;  // 单引号智能配对：开‘/闭’交替（空闲时；打拼音中仍是隔音符）
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
 
     auto render = [&]() {
@@ -548,17 +580,24 @@ int main(int argc, char **argv) {
                     if (page < maxPage) ++page;
                 }
             } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
-                select_and_commit(ctx, 0);
+                commit(0);
             } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
-                select_and_commit(ctx, page * kPageSize + static_cast<size_t>(ch - '1'));
+                commit(page * kPageSize + static_cast<size_t>(ch - '1'));
+            } else if (ch == '\'') {  // 单引号：空闲智能配对‘/’；打拼音中仍是隔音符（xi'an）
+                if (ctx.empty()) {
+                    output_line(singleQuoteOpen ? "’" : "‘");
+                    singleQuoteOpen = !singleQuoteOpen;
+                } else {
+                    ctx.type("'");
+                }
             } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
                 ctx.type(std::string(1, ch));
-            } else if (ch == '"') {  // 引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏首选
-                if (!ctx.empty()) select_and_commit(ctx, 0);
+            } else if (ch == '"') {  // 双引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏首选
+                if (!ctx.empty()) commit(0);
                 output_line(quoteOpen ? "”" : "“");
                 quoteOpen = !quoteOpen;
             } else if (!punct.empty()) {  // 标点：空闲直接上屏；打拼音中先上首选再出标点
-                if (!ctx.empty()) select_and_commit(ctx, 0);
+                if (!ctx.empty()) commit(0);
                 output_line(punct);
             }
         }

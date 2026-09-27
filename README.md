@@ -568,11 +568,14 @@ im-config    # 选 fcitx5 → 确定 → 注销重新登录
 
 1. **Fcitx5 addon / 图形落地**：✅ 已落地首版并补齐中英切换 / 中文标点 / 引号配对 / 光标移动（`fcitx5-addon/`，见「Fcitx5 addon」一节）——引擎解码 / 候选 / 上屏已接入，沙箱内编译与符号导出验证通过；剩余：实机验收、（可选）`EngineProc` 进程外骨架（40ms 防抖 / 异步 IO / 崩溃重启）。
 2. **用户词库 / 自学习**：会话内 `learn()` + 用户词自动造词已实现，且已落到**独立用户路径**
-   （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅。剩余：误上屏撤回、
-   崩溃时未保存增量丢损、跨设备同步（PLAN-A §4②）。
+   （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅；✅ 上屏即落盘
+   （崩溃 / 被 kill 最多丢最后一次上屏的增量，CLI 与 addon 双侧）。剩余：误上屏撤回、跨设备同步
+   （PLAN-A §4②）。
 3. **容错纠错集成**：把已完成但未集成的 `correction/`（CHIME 信道 + 音节二元转移）接入
    libime 解码管线（需引擎重建，PLAN-A §4①）。
-4. **输入体验**：双拼✅、候选分页✅、中英切换✅、中文标点✅、引号智能配对✅（CLI 与 Fcitx5 addon 双侧均已实现）；剩余：表情、候选部首/偏旁检索、单引号配对（`'` 与拼音隔音符冲突，需另设触发规则）。
+4. **输入体验**：双拼✅、候选分页✅、中英切换✅、中文标点✅、双引号智能配对✅、单引号智能配对✅
+   （`'` 空闲配对开‘/闭’、打拼音中仍是隔音符 `xi'an`；CLI 与 addon 双侧）；剩余：表情、
+   候选部首/偏旁检索、候选窗内水平移动选字。
 5. **光标移动 / 逐词分段**：✅ 已实现（`pinyinBeforeCursor/AfterCursor` 按词边界步进，方向键移动候选光标；CLI + addon 双侧，见 M1「光标移动 / 逐词分段」）；✅ `Home/End` 跳句首句尾（2026-09-28 落地，CLI + addon 双侧）；剩余可选项：在候选窗内水平移动选字。
 6. **换更好的语言模型**（Route A 训练/剪枝已有产物，见 `lm/` 与 git log）：用现代大语料
    （维基 + 字幕 / 对话，避开新闻类敏感语料）再训 LM，抬整句准确率。
@@ -710,3 +713,51 @@ cmake --build fcitx5-addon/build
 3. **M3 纠错集成**：把 `correction/`（CHIME 信道 + 音节二元转移）接进 libime 解码管线（需引擎重建）。
 4. **输入体验**：表情、单引号智能配对（与 `xi'an` 隔音符冲突，需另设触发规则）、候选窗内水平移动选字、候选部首/偏旁检索。
 5. **用户词库/自学习**：误上屏撤回、崩溃未落盘增量防丢、跨设备同步。
+
+
+## 开发进度（2026-09-28 · 第3轮：按「未来优化方向」逐个推进 5→4→2→3）
+
+按优先级逐项推进待开发目标，每项都落到可验证的代码 / 产物：
+
+### item 5 — 用户词库崩溃防丢 ✅
+- 之前 CLI 只在 Ctrl-C 正常退出时才 `save_user_data()`，被 `kill`/崩溃会丢整个会话的增量。
+  改为 `commit()` 包装「上屏即落盘」（`select_and_commit` 成功后立即 `save_user_data()`），
+  并加 `SIGTERM/SIGHUP` 信号处理（`sigaction` 不带 `SA_RESTART`，让阻塞中的 `read()` 被
+  EINTR 打断 → 主循环退出时落盘）。
+- 实测：pty 打字上屏「你好」「中国」后 `kill -9`（SIGKILL 无法捕获），`user.history`(76B)
+  /`user.dict`(339B) 均已落盘；改动前会全丢。addon 侧此前已在 `selectCandidate()` 尾部
+  `saveUserData()`，本就具备。
+
+### item 4 — 单引号智能配对 ✅
+- 解决「`'` 与拼音隔音符冲突」：**空闲时 `'` 是中文标点**（开‘/闭’交替）、**打拼音中 `'` 仍是
+  隔音符**（`xi'an` → 西安 不受影响）。CLI 与 Fcitx5 addon 双侧同步实现。
+- 回归：交互回归 10 → **12 例全过**（新增 ⑪单引号“/”/“交替、⑫`xi'an`→「西安」）。
+
+### item 2 — Route A 换语言模型：训练管线端到端打通 ✅（验证管线，非最终大模型）
+- 修复 `lm/scdict_segment.py`：`libime_pinyindict -d` 导出是**空格**分隔，原 `split("\t")`
+  会把整行当词、分词必坏；改 `split()`。
+- 全链路复现：sc.dict 导出词表（293,115 词）→ 口语语料（手写 daily+dialogue + lccc_eval，
+  2047 句，全程脚本统计不读内容）→ FMM 分词 → `lmplz -o 3` → `libime_slm_build_binary`
+  （QuantArrayTrie）→ `libime_prediction`，产出可加载的对话域 LM（`zh_CN_dialogue.lm` 196KB）。
+- 验证：用新 LM 行模式 `nihao→你好 / zaijian→再见 / xiexie→谢谢 / woshiyige→我是一个`。
+  **含义**：Route A「换更好 LM」的机制已可复现，下一轮只需换大语料（S3 的 LCCC 全量 1.06GB
+  或维基+字幕）重训，无需再验证工具链。
+
+### item 3 — M3 纠错集成：前端纠错桥 ✅（桥接，非 C++ 原生 port）
+- 新增 `correction/fix_pinyin.py`：把（可能打错的）连续全拼经 `corrector.correct()` 纠正，
+  输出 `'` 分隔正确音节，供解码前端送解码前先修复。
+- 端到端增益实测（无 `--fuzzy`）：`senme` 直解「森么」→ 纠错后「什么」（sen→shen 修复成功）；
+  `cifan` 两者皆「此番」——命中 README 已声明的「合法-合法」边界（`ci` 本是合法音节）。
+- 边界（诚实声明）：这是**前端桥接**（行模式/评测可用，每行一次 Python fork），未把 CHIME
+  信道 + 二元转移 port 进 libime 原生解码（需 C++ 移植 + 引擎重建），也未做常驻纠错服务。
+
+### 回归护栏（全绿）
+`smoke_test.sh` **20/20**、`test_interactive.py` **12/12**、`libpinyinime.so` 编译 + 工厂符号导出正常。
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Fcitx5 addon 实机验收**（headless 无显示服务器，需桌面机）。
+2. **Route A 真正换大模型**：管线已通，下一轮拉大语料（维基+字幕/对话）重训高阶 n-gram。
+3. **M3 纠错原生集成**：把 CHIME+二元转移 port 进 C++（或常驻 Python 纠错服务 + addon 异步调用），
+   替换行模式每行 fork 的桥接。
+4. **输入体验**：表情、候选部首/偏旁检索、候选窗内水平移动选字、误上屏撤回。
+5. **跨设备同步**（用户词库，PLAN-A §4②）。

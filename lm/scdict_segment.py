@@ -27,7 +27,7 @@ def load_words(dict_path):
             line = line.rstrip("\n")
             if not line:
                 continue
-            word = line.split("\t")[0]
+            word = line.split()[0]  # 兼容 libime_pinyindict -d 的空格分隔与 tab 分隔
             if not word:
                 continue
             words.add(word)

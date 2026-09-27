@@ -69,9 +69,10 @@ public:
     size_t maxPage_ = 0;
     KeyList selectionKeys_;
 
-    // 中英切换（Tab）/ 中文标点（引号智能配对）会话状态。
+    // 中英切换（Tab）/ 中文标点（双/单引号智能配对）会话状态。
     bool englishMode_ = false;
     bool quoteOpen_ = false;
+    bool singleQuoteOpen_ = false;
     std::string engBuf_;
 
     size_t pageSize() const;

@@ -574,6 +574,21 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
+    // 单引号：空闲→智能配对‘/’；打拼音中→仍是隔音符（xi'an）。
+    // 注：shift+apostrophe 已由上面的 asciiFromKey 折叠为 '"'，此处仅处理非 shift 的 '。
+    if (sym == FcitxKey_apostrophe && !shifted) {
+        if (ctx.empty()) {
+            state->commitText(state->singleQuoteOpen_ ? "’" : "‘");
+            state->singleQuoteOpen_ = !state->singleQuoteOpen_;
+            state->refreshUI(entry);
+        } else {
+            ctx.type("'");
+            state->refreshUI(entry);
+        }
+        event.filterAndAccept();
+        return;
+    }
+
     // 拼音字母（a-z）或隔音符 ' ：送入解码
     if (event.key().isLAZ() || event.key().check(FcitxKey_apostrophe)) {
         const std::string ch =
