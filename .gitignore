@@ -32,3 +32,6 @@ bench/corpus_probe/
 
 # 本地构建日志与临时编辑脚本（勿入库）
 .build/
+
+# Fcitx5 addon 安装产物（DESTDIR 打包验证，不入库）
+fcitx5-addon/stage/

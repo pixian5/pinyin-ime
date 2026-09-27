@@ -19,10 +19,10 @@ MAMBA_BIN="$NB/bin/micromamba"
 export MAMBA_ROOT_PREFIX="$NB/mamba-root"
 mkdir -p "$NB"/{bin,opt,build,src,corpus} "$MAMBA_ROOT_PREFIX"
 
-MIRROR="https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge"
+MIRROR="${MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge}"
 
-# GitHub 加速镜像（可空=直连/proxy；本沙箱 release-assets 直连慢，用 ghfast.top 加速）
-GITHUB_MIRROR="${GITHUB_MIRROR:-https://ghfast.top/}"
+# GitHub 加速镜像前缀（可空=不含前缀直连）；有 mihomo 代理时走 PROXY，无代理才用镜像前缀
+GITHUB_MIRROR="${GITHUB_MIRROR:-}"
 # GitHub archive/codeload 归档走本地 mihomo 代理（ghfast.top 对 codeload 偶发 SSL_ERROR_SYSCALL）
 PROXY="${PROXY:-http://127.0.0.1:7890}"
 PROXY_ARG=(); [ -n "$PROXY" ] && PROXY_ARG=(-x "$PROXY")
@@ -32,7 +32,7 @@ if [ ! -x "$MAMBA_BIN" ]; then
     echo "=== 下载 micromamba（经 $GITHUB_MIRROR 加速）==="
     TMP=$(mktemp -d)
     # GitHub release 直链（codeload 只覆盖源码 tar.gz，二进制走 releases）
-    curl -L --retry 5 --retry-delay 3 -o "$TMP/mm.tar.bz2" \
+    curl -L --retry 5 --retry-delay 3 "${PROXY_ARG[@]}" -o "$TMP/mm.tar.bz2" \
         "${GITHUB_MIRROR}https://github.com/mamba-org/micromamba-releases/releases/download/2.9.0-0/micromamba-linux-aarch64.tar.bz2"
     tar -xjf "$TMP/mm.tar.bz2" -C "$TMP" bin/micromamba
     cp "$TMP/bin/micromamba" "$MAMBA_BIN" && chmod +x "$MAMBA_BIN"

@@ -69,11 +69,20 @@ public:
     size_t maxPage_ = 0;
     KeyList selectionKeys_;
 
+    // 中英切换（Tab）/ 中文标点（引号智能配对）会话状态。
+    bool englishMode_ = false;
+    bool quoteOpen_ = false;
+    std::string engBuf_;
+
     size_t pageSize() const;
+    // 上屏一段已提交文本（整句 / 英文整行 / 标点），清面板并 commitString。
+    void commitText(const std::string &text);
+    // 上屏中文标点：打拼音中先上屏首选，空闲直接上屏。
+    void commitPunctuation(const InputMethodEntry &entry,
+                           const std::string &fullwidth);
 
 private:
     void updateUI(const InputMethodEntry &entry);
-    void commitText(const std::string &text);
 };
 
 class PinyinIMEEngine final : public InputMethodEngine {

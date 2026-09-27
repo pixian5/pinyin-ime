@@ -78,6 +78,74 @@ libime::PinyinFuzzyFlags commonFuzzyFlags() {
             PinyinFuzzyFlag::Correction};
 }
 
+// US 布局下把 (KeySym, Shift) 还原成屏幕上会出现的 ASCII 字符。
+// 兼容「符号已折叠进 keysym」（如 Shift+/ → FcitxKey_question）与
+// 「基键 + Shift 状态」（如 FcitxKey_1 + Shift → !）两套前端约定；非打印键返回空串。
+std::string asciiFromKey(KeySym sym, bool shifted) {
+    if (sym >= FcitxKey_a && sym <= FcitxKey_z) {
+        return std::string(1, static_cast<char>(shifted ? sym - 32 : sym));
+    }
+    if (sym >= FcitxKey_A && sym <= FcitxKey_Z) {
+        return std::string(1, static_cast<char>(sym));
+    }
+    switch (sym) {
+    case FcitxKey_exclam:     return "!";
+    case FcitxKey_quotedbl:   return "\"";
+    case FcitxKey_colon:      return ":";
+    case FcitxKey_question:   return "?";
+    case FcitxKey_parenleft:  return "(";
+    case FcitxKey_parenright: return ")";
+    case FcitxKey_less:       return "<";
+    case FcitxKey_greater:    return ">";
+    default: break;
+    }
+    switch (sym) {
+    case FcitxKey_0: return shifted ? ")" : "0";
+    case FcitxKey_1: return shifted ? "!" : "1";
+    case FcitxKey_2: return shifted ? "@" : "2";
+    case FcitxKey_3: return shifted ? "#" : "3";
+    case FcitxKey_4: return shifted ? "$" : "4";
+    case FcitxKey_5: return shifted ? "%" : "5";
+    case FcitxKey_6: return shifted ? "^" : "6";
+    case FcitxKey_7: return shifted ? "&" : "7";
+    case FcitxKey_8: return shifted ? "*" : "8";
+    case FcitxKey_9: return shifted ? "(" : "9";
+    case FcitxKey_space:      return " ";
+    case FcitxKey_apostrophe: return shifted ? "\"" : "'";
+    case FcitxKey_comma:      return shifted ? "<" : ",";
+    case FcitxKey_minus:      return shifted ? "_" : "-";
+    case FcitxKey_period:     return shifted ? ">" : ".";
+    case FcitxKey_slash:      return shifted ? "?" : "/";
+    case FcitxKey_semicolon:  return shifted ? ":" : ";";
+    case FcitxKey_equal:      return shifted ? "+" : "=";
+    case FcitxKey_bracketleft:  return shifted ? "{" : "[";
+    case FcitxKey_backslash:    return shifted ? "|" : "\\";
+    case FcitxKey_bracketright: return shifted ? "}" : "]";
+    default: return "";
+    }
+}
+
+// 半角 ASCII 标点 → 全角中文标点；非标点返回空串。
+std::string fullwidthPunct(const std::string &ascii) {
+    if (ascii.size() != 1) {
+        return "";
+    }
+    switch (ascii[0]) {
+    case ',': return "，";
+    case '.': return "。";
+    case ';': return "；";
+    case ':': return "：";
+    case '?': return "？";
+    case '!': return "！";
+    case '(': return "（";
+    case ')': return "）";
+    case '[': return "【";
+    case ']': return "】";
+    case '\\': return "、";
+    default: return "";
+    }
+}
+
 } // namespace
 
 // ---------------- PinyinIMEState ----------------
@@ -105,6 +173,8 @@ void PinyinIMEState::reset() {
     context_.clear();
     page_ = 0;
     maxPage_ = 0;
+    englishMode_ = false;
+    engBuf_.clear();
     inputContext_->inputPanel().reset();
     inputContext_->updatePreedit();
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -112,6 +182,16 @@ void PinyinIMEState::reset() {
 
 void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     FCITX_UNUSED(entry);
+
+    // 英文态：预编辑显示英文缓冲（不出现候选），整行由回车一次性上屏。
+    if (englishMode_) {
+        Text preeditText("英文: " + engBuf_);
+        inputContext_->inputPanel().reset();
+        inputContext_->inputPanel().setPreedit(preeditText);
+        inputContext_->updatePreedit();
+        inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
+        return;
+    }
 
     // 预编辑（当前敲的拼音）
     const std::string pre = context_.preedit();
@@ -187,6 +267,18 @@ void PinyinIMEState::flipPage(const InputMethodEntry &entry, int dir) {
         }
     }
     updateUI(entry);
+}
+
+void PinyinIMEState::commitPunctuation(const InputMethodEntry &entry,
+                                       const std::string &fullwidth) {
+    // 打拼音中：先上屏首选；空闲：直接上屏标点。与 CLI 的 select_and_commit 语义一致。
+    if (!context_.empty()) {
+        selectCandidate(entry, 0);
+    }
+    commitText(fullwidth);
+    if (!context_.empty()) {
+        refreshUI(entry);
+    }
 }
 
 // ---------------- PinyinIMEEngine ----------------
@@ -295,14 +387,70 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     auto *state = ic->propertyFor(&factory_);
     auto &ctx = state->context_;
 
-    // 组合键（Ctrl / Super / Alt）交给框架，本引擎不处理。
+    // 组合键（Ctrl / Super / Alt）交给框架，本引擎不处理（Shift 不算，需用于标点）。
     if (event.key().states().testAny(
             KeyStates{KeyState::Ctrl, KeyState::Super, KeyState::Alt})) {
         return;
     }
 
     const KeySym sym = event.key().sym();
+    const bool shifted = event.key().states().test(KeyState::Shift);
 
+    // ---- 中英切换（Tab）----
+    if (event.key().check(FcitxKey_Tab)) {
+        if (state->englishMode_) {
+            // 英文 → 中文：英文缓冲保留，仅切回（与 CLI 一致）。
+            state->englishMode_ = false;
+        } else {
+            // 中文 → 英文：清缓冲进入英文态（拼音仍保留在 context_，切回即恢复）。
+            state->englishMode_ = true;
+            state->engBuf_.clear();
+        }
+        state->refreshUI(entry);
+        event.filterAndAccept();
+        return;
+    }
+
+    // ---- 英文态 ----
+    if (state->englishMode_) {
+        if (event.key().check(FcitxKey_Escape)) {
+            // Esc：清缓冲并切回中文
+            state->engBuf_.clear();
+            state->englishMode_ = false;
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        if (event.key().check(FcitxKey_BackSpace)) {
+            if (!state->engBuf_.empty()) {
+                state->engBuf_.pop_back();
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        if (event.key().check(FcitxKey_Return)) {
+            // 回车：整行上屏
+            if (!state->engBuf_.empty()) {
+                state->commitText(state->engBuf_);
+                state->engBuf_.clear();
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        const std::string ascii = asciiFromKey(sym, shifted);
+        if (!ascii.empty()) {
+            state->engBuf_ += ascii;
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        // 英文态不认识的键：透传给应用。
+        return;
+    }
+
+    // ---- 中文态 ----
     // 退格：删一个拼音字符
     if (event.key().check(FcitxKey_BackSpace)) {
         if (!ctx.empty()) {
@@ -344,21 +492,45 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
-    // 翻页：- / , 上一页，= / . 下一页
-    if (event.key().check(FcitxKey_minus) ||
-        event.key().check(FcitxKey_comma)) {
+    // ---- 翻页 / 中文标点 / 引号智能配对 ----
+    const std::string ascii = asciiFromKey(sym, shifted);
+    const std::string fp = fullwidthPunct(ascii);
+
+    // 引号 "：开“/闭”交替（空闲上屏；打拼音中先上屏首选再出引号）
+    if (ascii == "\"") {
         if (!ctx.empty()) {
-            state->flipPage(entry, -1);
-            event.filterAndAccept();
+            state->selectCandidate(entry, 0);
         }
+        state->commitText(state->quoteOpen_ ? "”" : "“");
+        state->quoteOpen_ = !state->quoteOpen_;
+        state->refreshUI(entry);
+        event.filterAndAccept();
         return;
     }
-    if (event.key().check(FcitxKey_equal) ||
-        event.key().check(FcitxKey_period)) {
+
+    const bool prevKey = (ascii == "-" || ascii == "," || ascii == "[");
+    const bool nextKey = (ascii == "=" || ascii == "." || ascii == "]");
+
+    if (prevKey || nextKey) {
         if (!ctx.empty()) {
-            state->flipPage(entry, 1);
+            // 打拼音中：翻页
+            state->flipPage(entry, prevKey ? -1 : 1);
             event.filterAndAccept();
+            return;
         }
+        if (!fp.empty()) {
+            // 空闲：, . [ ] 上屏全角标点；- = 无标点映射则透传
+            state->commitPunctuation(entry, fp);
+            event.filterAndAccept();
+            return;
+        }
+        return; // 空闲 - = ：不消费，透传给应用
+    }
+
+    if (!fp.empty()) {
+        // 其余标点（; : ? ! ( ) \）：空闲直接上屏，打拼音中先上屏首选再出标点
+        state->commitPunctuation(entry, fp);
+        event.filterAndAccept();
         return;
     }
 
@@ -374,7 +546,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
-    // 其余键不处理（交给应用）；标点/中英切换等体验项见 README「未来优化方向」。
+    // 其余键不处理（交给应用）。
 }
 
 void PinyinIMEEngine::reset(const InputMethodEntry &entry,
