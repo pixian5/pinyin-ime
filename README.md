@@ -1,5 +1,7 @@
 # pinyin-ime
 
+> **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
+
 用 libime 做「好用的拼音输入法」。**M0 评测框架、Route A 语言模型实验、M3 纠错模块均已完成**，
 当前推进 **M1：最小可运行输入法**（`cpp/pinyin_ime_cli.cpp`，复用 libime 引擎的交互式命令行输入法，
 已打通「打字 → 候选 → 选词上屏」，headless 沙箱即可验证「能打字」）。路线决策与技术选型详见
