@@ -35,8 +35,9 @@
 //   含引号智能配对（“/”交替）；打拼音中按标点会先上屏首选再出标点；空闲按标点直接出标点）、
 //   光标左右移动（逐词分段：方向键按词边界移动候选光标）、
 //   Home/End（候选光标跳句首/句尾）、单引号智能配对（空闲‘/’交替，打拼音中仍是隔音符）、
-//   上屏即落盘（崩溃/被 kill 最多丢最后一次上屏的增量）。
-// 待实现（见 README「未来优化方向」）：表情、候选部首/偏旁检索、误上屏撤回、跨设备同步。
+//   上屏即落盘（崩溃/被 kill 最多丢最后一次上屏的增量）、表情（Ctrl-E 进入表情选择，
+//   1-9 选表情上屏，[,]/[.] 翻页，Esc 返回中文）。
+// 待实现（见 README「未来优化方向」）：候选部首/偏旁检索、误上屏撤回、跨设备同步。
 #include <cstdio>
 #include <cctype>
 #include <csignal>
@@ -107,7 +108,8 @@ void usage(const char *prog) {
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
-        << "候选翻页：逗号[,]/句号[.] 上一页/下一页；←/→ 逐词移动，Home/End 跳句首句尾\n";
+        << "候选翻页：逗号[,]/句号[.] 上一页/下一页；←/→ 逐词移动，Home/End 跳句首句尾\n"
+        << "表情：Ctrl-E 进入表情选择（1-9 选表情，[,]/[.] 翻页，Esc 返回中文）\n";
 }
 
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
@@ -213,6 +215,31 @@ std::string chinese_punct(char ch) {
 void output_line(const std::string &s) {
     std::cout << "\r\x1b[2K" << s << "\n";
     std::cout.flush();
+}
+
+// 表情：内置常用 emoji 候选（Ctrl-E 进入表情选择，1-9 选、[,]/[.] 翻页、Esc 返回中文）。
+// 仅保留「安全中性」的常用表情；码点用 \U/\u 转义写死，不依赖源码编码。
+struct EmojiEntry {
+    std::string glyph;
+    std::string label;
+};
+
+const std::vector<EmojiEntry> &emoji_list() {
+    static const std::vector<EmojiEntry> list = {
+        // 表情
+        {"\U0001F600", "大笑"}, {"\U0001F602", "笑哭"}, {"\U0001F60A", "微笑"},
+        {"\U0001F60D", "喜欢"}, {"\U0001F62D", "哭"},   {"\U0001F621", "生气"},
+        {"\U0001F914", "思考"}, {"\U0001F634", "困"},   {"\U0001F970", "爱慕"},
+        // 手势 / 常用
+        {"\U0001F44D", "赞"},   {"\U0001F44E", "踩"},   {"\U0001F44F", "鼓掌"},
+        {"\U0001F64F", "感谢"}, {"\U0001F4AA", "加油"}, {"\U0001F91D", "握手"},
+        {"\U0001F44C", "好的"}, {"\u2705", "完成"},     {"\u274C", "错误"},
+        // 其他
+        {"\u2600", "太阳"},     {"\u2B50", "星星"},     {"\u26A1", "闪电"},
+        {"\U0001F525", "火"},   {"\U0001F4A7", "水滴"}, {"\U0001F389", "庆祝"},
+        {"\U0001F381", "礼物"}, {"\U0001F3B5", "音乐"}, {"\U0001F339", "玫瑰"},
+    };
+    return list;
 }
 
 // ---- 交互模式（termios raw mode，Linux / BSD）----
@@ -489,6 +516,8 @@ int main(int argc, char **argv) {
     const size_t kPageSize = 9;  // 匹配 1-9 选字键
     size_t page = 0;
     bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
+    bool emojiMode = false;    // 表情选择：Ctrl-E 进入；1-9 选表情、[,]/[.] 翻页、Esc 返回
+    size_t emojiPage = 0;      // 表情当前页（每页 9 个）
     bool quoteOpen = false;    // 双引号智能配对：开“/闭”交替
     bool singleQuoteOpen = false;  // 单引号智能配对：开‘/闭’交替（空闲时；打拼音中仍是隔音符）
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
@@ -497,6 +526,20 @@ int main(int argc, char **argv) {
         std::cout << "\r\x1b[2K";  // 清当前行
         if (englishMode) {
             std::cout << "英文: " << (engBuf.empty() ? "_" : engBuf) << "  [Tab 切回中文]";
+            std::cout.flush();
+            return;
+        }
+        if (emojiMode) {
+            const auto &list = emoji_list();
+            const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / kPageSize;
+            if (emojiPage > maxPage) emojiPage = maxPage;
+            std::cout << "表情[" << (emojiPage + 1) << "/" << (maxPage + 1) << "]: ";
+            for (size_t i = emojiPage * kPageSize;
+                 i < std::min<size_t>(list.size(), emojiPage * kPageSize + kPageSize); ++i) {
+                std::cout << (i - emojiPage * kPageSize + 1) << "." << list[i].glyph
+                          << list[i].label << " ";
+            }
+            std::cout << "  [1-9 选 / ,. 翻页 / Esc 返回]";
             std::cout.flush();
             return;
         }
@@ -524,7 +567,7 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，←/→ 逐词移动光标，Home/End 跳句首句尾，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，Ctrl-C 退出\n";
     render();
 
     int key;
@@ -550,6 +593,24 @@ int main(int argc, char **argv) {
             } else if (ch >= 0x20 && ch < 0x7f) {  // 可打印 ASCII：原样入缓冲
                 engBuf.push_back(ch);
             }
+        } else if (emojiMode) {
+            char ch = static_cast<char>(key);
+            if (key == kKeyEsc || key == 0x05) {  // Esc / Ctrl-E：退回中文
+                emojiMode = false;
+            } else if (ch == ',' || ch == '[') {  // 上一页
+                if (emojiPage > 0) --emojiPage;
+            } else if (ch == '.' || ch == ']') {  // 下一页
+                const auto &l2 = emoji_list();
+                const size_t mp = l2.empty() ? 0 : (l2.size() - 1) / kPageSize;
+                if (emojiPage < mp) ++emojiPage;
+            } else if (ch >= '1' && ch <= '9') {  // 选当前页第 N 个表情
+                const auto &l3 = emoji_list();
+                size_t idx = emojiPage * kPageSize + static_cast<size_t>(ch - '1');
+                if (idx < l3.size()) {
+                    output_line(l3[idx].glyph);  // 上屏表情
+                    emojiMode = false;             // 选完退回中文
+                }
+            }
         } else if (key == kKeyEsc) {  // 中文模式 Esc：清空当前输入
             ctx.clear();
         } else if (key == kKeyLeft) {  // 左箭头：候选光标移到上一词边界（逐词分段）
@@ -574,7 +635,10 @@ int main(int argc, char **argv) {
             // ---- 中文模式（普通按键）----
             char ch = static_cast<char>(key);
             std::string punct = chinese_punct(ch);
-            if (ch == '\t') {  // Tab：切英文
+            if (ch == 0x05) {  // Ctrl-E：进入表情选择
+                emojiMode = true;
+                emojiPage = 0;
+            } else if (ch == '\t') {  // Tab：切英文
                 englishMode = true;
                 engBuf.clear();
             } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）

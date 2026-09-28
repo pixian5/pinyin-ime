@@ -850,3 +850,56 @@ C++/Python 纠错对拍一致均不回归。
 2. **M3 纠错接入交互态 + addon**（`cpp/pinyin_corrector` 已自包含）。
 3. **Fcitx5 addon 实机验收**。
 4. **输入体验**：表情、候选部首/偏旁检索、误上屏撤回、跨设备同步。
+## 开发进度（2026-09-28 · 第6轮：从零复现 + 表情输入，回归 20/20 + 14/14）
+
+本轮在新 headless 沙箱（openEuler 22.03 aarch64，/usr 可写、无 docker）从零复刻全套构建，
+并在「能打字」基础上新增一个输入体验项——**表情输入（Ctrl-E）**，CLI 侧落地 + pty 回归。
+
+### 从零复现（安装依赖 · 未用 docker）
+- **密钥落文件**：GitCode 访问令牌写入仓库外独立文件并 `chmod 600`（不入库、不外显）；
+  `git clone` 用 `https://oauth2:<token>@gitcode.com/...` 直连。
+- **工具链**：`scripts/setup_build_env.sh` 走 conda-forge（清华 tuna 镜像；华为云 conda-forge
+  镜像 repodata `.zst` 与 libmamba 不兼容、已弃，阿里云/腾讯云同路径 404——沿用 README 早前结论）；
+  micromamba / fcitx5 / libime / kenlm 等 GitHub / codeload 源走 mihomo 代理
+  `http://127.0.0.1:7890`（本回合代理就绪，未用镜像前缀）。本机检出 **gcc 16.2.0** + cmake 4.2.3 + ninja。
+- **引擎产物逐字节复现**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B，与 README 基线一致；
+  fcitx5 5.1.23 + libime 1.1.17（含 kenlm 子模块 + `lmplz`）。
+
+### 表情输入（Ctrl-E，新功能，CLI 侧）
+- 库内置 **27 个「安全中性」常用表情**（分 3 页、每页 9 个），码点用 `\U/\u` 转义写死在
+  `pinyin_ime_cli.cpp`（`emoji_list()`），不引入额外数据文件、不依赖运行时资源。
+- 交互模式按 **Ctrl-E** 进入表情选择——状态行显示 `表情[1/3]: 1.😀大笑 2.😂笑哭 …`；
+  `1-9` 选表情直接上屏并自动退回中文，`,`/`[` 上一页、`.`/`]` 下一页，`Esc`/`Ctrl-E` 退回中文
+  （拼音 context 不清空，退回即恢复）。
+- 纯前端（复用现有 `output_line` 上屏通道），不触碰 libime 解码管线、无需重建引擎；
+  addon 侧迁移留待下一轮（与中英切换/中文标点/引号配对的「先 CLI 后 addon」路径一致）。
+
+### 回归护栏（全绿）
+`smoke_test.sh` **20/20**（全拼/简拼/模糊音/双拼）、`test_interactive.py` **14/14**
+（新增 ⑬ 表情选中 😀、⑭ 表情翻页选 👍 两例）、C++ 纠错对拍自检通过（`senme→shen'me`、
+`zongguo→zhong'guo`；`--correct` 端到端 `senme→什么`）、`libpinyinime.so` 编译 + 工厂符号
+`fcitx_addon_factory_instance_pinyinime` 导出正常。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+bash scripts/smoke_test.sh                                  # 20 例
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 14 例
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Fcitx5 addon 实机验收** + **表情 addon 迁移**：编译 + 符号导出已通过，剩余带显示服务器的
+   桌面机实测（headless 沙箱无显示服务器）；把 CLI 的表情选择同步迁到 `pinyinime.cpp` 的 `keyEvent`。
+2. **LM 域插值/集成**：把对话倾向 LM 与官方 `zh_CN.lm` 做分数插值（域自适应），不引入新闻语料
+   的前提下两域兼得（承接第 5 轮结论）。
+3. **M3 纠错接入交互态**：`pinyin_corrector` 已自包含 C++，可接进 CLI 交互态 / addon（需处理
+   与简拼的分歧——纠错只对「全拼 + 打错」生效、不误伤简拼）。
+4. **输入体验**：候选部首/偏旁检索、误上屏撤回、跨设备同步。
