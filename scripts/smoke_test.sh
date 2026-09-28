@@ -44,6 +44,10 @@ iifj|吃饭
 jiuu|技术
 wouiyige|我是一个"
 
+# 隔离用户数据目录：测试之间不得互相 learn() 污染默认目录（否则候选排序漂移导致烟测不稳）。
+UD="${SMOKE_UD:-$(mktemp -d "${TMPDIR:-/tmp}/pinyin-ime-smoke-ud.XXXXXX")}"
+trap 'rm -rf "$UD"' EXIT
+
 pass=0
 fail=0
 
@@ -51,7 +55,7 @@ fail=0
 run_case() {
     local pin="$1" want="$2"; shift 2
     local top
-    top="$(printf '%s\n' "$pin" | "$CLI" "$@" "$LM" "$DICT" 5 2>/dev/null | cut -f1)"
+    top="$(printf '%s\n' "$pin" | "$CLI" --user-data "$UD" "$@" "$LM" "$DICT" 5 2>/dev/null | cut -f1)"
     if [ "$top" = "$want" ]; then
         printf '  PASS  %-20s -> %s\n' "$pin" "$top"
         pass=$((pass + 1))

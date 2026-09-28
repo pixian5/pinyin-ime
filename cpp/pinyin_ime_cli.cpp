@@ -57,6 +57,7 @@
 #include <libime/pinyin/pinyinime.h>
 #include <libime/pinyin/shuangpinprofile.h>
 
+#include "emoji_list.h"
 #include "pinyin_corrector.h"
 
 #ifdef __unix__
@@ -215,31 +216,6 @@ std::string chinese_punct(char ch) {
 void output_line(const std::string &s) {
     std::cout << "\r\x1b[2K" << s << "\n";
     std::cout.flush();
-}
-
-// 表情：内置常用 emoji 候选（Ctrl-E 进入表情选择，1-9 选、[,]/[.] 翻页、Esc 返回中文）。
-// 仅保留「安全中性」的常用表情；码点用 \U/\u 转义写死，不依赖源码编码。
-struct EmojiEntry {
-    std::string glyph;
-    std::string label;
-};
-
-const std::vector<EmojiEntry> &emoji_list() {
-    static const std::vector<EmojiEntry> list = {
-        // 表情
-        {"\U0001F600", "大笑"}, {"\U0001F602", "笑哭"}, {"\U0001F60A", "微笑"},
-        {"\U0001F60D", "喜欢"}, {"\U0001F62D", "哭"},   {"\U0001F621", "生气"},
-        {"\U0001F914", "思考"}, {"\U0001F634", "困"},   {"\U0001F970", "爱慕"},
-        // 手势 / 常用
-        {"\U0001F44D", "赞"},   {"\U0001F44E", "踩"},   {"\U0001F44F", "鼓掌"},
-        {"\U0001F64F", "感谢"}, {"\U0001F4AA", "加油"}, {"\U0001F91D", "握手"},
-        {"\U0001F44C", "好的"}, {"\u2705", "完成"},     {"\u274C", "错误"},
-        // 其他
-        {"\u2600", "太阳"},     {"\u2B50", "星星"},     {"\u26A1", "闪电"},
-        {"\U0001F525", "火"},   {"\U0001F4A7", "水滴"}, {"\U0001F389", "庆祝"},
-        {"\U0001F381", "礼物"}, {"\U0001F3B5", "音乐"}, {"\U0001F339", "玫瑰"},
-    };
-    return list;
 }
 
 // ---- 交互模式（termios raw mode，Linux / BSD）----
@@ -491,7 +467,7 @@ int main(int argc, char **argv) {
         while (std::getline(std::cin, line)) {
             ctx.clear();
             // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
-            if (correctPinyin) {
+            if (correctPinyin && pinyin_corrector::is_full_pinyin(line)) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
@@ -655,6 +631,23 @@ int main(int argc, char **argv) {
                     if (page < maxPage) ++page;
                 }
             } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
+                // --correct 交互态：整串纠错后上屏（只对「全拼打错」生效；简拼/无法解析
+                // 的输入由 corrector 返回 nullopt 自动跳过，不误伤简拼）。
+                if (correctPinyin && !ctx.empty()) {
+                    std::string cont;
+                    // preedit 音节间可能带空格（显示 "sen me"）、隔音符 xi'an 带 '，都滤掉。
+                    for (char c : ctx.preedit()) {
+                        if (c != '\'' && c != ' ') cont.push_back(c);
+                    }
+                    if (!cont.empty() && pinyin_corrector::is_full_pinyin(cont)) {
+                        std::string fixed = pinyin_corrector::correct_to_string(cont);
+                        if (!fixed.empty() && fixed != cont) {
+                            page = 0;
+                            ctx.clear();
+                            for (char c : fixed) ctx.type(std::string(1, c));
+                        }
+                    }
+                }
                 commit(0);
             } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
                 commit(page * kPageSize + static_cast<size_t>(ch - '1'));

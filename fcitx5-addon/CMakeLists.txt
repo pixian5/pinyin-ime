@@ -9,7 +9,7 @@
 #
 # 实机（Ubuntu 26.04）用法见 README「Fcitx5 addon：实机安装」。
 cmake_minimum_required(VERSION 3.16)
-project(pinyinime VERSION 0.3.0 LANGUAGES CXX)
+project(pinyinime VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,7 +30,9 @@ target_link_libraries(pinyinime PRIVATE
     LibIME::Pinyin
     LibIME::Core)
 
-target_include_directories(pinyinime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(pinyinime PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../cpp)  # 共享 emoji_list.h
 
 install(TARGETS pinyinime DESTINATION "${FCITX_INSTALL_ADDONDIR}")
 

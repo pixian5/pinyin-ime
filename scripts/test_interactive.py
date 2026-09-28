@@ -37,14 +37,18 @@ def send(fd, text, delay=0.18):
     os.write(fd, text.encode("utf-8"))
 
 
-def run_case(cli, lm, dct, script, expect):
+def run_case(cli, lm, dct, script, expect, extra_args=None, ud=None):
     """script 是一段逐步执行的元组：('send', str) 或 ('sleep', sec)。
-    expect 是必须按序出现（可跨步）的子串列表。"""
+    expect 是必须按序出现（可跨步）的子串列表。
+    extra_args 是传给 pinyin_ime_cli 的额外参数（如 --correct）。"""
     master, slave = pty.openpty()
     env = dict(os.environ)
     env["TERM"] = "xterm"
+    # 每个用例独立用户目录，避免 learn() 交叉污染（否则候选排序漂移、烟测不稳）。
+    argv = [cli, "--user-data", ud or tempfile.mkdtemp(prefix="pinyin-ime-ud."),
+          lm, dct, "5"] + (extra_args or [])
     proc = subprocess.Popen(
-        [cli, lm, dct, "5"],
+        argv,
         stdin=slave, stdout=slave, stderr=slave,
         env=env, close_fds=True,
     )
@@ -85,7 +89,15 @@ def main():
         print("用法: test_interactive.py <pinyin_ime_cli> <zh_CN.lm> <sc.dict>", file=sys.stderr)
         return 2
     cli, lm, dct = sys.argv[1], sys.argv[2], sys.argv[3]
+    import tempfile, shutil
+    ud = tempfile.mkdtemp(prefix="pinyin-ime-interactive-ud.")
+    try:
+        return _run_all(cli, lm, dct, ud)
+    finally:
+        shutil.rmtree(ud, ignore_errors=True)
 
+
+def _run_all(cli, lm, dct, ud):
     cases = [
         # 每项 = (按键脚本, 期望按序出现的子串列表)
         # ① 全拼整句 + 空格上屏
@@ -135,11 +147,22 @@ def main():
         # ⑭ 表情翻页：Ctrl-E 进入，. 翻到第 2 页，按 1 选 👍
         ([("send", "\x05"), ("send", "."), ("send", "1"), ("sleep", 0.2)],
          ["👍"]),
+        # ⑮ 交互态纠错（--correct）：senme 打错 → 上屏「什么」（无 --correct 会是「森么」）
+        ([("send", "senme"), ("send", " "), ("sleep", 0.3)],
+         ["「什么」"], ["--correct"]),
+        # ⑯ 交互态纠错（--correct）：zongguo 打错 → 上屏「中国」（无纠正会是「宗国」）
+        ([("send", "zongguo"), ("send", " "), ("sleep", 0.3)],
+         ["「中国」"], ["--correct"]),
+        # ⑰ 交互态纠错不误伤简拼（--correct）：zg 首字母输入 → 仍「中国」
+        ([("send", "zg"), ("send", " "), ("sleep", 0.3)],
+         ["「中国」"], ["--correct"]),
     ]
 
     ok = 0
-    for script, expect in cases:
-        if run_case(cli, lm, dct, list(script), list(expect)):
+    for item in cases:
+        script, expect = item[0], item[1]
+        extra = item[2] if len(item) > 2 else None
+        if run_case(cli, lm, dct, list(script), list(expect), extra, ud):
             ok += 1
     total = len(cases)
     print(f"==== 交互回归：{ok}/{total} 通过 ====")

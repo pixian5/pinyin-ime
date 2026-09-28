@@ -53,6 +53,35 @@ public:
         pool_[node].end = true;
     }
 
+    // 是否能用「零编辑」把 query 完整切分为合法音节（即已是全拼）。
+    // 简拼（整串含无法成音节的声母如 bjdx）/双拼/混合输入返回 false。
+    bool canSegmentZeroEdit(const std::string &q) const {
+        const size_t n = q.size();
+        std::vector<char> reach(n + 1, 0);
+        reach[0] = 1;
+        for (size_t i = 0; i < n; ++i) {
+            if (!reach[i]) {
+                continue;
+            }
+            int node = 0;
+            for (size_t j = i; j < n; ++j) {
+                int c = static_cast<int>(q[j] - 'a');
+                if (c < 0 || c >= 26) {
+                    break;
+                }
+                int child = pool_[node].next[c];
+                if (child < 0) {
+                    break;
+                }
+                node = child;
+                if (pool_[node].end) {
+                    reach[j + 1] = 1;
+                }
+            }
+        }
+        return reach[n] != 0;
+    }
+
     // 返回 (音节字符串, 单元编辑距离) 列表，编辑距离 ≤ maxDist。
     std::vector<std::pair<std::string, int>>
     search_within_edit_distance(const std::string &query, int maxDist) const {
@@ -340,6 +369,10 @@ std::optional<std::vector<std::string>> correct(const std::string &pinyin,
         if (top == nullptr || stateBetter(st, *top)) top = &st;
     }
     return top->path;
+}
+
+bool is_full_pinyin(const std::string &pinyin) {
+    return model().trie.canSegmentZeroEdit(pinyin);
 }
 
 std::string correct_to_string(const std::string &pinyin, int maxDist) {

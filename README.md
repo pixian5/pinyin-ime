@@ -903,3 +903,77 @@ cmake --build fcitx5-addon/build
 3. **M3 纠错接入交互态**：`pinyin_corrector` 已自包含 C++，可接进 CLI 交互态 / addon（需处理
    与简拼的分歧——纠错只对「全拼 + 打错」生效、不误伤简拼）。
 4. **输入体验**：候选部首/偏旁检索、误上屏撤回、跨设备同步。
+
+## 开发进度（2026-09-28 · 第7轮：M3 纠错接入交互态 + 表情迁 Fcitx5 addon，回归 20/20 + 17/17）
+
+本轮在全新 headless 沙箱又从零复现全套构建（未用 docker），并按上一轮「未来优化方向」落实两项：
+**M3 纠错接入交互态**（`--correct` 现在对交互模式生效）与**表情迁到 Fcitx5 addon**（CLI/addon 共用表情表）。
+
+### 从零构建（安装依赖 · 未用 docker）
+- conda 源走清华 tuna 镜像；micromamba / fcitx5 / libime / kenlm 等 GitHub/codeload 源走 mihomo 代理
+  `http://127.0.0.1:7890`。工具链检出 **gcc 16.2.0** + cmake + ninja。
+- 引擎产物**逐字节复现**基线：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B；
+  fcitx5 5.1.23 + libime 1.1.17（含 kenlm + `lmplz`）。
+
+### 特性① M3 纠错接入交互态（`--correct`，CLI 侧）
+- 此前 `--correct` 只对**行模式**生效；本轮在交互模式「空格/回车」分支接入同一套 C++ 纠错
+  （`cpp/pinyin_corrector`，无 Python 依赖）：上屏前先取 `ctx.preedit()` 整串纠错，
+  若结果不同则清空重输再 commit 首选。
+- **新增 `is_full_pinyin()` 门控**（`cpp/pinyin_corrector.h/.cpp`）：只有「零编辑可完整切分」的
+  全拼输入才值得纠错；简拼（`bjdx`/`zg`）、双拼、混合输入（`bjdaxue`）由门控挡下，绝不误伤。
+  - 实现：`SyllableTrie::canSegmentZeroEdit()` 简单 reachability DP（420 音节表），零额外依赖。
+  - 坑：交互态 `ctx.preedit()` 音节间带空格（渲染 `sen me`），必须先滤空格与隔音符 `'` 再判定，
+    否则 `is_full_pinyin("sen me")` 恒 false、纠错静默失效（已修复并有回归用例覆盖）。
+- **边界（诚实）**：`zhing`（想打 zhong 但 i/o 打错且结构不成音节）这类「零编辑切分失败」的重错
+  全拼仍会被门控挡下、按原样解码，不做纠正——这是「绝不误伤简拼/混合输入」的安全取舍；
+  常见「合法音节内打错」如 `senme→shen'me`、`zongguo→zhong'guo` 均正常命中。
+- 回归：交互 14 → **17 例**（⑮`senme`→「什么」 ⑯`zongguo`→「中国」 ⑰`zg` 简拼不被误伤）。
+
+### 特性② 表情迁到 Fcitx5 addon（+ 共享表情表）
+- 抽出共享头 `cpp/emoji_list.h`（27 个安全中性常用表情 + `emoji_list()`），CLI 与 addon 双侧复用，
+  消除「CLI 内置、addon 无法复用」的重复实现。
+- addon 侧新增 **Ctrl-E 表情选择**：拦截点放在 `keyEvent` 的「Ctrl/Alt/Super 组合键交给框架」守卫
+  **之前**（否则 Ctrl-E 会被框架吃掉）；进入后 1-9 选表情、`,`/`[` 上一页、`.`/`]` 下一页、
+  `Esc`/Ctrl-E 退出；表情态渲染走 `updateUI` 的 preedit 页签 + 候选列表，选中走 `commitText`。
+- 验证：`libpinyinime.so` 编译通过，工厂符号 `fcitx_addon_factory_instance_pinyinime` 导出正常，
+  `pinyinime.conf` 生成正确。实机交互待桌面机验收（headless 无显示服务器）。
+
+### 测试基建修复：隔离用户数据目录（重要）
+- 发现：pty 交互回归会 `learn()` 上屏内容到**默认用户目录** `~/.local/share/pinyin-ime`；本回合
+  新用例曾把错误候选（森么/笔记大）learn 进去，导致同一沙箱内第二次跑 `smoke_test.sh` 从
+  **20/20 漂到 18/20**（`bjdx` top1 变「笔记大小」、模糊音 `senme` top1 变「森么」）——不是引擎回归，
+  是测试交叉污染。
+- 修复：`smoke_test.sh` 与 `test_interactive.py` 均改用一次性隔离 `--user-data` 目录（`mktemp -d` +
+  退出清理），测试之间、测试与真实用户数据之间互不污染。这也是「能真正跑起来的输入法」的
+  可重复验证保障。
+
+### 回归护栏（全绿）
+`smoke_test.sh` **20/20**、`test_interactive.py` **17/17**、C++/Python 纠错对拍 exit 0、
+行模式 `--correct`（`senme→什么` / `zongguo→中国` / `bjdx`/`zg` 不被改）、
+Python 纠错单测 20/20、`libpinyinime.so` 编译 + 工厂符号导出正常。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+bash scripts/smoke_test.sh                                  # 20 例
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 17 例（含交互纠错）
+./cpp/build/pinyin_corrector_test                            # C++/Python 对拍（exit 0）
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build                             # addon（含表情）
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Fcitx5 addon 实机验收**（含表情/纠错）：编译 + 符号导出均通过，剩余带显示服务器的桌面机实测
+   （headless 沙箱无显示服务器）；把交互态纠错也迁到 `pinyinime.cpp`（addon 侧 `--correct` 无开关，
+   需配置项 `EnableCorrect`）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：把对话倾向 LM（33% 口语 + 67% 维基，98MB）与官方
+   `zh_CN.lm` 做分数插值，不引入新闻语料前提下两域兼得。
+3. **输入体验**：候选部首/偏旁检索、误上屏撤回、跨设备同步（用户词库，PLAN-A §4②）。
+4. **纠错边界扩展**：`zhing` 这类「零编辑切分失败」的重错全拼，评估在门控内加「代价阈值 + 含元音」
+   的二级判定（当前严格门控为安全优先，暂不放开）。

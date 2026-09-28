@@ -16,6 +16,10 @@ namespace pinyin_corrector {
 std::optional<std::vector<std::string>> correct(const std::string &pinyin,
                                                 int maxDist = 2);
 
+// 判断是否为「零编辑可完整切分」的全拼输入（简拼/双拼/混合输入返回 false）。
+// 供解码前端使用：只有真全拼才值得做纠错，避免把简拼误纠成其他全拼。
+bool is_full_pinyin(const std::string &pinyin);
+
 // 便捷封装：纠正后串成 `'` 分隔字符串（供解码前端）；失败返回空串。
 std::string correct_to_string(const std::string &pinyin, int maxDist = 2);
 

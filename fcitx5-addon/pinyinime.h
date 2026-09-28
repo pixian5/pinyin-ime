@@ -74,6 +74,9 @@ public:
     bool quoteOpen_ = false;
     bool singleQuoteOpen_ = false;
     std::string engBuf_;
+    // 表情选择（Ctrl-E）：1-9 选表情，[,]/[.] 翻页，Esc/Ctrl-E 返回中文。
+    bool emojiMode_ = false;
+    size_t emojiPage_ = 0;
 
     size_t pageSize() const;
     // 上屏一段已提交文本（整句 / 英文整行 / 标点），清面板并 commitString。

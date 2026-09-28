@@ -24,6 +24,8 @@
 
 #include <libime/pinyin/pinyinencoder.h>
 
+#include "emoji_list.h"
+
 namespace fcitx {
 
 namespace {
@@ -182,6 +184,36 @@ void PinyinIMEState::reset() {
 
 void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     FCITX_UNUSED(entry);
+
+    // 表情选择态：预编辑显示页签，候选列出当前页表情（数字选字在 keyEvent 处理）。
+    if (emojiMode_) {
+        const auto &list = emoji_list();
+        const size_t ps = pageSize();
+        const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / ps;
+        if (emojiPage_ > maxPage) {
+            emojiPage_ = maxPage;
+        }
+        Text preeditText("表情[" + std::to_string(emojiPage_ + 1) + "/" +
+                         std::to_string(maxPage + 1) + "]");
+        auto candidateList = std::make_unique<CommonCandidateList>();
+        const size_t begin = emojiPage_ * ps;
+        const size_t end = std::min<size_t>(list.size(), begin + ps);
+        for (size_t i = begin; i < end; ++i) {
+            candidateList->append<DisplayOnlyCandidateWord>(
+                Text(list[i].glyph + " " + list[i].label));
+        }
+        candidateList->setPageSize(static_cast<int>(ps));
+        candidateList->setSelectionKey(selectionKeys_);
+        candidateList->setCursorIncludeUnselected(true);
+        candidateList->setCursorIndex(0);
+
+        inputContext_->inputPanel().reset();
+        inputContext_->inputPanel().setPreedit(preeditText);
+        inputContext_->inputPanel().setCandidateList(std::move(candidateList));
+        inputContext_->updatePreedit();
+        inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
+        return;
+    }
 
     // 英文态：预编辑显示英文缓冲（不出现候选），整行由回车一次性上屏。
     if (englishMode_) {
@@ -388,6 +420,21 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     auto *state = ic->propertyFor(&factory_);
     auto &ctx = state->context_;
 
+    // Ctrl-E：进入/退出 表情选择（必须在「组合键交给框架」守卫之前拦截；
+    // 其余 Ctrl / Super / Alt 组合键仍交给框架）。
+    if (event.key().check(FcitxKey_E) &&
+        event.key().states().test(KeyState::Ctrl) &&
+        !event.key().states().testAny(
+            KeyStates{KeyState::Super, KeyState::Alt})) {
+        state->emojiMode_ = !state->emojiMode_;
+        if (state->emojiMode_) {
+            state->emojiPage_ = 0;
+        }
+        state->refreshUI(entry);
+        event.filterAndAccept();
+        return;
+    }
+
     // 组合键（Ctrl / Super / Alt）交给框架，本引擎不处理（Shift 不算，需用于标点）。
     if (event.key().states().testAny(
             KeyStates{KeyState::Ctrl, KeyState::Super, KeyState::Alt})) {
@@ -452,6 +499,51 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     }
 
     // ---- 中文态 ----
+    // 表情选择态：1-9 选表情、[,]/[.] 翻页、Esc 退出（Ctrl-E 已在上方守卫前处理）。
+    if (state->emojiMode_) {
+        const auto &list = emoji_list();
+        const size_t ps = state->pageSize();
+        if (event.key().check(FcitxKey_Escape)) {
+            state->emojiMode_ = false;
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        if (event.key().check(FcitxKey_comma) ||
+            event.key().check(FcitxKey_bracketleft)) {
+            if (state->emojiPage_ > 0) {
+                --state->emojiPage_;
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        if (event.key().check(FcitxKey_period) ||
+            event.key().check(FcitxKey_bracketright)) {
+            const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / ps;
+            if (state->emojiPage_ < maxPage) {
+                ++state->emojiPage_;
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        if (sym >= FcitxKey_1 && sym <= FcitxKey_9) {
+            const size_t idx = state->emojiPage_ * ps +
+                               static_cast<size_t>(sym - FcitxKey_1);
+            if (idx < list.size()) {
+                state->commitText(list[idx].glyph);
+                state->emojiMode_ = false;
+            }
+            state->refreshUI(entry);
+            event.filterAndAccept();
+            return;
+        }
+        // 表情态的其他键：吃掉，不交给应用。
+        event.filterAndAccept();
+        return;
+    }
+
     // 退格：删一个拼音字符
     if (event.key().check(FcitxKey_BackSpace)) {
         if (!ctx.empty()) {
