@@ -35,3 +35,10 @@ bench/corpus_probe/
 
 # Fcitx5 addon 安装产物（DESTDIR 打包验证，不入库）
 fcitx5-addon/stage/
+
+# Xvfb 实测构建目录与测试二进制（源码 tools/*.c 入库，二进制不入库）
+fcitx5-addon/build-*/
+tools/xim_test_client
+tools/keysend_target
+tools/xim_test_client.o
+tools/keysend_target.o

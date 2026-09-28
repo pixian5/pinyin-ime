@@ -45,7 +45,9 @@ FCITX_CONFIGURATION(
         this, "UserDataDir", _("User data directory"),
         "~/.local/share/pinyin-ime"};
     Option<bool> enableFuzzy{this, "EnableFuzzy", _("Enable fuzzy pinyin"),
-                             false};);
+                             false};
+    Option<bool> enableCorrect{
+        this, "EnableCorrect", _("Enable M3 spelling correction"), false};);
 
 class PinyinIMEEngine;
 

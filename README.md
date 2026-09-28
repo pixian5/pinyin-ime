@@ -1070,3 +1070,55 @@ bash scripts/xvfb_ime_test.sh             # 11 用例断言
 3. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值。
 4. **候选体验**：候选窗内水平移动选字、部首/偏旁检索。
 5. **把 Xvfb 实测纳入 CI 门禁**：`scripts/xvfb_ime_test.sh` 可作为 addon 变更后的自动回归。
+
+
+## 开发进度（2026-09-28 · 第9轮：M3 纠错接入 Fcitx5 addon（EnableCorrect），Xvfb 实测 14/14）
+
+承接第 7 轮「CLI 已实现 `--correct`」与第 8 轮「Xvfb 虚拟桌面实测」，本轮把 **M3 纠错正式接进
+Fcitx5 addon**，让系统级输入法也具备容错纠错能力，并当场修复了「无 DBus 时 addon 配置不加载」
+的隐藏问题。
+
+### 实现
+- **配置项**：`PinyinIMEConfig` 新增 `EnableCorrect`（默认 false，与 CLI `--correct` 默认关一致）。
+- **keyEvent 空格/回车分支**：`EnableCorrect` 开启且当前拼音是「全拼」时，解码前先经
+  `pinyin_corrector::correct_to_string()` 整串纠正再上屏；`is_full_pinyin()` 门控保证
+  简拼 / 双拼 / 混合输入不误伤（与 CLI 同一套 C++ 纠错，语义一致）。
+- **CMake**：addon 编译源纳入 `../cpp/pinyin_corrector.cpp`（此前仅编译 CLI 侧）。
+
+### 关键发现：无 DBus 时 addon 配置根本不会加载
+- fcitx5 的 addon 用户配置（`conf/pinyinime.conf`）默认由 **DBus 模块的 `SetConfig`** 载入
+  （`dbusmodule.cpp` 里 `addonInstance->setConfig(...)` 是唯一调用点）；本沙箱 fcitx5 以
+  `ENABLE_DBUS=Off` 构建 → 无 DBus 模块 → `setConfig` 永不被调用 → `EnableCorrect`/`DataDir`
+  等配置项全部保持代码默认值。
+- **修复**：addon 构造函数里显式 `reloadConfig()`（它本就会 `readAsIni(config_, "conf/pinyinime.conf")`
+  读用户配置），使配置加载独立于 DBus。这也是「无 DBus 环境」下 addon 自包含的必要步骤。
+- **附带修正**：fcitx5 的 ini 配置格式是**顶层叶子 `Name=Value`**（bool 序列化为 `True/False`），
+  不是 `[Name]` 块 + `value=`。此前第 8 轮写 conf 的 `[DataDir]` 块格式无效，一直靠
+  `/usr/lib64/libime` 软链兜底；本轮一并更正为 `DataDir=<path>` 形式。
+
+### 实测结果（Xvfb :99 · EnableCorrect=True，`scripts/xvfb_ime_test.sh`）
+在上一轮 11 例基础上，新增 3 例纠错相关与配置回归：
+
+| 新增用例 | 上屏 | 结果 |
+|---|---|---|
+| M3 纠错 senme → 什么 | 什么 | ✅ |
+| M3 纠错 zongguo → 中国 | 中国 | ✅ |
+| 纠错不误伤简拼 zg | 中国 | ✅ |
+
+**Xvfb 实测 14/14**；CLI 侧回归不受影响：`smoke_test.sh` 20/20、`test_interactive.py` 17/17、
+C++/Python 纠错对拍 exit 0。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+bash scripts/xvfb_ime_test.sh        # 起环境 + 写 conf(EnableCorrect=True) + 14 例断言
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Wayland 前端 / 真桌面最终验收**：XIM（X11）链路已实测通过；补 `ENABLE_DBUS=On` +
+   fcitx5-gtk/qt im module，在带 DBus 与真实桌面的环境做最终验证（含配置经 DBus 载入的路径）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+3. **候选体验**：候选窗内水平移动选字、部首/偏旁检索、误上屏撤回。
+4. **纠错边界扩展**：`zhing` 这类「零编辑切分失败」的重错全拼（第 7 轮已声明的边界）。
+5. **Xvfb 实测纳入 CI 门禁**：`scripts/xvfb_ime_test.sh` 已可一键跑，建议接入 addon 变更后的自动回归。

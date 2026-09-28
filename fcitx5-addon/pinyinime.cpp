@@ -25,6 +25,7 @@
 #include <libime/pinyin/pinyinencoder.h>
 
 #include "emoji_list.h"
+#include "pinyin_corrector.h"
 
 namespace fcitx {
 
@@ -327,6 +328,10 @@ PinyinIMEEngine::PinyinIMEEngine(Instance *instance)
     // （对照官方 keyboard addon 的 registerProperty("keyboardState", ...)）
     instance_->inputContextManager().registerProperty("pinyinimeState",
                                                       &factory_);
+    // fcitx5 的 addon 用户配置（conf/pinyinime.conf）默认由 DBus 模块 SetConfig
+    // 载入；无 DBus 构建（如 headless Xvfb 实测）不会走该路径，故显式读取一次，
+    // 使 EnableCorrect/DataDir/UserDataDir 等配置独立于 DBus 生效。
+    reloadConfig();
 }
 
 PinyinIMEEngine::~PinyinIMEEngine() { saveUserData(); }
@@ -624,6 +629,26 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_space) ||
         event.key().check(FcitxKey_Return)) {
         if (!ctx.empty()) {
+            // M3 纠错（EnableCorrect）：全拼打错时解码前整串纠正。is_full_pinyin
+            // 门控保证简拼/双拼/混合输入不误伤（与 CLI --correct 语义一致）。
+            if (config().enableCorrect.value()) {
+                std::string cont;
+                for (char c : ctx.preedit()) {
+                    if (c != '\'' && c != ' ') {
+                        cont.push_back(c);
+                    }
+                }
+                if (!cont.empty() && pinyin_corrector::is_full_pinyin(cont)) {
+                    std::string fixed = pinyin_corrector::correct_to_string(cont);
+                    if (!fixed.empty() && fixed != cont) {
+                        state->page_ = 0;
+                        ctx.clear();
+                        for (char c : fixed) {
+                            ctx.type(std::string(1, c));
+                        }
+                    }
+                }
+            }
             state->selectCandidate(entry, 0);
             event.filterAndAccept();
         }

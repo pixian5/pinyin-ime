@@ -9,7 +9,7 @@
 #
 # 实机（Ubuntu 26.04）用法见 README「Fcitx5 addon：实机安装」。
 cmake_minimum_required(VERSION 3.16)
-project(pinyinime VERSION 0.5.0 LANGUAGES CXX)
+project(pinyinime VERSION 0.6.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,7 +21,7 @@ find_package(LibIMEPinyin REQUIRED)
 
 set(PINYINIME_VERSION ${PROJECT_VERSION})
 
-add_fcitx5_addon(pinyinime pinyinime.cpp)
+add_fcitx5_addon(pinyinime pinyinime.cpp ../cpp/pinyin_corrector.cpp)
 
 target_link_libraries(pinyinime PRIVATE
     Fcitx5::Core

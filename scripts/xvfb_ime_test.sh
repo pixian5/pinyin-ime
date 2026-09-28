@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # 虚拟桌面（Xvfb）实测 pinyinime addon：一键跑完整用例矩阵并断言。
 #
-# 覆盖：全拼 / 简拼 / 中英切换 / 中文标点 / 引号配对 / Ctrl-E 表情（含翻页）/ 打拼音中先上屏再标点。
+# 覆盖：全拼 / 简拼 / 中英切换 / 中文标点 / 引号配对 / Ctrl-E 表情（含翻页）
+#       打拼音中先上屏再标点 / M3 纠错（EnableCorrect）/ 简拼不误伤。
 # 用法：bash scripts/xvfb_ime_test.sh
 # 环境：NB（native-build 根），需要已构建 fcitx5-x11 + pinyinime addon + tools/xim_test_client。
 set -uo pipefail
 NB="${NB:-/root/workspace/native-build}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# 用户配置：指向编译产物数据路径，并开启 M3 纠错（实测代理 eng 态下验证）。
+mkdir -p ~/.config/fcitx5/conf
+cat > ~/.config/fcitx5/conf/pinyinime.conf <<EOF
+DataDir=$NB/opt/libime/lib
+UserDataDir=/tmp/pinyin-ime-x11-ud
+EnableCorrect=True
+EOF
 
 bash scripts/xvfb_test_env.sh start > /dev/null 2>&1
 
@@ -40,6 +49,9 @@ check "引号配对 “ ”"         '\S""'             "”"
 check "Ctrl-E 表情 😀"        '\S\x05\1'         "😀"
 check "Ctrl-E 翻页 👍"        '\S\x05.\1'        "👍"
 check "打拼音中先上屏再标点"  '\Szhongguo!'      "中国！"
+check "M3 纠错 senme→什么"    '\Ssenme\s'        "什么"
+check "M3 纠错 zongguo→中国"  '\Szongguo\s'      "中国"
+check "纠错不误伤简拼 zg"     '\Szg\s'           "中国"
 
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]
