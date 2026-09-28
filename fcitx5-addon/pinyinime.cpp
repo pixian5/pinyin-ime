@@ -233,8 +233,8 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         preeditText.setCursor(static_cast<int>(cursorPos));
     }
 
-    // 候选（当前页）
-    auto candidateList = std::make_unique<CommonCandidateList>();
+    // 候选（当前页）——仅在确实有候选时设置；空列表配 cursorIndex=0 会让
+    // classicui 渲染时 candidateFromIndex(0) abort（实机崩溃，虚拟桌面实测发现）。
     const auto &cands = context_.candidatesToCursor();
     const size_t ps = pageSize();
     if (page_ > maxPage_) {
@@ -242,18 +242,22 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     }
     const size_t begin = page_ * ps;
     const size_t end = std::min<size_t>(cands.size(), begin + ps);
-    for (size_t i = begin; i < end; ++i) {
-        // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
-        candidateList->append<DisplayOnlyCandidateWord>(Text(cands[i].toString()));
-    }
-    candidateList->setPageSize(static_cast<int>(ps));
-    candidateList->setSelectionKey(selectionKeys_);
-    candidateList->setCursorIncludeUnselected(true);
-    candidateList->setCursorIndex(0);
 
     inputContext_->inputPanel().reset();
     inputContext_->inputPanel().setPreedit(preeditText);
-    inputContext_->inputPanel().setCandidateList(std::move(candidateList));
+    if (end > begin) {
+        auto candidateList = std::make_unique<CommonCandidateList>();
+        for (size_t i = begin; i < end; ++i) {
+            // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
+            candidateList->append<DisplayOnlyCandidateWord>(
+                Text(cands[i].toString()));
+        }
+        candidateList->setPageSize(static_cast<int>(ps));
+        candidateList->setSelectionKey(selectionKeys_);
+        candidateList->setCursorIncludeUnselected(true);
+        candidateList->setCursorIndex(0);
+        inputContext_->inputPanel().setCandidateList(std::move(candidateList));
+    }
     inputContext_->updatePreedit();
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
 }
@@ -316,7 +320,14 @@ void PinyinIMEState::commitPunctuation(const InputMethodEntry &entry,
 
 // ---------------- PinyinIMEEngine ----------------
 
-PinyinIMEEngine::PinyinIMEEngine(Instance *instance) : instance_(instance) {}
+PinyinIMEEngine::PinyinIMEEngine(Instance *instance)
+    : instance_(instance) {
+    // 关键：FactoryFor 不会自动注册，必须在构造函数里显式注册到
+    // InputContextManager，否则 slot_ = -1、propertyFor() 越界读垃圾指针。
+    // （对照官方 keyboard addon 的 registerProperty("keyboardState", ...)）
+    instance_->inputContextManager().registerProperty("pinyinimeState",
+                                                      &factory_);
+}
 
 PinyinIMEEngine::~PinyinIMEEngine() { saveUserData(); }
 
@@ -415,17 +426,24 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.isRelease()) {
         return;
     }
-
+    // 懒加载：fcitx5 启动时不一定调用 reloadConfig，首次按键前确保引擎与数据就绪。
+    ensureDataLoaded();
+    if (!ime_) {
+        // 数据缺失（DataDir 未找到 zh_CN.lm/sc.dict）：不消费，交给应用/其它 IM。
+        return;
+    }
     auto *ic = event.inputContext();
     auto *state = ic->propertyFor(&factory_);
+    if (!state) {
+        // 引擎数据未就绪（DataDir 缺失）：不消费，交给应用/其它 IM。
+        return;
+    }
     auto &ctx = state->context_;
 
     // Ctrl-E：进入/退出 表情选择（必须在「组合键交给框架」守卫之前拦截；
     // 其余 Ctrl / Super / Alt 组合键仍交给框架）。
-    if (event.key().check(FcitxKey_E) &&
-        event.key().states().test(KeyState::Ctrl) &&
-        !event.key().states().testAny(
-            KeyStates{KeyState::Super, KeyState::Alt})) {
+    if (event.key().check(FcitxKey_E, KeyState::Ctrl) ||
+        event.key().check(FcitxKey_e, KeyState::Ctrl)) {
         state->emojiMode_ = !state->emojiMode_;
         if (state->emojiMode_) {
             state->emojiPage_ = 0;

@@ -123,7 +123,13 @@ private:
     std::unique_ptr<libime::PinyinIME> ime_;
     std::string userHistPath_, userDictPath_;
     FactoryFor<PinyinIMEState> factory_{
-        [this](InputContext &ic) { return new PinyinIMEState(this, &ic); }};
+        [this](InputContext &ic) {
+            // 关键：InputContext 创建时会为所有已注册 factory 建 property，
+            // 此刻必须保证引擎数据已加载（否则 PinyinIMEState 用空引擎构造、
+            // 后续 keyEvent 访问 context_ 即崩溃）。
+            ensureDataLoaded();
+            return ime_ ? new PinyinIMEState(this, &ic) : nullptr;
+        }};
 };
 
 } // namespace fcitx

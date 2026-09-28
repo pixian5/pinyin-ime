@@ -977,3 +977,96 @@ cmake --build fcitx5-addon/build                             # addon（含表情
 3. **输入体验**：候选部首/偏旁检索、误上屏撤回、跨设备同步（用户词库，PLAN-A §4②）。
 4. **纠错边界扩展**：`zhing` 这类「零编辑切分失败」的重错全拼，评估在门控内加「代价阈值 + 含元音」
    的二级判定（当前严格门控为安全优先，暂不放开）。
+
+
+## 开发进度（2026-09-28 · 第8轮：安装虚拟桌面实际测试——Fcitx5 pinyinime addon 真机跑通，11/11）
+
+本轮按「安装虚拟桌面实际测试」落地：headless 沙箱里用 **Xvfb 虚拟显示 + 补编 fcitx5-X11（XIM 前端）+
+ 自编 XIM 测试客户端**，把 pinyinime addon 真正跑起来验证——**这是 addon 首次实机运行**，
+并当场发现、修复了 4 个编译期永远发现不了的真实 bug。
+
+### 环境（dnf 安装，未用 docker）
+- `xorg-x11-server-Xvfb`（虚拟显示 :99）、`xterm`、`dbus-x11`（session bus）
+- 编译依赖：`libxcb-devel xcb-util-devel xcb-util-keysyms-devel xcb-util-wm-devel libX11-devel libXtst-devel libxkbcommon-devel expat-devel fontconfig-devel freetype-devel libpng-devel pixman-devel pango-devel gdk-pixbuf2-devel librsvg2-devel libxkbfile-devel iso-codes nlohmann-json(conda) xorg-libx11 xorg-kbproto expat(conda)` + `libX11` XKB 头补齐（conda gcc 不搜 /usr/include）
+
+### 补编 fcitx5-X11（`$NB/opt/fcitx5-x11`）
+- 复用 `scripts/build_conda_forge.sh` 参数，额外开 `-DENABLE_X11=On -DENABLE_KEYBOARD=On -DENABLE_SERVER=On`
+  （主程序 `fcitx5` 在 `src/server/`，被 `ENABLE_SERVER=Off` 挡掉）；XIM 前端由 `ENABLE_X11` 控制，无需 DBus。
+- **xcb-imdkit 1.0.3**（conda-forge 无此包）源码编入 conda env，提供 XIM 协议库；
+- fcitx5 5.1.23 的 GitHub archive 缺 yoga 子模块——按 `.gitmodules` 钉的 commit `042f5013152e`
+  （facebook/yoga）补齐，并注释其自带 `add_subdirectory(tests)`（gcc16 下 -Werror 不过）；
+- librsvg 兼容补丁：新版（openEuler 2.50/≥2.52）移除 `rsvg_handle_get_intrinsic_size_in_pixels`，
+  本地打补丁改用 `rsvg_handle_get_dimensions`（仅本地源码副本，不入库）。
+- 产物：`fcitx5` 主程序 + `libxim.so`/`libclassicui.so`/`libxcb.so`/keyboard(内嵌) 等 addon。
+- **数据路径适配**：addon 的 DataDir 候选不含「LM 在 lib / dict 在 share」的区分布局——
+  实测用 `~/.config/fcitx5/conf/pinyinime.conf` 设 `DataDir=$NB/opt/libime/lib`
+  + `/usr/lib64/libime/zh_CN.lm` 软链（addon 硬编码候选路径之一）兜底。
+
+### 实测发现并修复的 4 个 addon 真实 bug（本轮核心价值）
+> 之前 addon 只有「编译 + 符号导出」验证，这 4 个问题全部只在真机运行才暴露。
+
+1. **`FactoryFor` 未显式注册**（崩溃）：fcitx5 的 `InputContext::propertyFor(&factory_)` 要求工厂
+   已在 `InputContextManager` 注册（`registerProperty("pinyinimeState", &factory_)`），漏注册则
+   `slot_=-1`、propertyFor 越界读垃圾指针（state=0x41）→ 首次按键 SIGSEGV。此前 addon 从未运行过，
+   所以一直没发现。
+2. **引擎数据无懒加载**（ime_ 常 NULL）：`ensureDataLoaded()` 只在 `reloadConfig()` 里调用，而
+   fcitx5 启动不保证调用——补上 keyEvent 入口 `ensureDataLoaded()` + 工厂 lambda 内先加载，
+   缺数据时优雅放行（不消费）。
+3. **空候选列表导致 classicui abort**：`updateUI` 在无候选时仍 `setCursorIndex(0)`，classicui 渲染
+   `candidateFromIndex(0)` 直接 abort（`CommonCandidateList: invalid index`）。改为仅在
+   `end > begin` 时设置候选列表。
+4. **Ctrl+E 匹配语义**：fcitx5 `Key::check(FcitxKey_E)` 是「精确状态匹配」（要求无修饰键），
+   Ctrl+E 实际是 `sym=0x45 + states=Ctrl`（XIM 转来小写/大写都有）——必须写
+   `check(FcitxKey_E, KeyState::Ctrl) || check(FcitxKey_e, KeyState::Ctrl)`。
+
+### 测试工具（新增，已入库）
+- `tools/xim_test_client.c`：XIM 客户端 + XTest 发键，`XOpenIM→XCreateIC→XSetICFocus`，
+  `XFilterEvent` 把键交给 IM，`XmbLookupString` 收 commit，按脚本序列驱动（`\s`空格 `\t`Tab
+  `\n`回车 `\xNN`Ctrl+字母 `\S`Ctrl+Space，`?`/`"` 等自动带 Shift）。
+- `tools/keysend_target.c`：向指定窗口发键（xterm 等标准客户端对照测试）。
+- `scripts/xvfb_test_env.sh`：一键起/停 dbus + Xvfb :99 + fcitx5（XIM 环境变量齐全）。
+- `scripts/xvfb_ime_test.sh`：pinyinime addon 实测矩阵（11 用例断言）。
+
+### 实测结果（Xvfb :99 · fcitx5 5.1.23 · pinyinime addon 0.5.0）
+| 用例 | 上屏 | 结果 |
+|---|---|---|
+| nihao | 你好 | ✅ |
+| zhongguo | 中国 | ✅ |
+| zg（简拼） | 中国 | ✅ |
+| bjdx（简拼） | 北京大学 | ✅ |
+| woshiyige | 我是一个 | ✅ |
+| Tab → hello ⏎ | hello（英文态） | ✅ |
+| , . ? | ，。？ | ✅ |
+| " " | “ ”（配对） | ✅ |
+| Ctrl-E → 1 | 😀 | ✅ |
+| Ctrl-E → . → 1 | 👍（翻页） | ✅ |
+| zhongguo ! | 中国！ （先上屏首选再出标点） | ✅ |
+
+**11/11 通过**；CLI 侧回归不受影响：`smoke_test.sh` 20/20、`test_interactive.py` 17/17、
+C++/Python 纠错对拍 exit 0。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+# 1) 补编 fcitx5-X11（首次）
+dnf install -y xorg-x11-server-Xvfb xterm dbus-x11 libxcb-devel xcb-util-devel \
+  xcb-util-keysyms-devel xcb-util-wm-devel libX11-devel libXtst-devel libxkbcommon-devel \
+  expat-devel fontconfig-devel freetype-devel libpng-devel pixman-devel pango-devel \
+  gdk-pixbuf2-devel librsvg2-devel libxkbfile-devel iso-codes
+# （xcb-imdkit/yoga/rsvg/头补齐等步骤见前述，具体命令较长，已固化为自定义 cmake 序列）
+cc tools/xim_test_client.c -lX11 -lXtst -o tools/xim_test_client
+cc tools/keysend_target.c -lX11 -lXtst -o tools/keysend_target
+# 2) 一键实测
+bash scripts/xvfb_test_env.sh start       # 起 dbus + Xvfb :99 + fcitx5
+bash scripts/xvfb_ime_test.sh             # 11 用例断言
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **addon 实机验收补全**：本轮在 Xvfb 虚拟桌面验证了 XIM 前端链路；剩余带真实桌面的
+   DM（GNOME/KDE）+ fcitx5-gtk/qt im module 全链路验收，以及 Wayland 前端编译。
+2. **addon 交互态纠错**：第 7 轮 CLI 已实现 `--correct`；addon 侧补配置项 `EnableCorrect` 接入
+   `cpp/pinyin_corrector`（全拼门控 is_full_pinyin 已有）。
+3. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值。
+4. **候选体验**：候选窗内水平移动选字、部首/偏旁检索。
+5. **把 Xvfb 实测纳入 CI 门禁**：`scripts/xvfb_ime_test.sh` 可作为 addon 变更后的自动回归。
