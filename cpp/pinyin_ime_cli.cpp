@@ -523,6 +523,7 @@ int main(int argc, char **argv) {
 
     if (lmPath.empty()) {
         lmPath = find_data({
+            "/root/workspace/native-build/opt/libime/lib/libime/zh_CN.lm",
             "/workspace/native-build/opt/libime/lib/libime/zh_CN.lm",
             "/usr/lib64/libime/zh_CN.lm",
             "/usr/lib/aarch64-linux-gnu/libime/zh_CN.lm",
@@ -534,6 +535,7 @@ int main(int argc, char **argv) {
     }
     if (dictPath.empty()) {
         dictPath = find_data({
+            "/root/workspace/native-build/opt/libime/share/libime/sc.dict",
             "/workspace/native-build/opt/libime/share/libime/sc.dict",
             "/usr/share/libime/sc.dict",
             "/usr/lib64/libime/sc.dict",

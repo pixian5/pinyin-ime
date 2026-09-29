@@ -2036,3 +2036,70 @@ echo nihao | pinyin_ime_cli --user-data data/user_lm_news zh_CN.lm sc.dict
 # 使用全语料预训练模型
 echo nihao | pinyin_ime_cli --user-data data/user_lm_full zh_CN.lm sc.dict
 ```
+
+## 2026-09-30 v0.8.7：从零复现全栈构建 + 安装脚本加固 + 路径修复
+
+### 本轮完成
+
+在全新 headless 沙箱（openEuler 22.03 LTS aarch64）从零复现全套构建，未用 docker，
+并修复 CLI fallback 路径 + 加固安装脚本（CLI + fcitx5 addon 一键安装）。
+
+**构建环境**：
+- conda-forge 工具链：gcc 16.2.0 + cmake 4.2.3 + ninja + boost 1.85.0
+- 引擎：fcitx5 5.1.23 + libime 1.1.17（含 kenlm 4-gram + zh_CN.lm + sc.dict）
+- `zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B 逐字节复现基线
+- conda-forge 镜像：清华 tuna（华为云镜像有 ZSTD 兼容问题，已弃用）
+- GitHub/codeload 源：走 mihomo 代理 `http://127.0.0.1:7890`
+
+**修复：CLI fallback 路径**：
+- `pinyin_ime_cli.cpp` 的 `find_data()` fallback 列表新增 `/root/workspace/native-build/...`
+  （原只有 `/workspace/native-build/...`，在 `/root/workspace` 布局下找不到 LM/词典）
+- 修复后 `bash scripts/run_cli.sh` 无需显式传 LM/dict 路径即可运行
+
+**加固：安装脚本 `scripts/install.sh`**：
+- 安装 CLI wrapper（自动注入 `LD_LIBRARY_PATH`，装到 `/usr/local/bin/pinyin_ime_cli`）
+- 安装 fcitx5 addon（`libpinyinime.so` + `pinyinime.conf` + 输入法配置）
+- 安装配置文件 `~/.config/pinyin-ime/config`（含正确的 LM/dict 路径）
+- 安装预训练用户 LM（`data/user_lm_news/`）
+- 安装后 `pinyin_ime_cli` 可从 PATH 直接使用
+
+**回归护栏全绿**：
+- `smoke_test.sh`：**24/24** 通过（全拼5 + 简拼3 + 模糊音4 + 双拼8 + CLI功能4）
+- `test_interactive.py`：**26/26** 通过（整句上屏 / 中英切换 / 中文标点 / 引号配对 / 光标移动 / 表情 / 撤回）
+- fcitx5 addon 编译 + 符号导出通过
+
+**功能验证**：
+- 全拼：`nihao→你好`、`zhongguo→中国`、`woshiyige→我是一个` ✅
+- 简拼：`bjdx→北京大学`、`zg→中国`、`js→技术` ✅
+- 模糊音：`cifan→吃饭`、`senme→什么` ✅
+- 双拼小鹤：`nihc→你好`、`vsgo→中国` ✅
+- 纠错：`--correct --fuzzy` 修复打错拼音 ✅
+- 训练：`--train-text` 200句训练后句级准确率 47%→53%（+6pp）✅
+- 纠错模块：`python3 -m correction.metric` 全指标正常 ✅
+- 安装后 PATH 调用：`echo nihao | pinyin_ime_cli --top1 --quiet` → `你好` ✅
+
+### 本轮复现命令（固化，可一键重跑）
+
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh          # 环境 + 工具链 + 源码
+bash scripts/build_conda_forge.sh        # 引擎编译（fcitx5 + libime + kenlm）
+bash scripts/build_cli.sh                # 编译 CLI + 行协议适配器
+bash scripts/smoke_test.sh               # 24 例回归
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"  # 26 例
+bash scripts/install.sh --prefix /usr/local  # 一键安装 CLI + addon
+echo nihao | pinyin_ime_cli --top1 --quiet    # 验证安装
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **Route A 换语言模型**：用维基 + 字幕/对话语料训练更高阶 n-gram / 本地重排序，抬整句准确率（现基线句级 39.55%）。语料方向避开新闻类（敏感词风险 + 语料偏窄）。
+2. **M3 纠错集成**：把 `correction/`（CHIME 信道 + 音节二元转移）接进 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+3. **Fcitx5 addon 实机验收**：编译 + 符号导出已通过，剩余带显示服务器的桌面机实测（headless 沙箱无显示服务器）。
+4. **用户词库/自学习**：误上屏撤回已实现 ✅；剩余跨设备同步、用户 LM 权重自动调优。
+5. **输入体验**：表情 ✅、候选部首/偏旁检索、候选窗内水平移动选字。
+6. **打包分发**：RPM/DEB 打包，方便用户一键安装。
