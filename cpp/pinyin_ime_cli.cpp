@@ -131,6 +131,7 @@ void usage(const char *prog) {
         << "  --predict       联想预测：输入中文文本，输出可能的下一个词\n"
         << "  --train-text F  从中文文本训练用户语言模型（每行一句中文）\n"
         << "  --history-weight F  用户语言模型权重（默认 1.0，越大越偏向用户历史）\n"
+        << "  --self-test     健康检查：验证安装和配置是否正常\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -390,6 +391,7 @@ int main(int argc, char **argv) {
     bool predictMode = false;    // --predict：联想预测
     std::string trainText;       // --train-text：从中文文本训练用户 LM
     float historyWeight = -1.0f; // --history-weight：用户 LM 权重
+    bool selfTest = false;       // --self-test：健康检查
     // --predict：联想预测
 
     // --dump-user：导出用户学习历史
@@ -410,7 +412,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.8.4\n";
+            std::cout << "pinyin_ime_cli 0.8.5\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -418,6 +420,8 @@ int main(int argc, char **argv) {
                 return 2;
             }
             batchFile = argv[++i];
+        } else if (a == "--self-test") {
+            selfTest = true;
         } else if (a == "--history-weight") {
             if (i + 1 >= argc) {
                 std::cerr << "--history-weight 缺少参数\n";
@@ -601,6 +605,24 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --self-test：健康检查
+    if (selfTest) {
+        std::cout << "pinyin-ime 自检\n";
+        std::cout << "  版本: 0.8.5\n";
+        std::cout << "  LM: " << lmPath << " (" << (std::ifstream(lmPath).good() ? "OK" : "缺失") << ")\n";
+        std::cout << "  词典: " << dictPath << " (" << (std::ifstream(dictPath).good() ? "OK" : "缺失") << ")\n";
+        std::cout << "  模糊音: " << (fuzzy ? "开" : "关") << "\n";
+        std::cout << "  双拼: " << (shuangpin ? "开" : "关") << "\n";
+        // 测试解码：逐键输入 nihao
+        for (char c : std::string("nihao")) ctx.type(c);
+        std::string first = ctx.sentence();
+        ctx.clear();
+        bool decodeOk = (first == "你好");
+        std::cout << "  解码测试: nihao → " << first << " (" << (decodeOk ? "OK" : "异常") << ")\n";
+        std::cout << "  自检结果: " << (decodeOk ? "通过" : "失败") << "\n";
+        return decodeOk ? 0 : 1;
     }
 
     // --history-weight：调整用户语言模型权重
