@@ -13,7 +13,7 @@
 #      否则静态断言 sizeof(void*)+sizeof(lm::ngram::State)<=StateSize 直接编译失败。
 set -euo pipefail
 
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 ENV="$NB/mamba-env"
 MAMBA_BIN="$NB/bin/micromamba"
 export MAMBA_ROOT_PREFIX="$NB/mamba-root"

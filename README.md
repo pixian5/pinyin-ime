@@ -1671,3 +1671,52 @@ CLI 与 addon 共用同一 `pinyin_corrector.cpp`，行为一致。
 2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
 3. **候选体验**：部首/偏旁检索（撤回、候选焦点、焦点高亮、纠错边界均已落地）。
 4. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。
+
+## 开发进度（2026-09-29 · 第20轮：全新沙箱从零复现四路全绿 + 统一 NB 默认值，修复脚本级复现缺口）
+
+本轮在**全新 headless 沙箱**（openEuler 22.03 **aarch64**，conda-forge gcc 16，含 4-gram）从零复现
+全套构建（未用 docker），四路回归全绿，输入法真正跑起来；并修复一个会让「忘了 `export NB`」时
+引擎与图形前端分家的脚本级复现缺口。
+
+### 从零复现（安装依赖 · 未用 docker · 镜像 + 代理）
+- GitCode 访问令牌写入仓库外独立文件（`/root/.git-credentials` + `/root/.gitcode_env`，chmod 600），
+  不入库；克隆走 git credential store（`oauth2:<token>@gitcode.com`）。
+- **conda-forge 通道用清华 tuna 镜像**（`mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge`）：
+  实测华为云 anaconda 镜像只覆盖 `repo.anaconda.com` main 通道、**不含** conda-forge 云通道（返回
+  HTML，刷 repodata 报 ZSTD 解压错）；阿里云/腾讯云该路径 404。详见
+  `docs/2026年09月29日19时51分第20轮复现踩坑_conda-forge镜像选择与NB默认值split-brain修复.md`。
+- micromamba / fcitx5 / libime / kenlm / xcb-imdkit / yoga / fcitx5-gtk 等国外源统一走 mihomo 代理
+  `http://127.0.0.1:7890`；X11/Xvfb/DBus/GTK3 系统库走 dnf（openEuler 源）。
+- 引擎产物**逐字节复现基线**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B；
+  fcitx5 5.1.23 + libime 1.1.17（含 kenlm + lmplz + 4-gram 补丁）+ fcitx5-X11（XIM + DBus 双前端）
+  + fcitx5-gtk 5.1.7（GTK3 im module，已注册 immodules.cache）。
+
+### 本轮改动：统一 `NB` 默认值（脚本级复现缺口修复）
+- 核心构建链 5 个脚本（`setup_build_env.sh` / `build_conda_forge.sh` / `build_cli.sh` /
+  `run_cli.sh` / `smoke_test.sh`）的 `NB` 默认值原为 `/workspace/native-build`（旧路径），
+  X11/桌面链脚本则为 `/root/workspace/native-build` —— 历史上靠 README 每轮 `export NB` 规避。
+- **修复**：5 个核心脚本 `NB` 默认值统一为 `/root/workspace/native-build`，活跃链路 17 处全部一致；
+  `build_native_x86_64.sh`（x86_64/Debian 遗留脚本，本沙箱不跑）保持不动。
+- **验证**：`unset NB; bash scripts/smoke_test.sh` → 20/20，默认值已可直接命中产物路径，无需手工 export。
+- 另：addon 构建时若将 `mamba-env/bin` 前置 PATH，`cc` 会被 conda 交叉编译器（
+  `aarch64-conda-linux-gnu-gcc`）劫持，导致 `xim_test_client` 找不到系统 `X11/X.h`；需用系统 gcc
+  编译 X 客户端工具（`build_fcitx5_gtk.sh` 已固化用系统 gcc 编 gtk/keysend 工具，本次补记其原理）。
+
+### 回归护栏（全绿）
+| 通道 | 用例数 | 结果 |
+|---|---|---|
+| `smoke_test.sh`（CLI 全拼/简拼/模糊音/双拼） | 20 | **20/20** |
+| `test_interactive.py`（上屏/中英/标点/撤回/纠错/焦点选字） | 26 | **26/26** |
+| C++/Python 纠错对拍（`pinyin_corrector_test`） | — | exit 0 |
+| `xvfb_ime_test.sh`（XIM，X11 虚拟桌面） | 21 | **21/21** |
+| `xvfb_desktop_ime_test.sh`（DBus + GTK3 im module 真桌面） | 10 | **10/10** |
+
+### 版本
+`0.7.1 → 0.7.2`（VERSION + fcitx5-addon/CMakeLists.txt 同步）。
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Wayland 真桌面延展**：`ENABLE_WAYLAND=On` 编译路径已具备；受限于 headless 无合成器，
+   需待带合成器/物理显示器的环境做端到端视觉终验（候选焦点高亮已落地，第 18 轮）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+3. **候选体验**：部首/偏旁检索（撤回、候选焦点、焦点高亮、纠错边界均已落地）。
+4. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。

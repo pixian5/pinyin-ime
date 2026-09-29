@@ -7,12 +7,12 @@
 #   echo "cifan" | bash scripts/run_cli.sh --fuzzy   # 模糊音
 #   bash scripts/run_cli.sh --user-data ~/.local/share/pinyin-ime
 #
-# 语言模型/词典默认由 CLI 按内置 fallback 路径自动查找（/workspace/native-build/...）；
+# 语言模型/词典默认由 CLI 按内置 fallback 路径自动查找（/root/workspace/native-build/...）；
 # 若把引擎构建到了别的目录，可用 NB=/your/path 覆盖（会同步注入该目录的运行库），
 # 或直接显式传 <lm> <dict> [nbest] 位置参数覆盖（CLI 选项与位置参数可交错）。
 set -euo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 OPT="$NB/opt"
 ENV="$NB/mamba-env"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
