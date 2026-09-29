@@ -129,6 +129,8 @@ void usage(const char *prog) {
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
         << "  --predict       联想预测：输入中文文本，输出可能的下一个词\n"
+        << "  --train-text F  从中文文本训练用户语言模型（每行一句中文）\n"
+        << "  --history-weight F  用户语言模型权重（默认 1.0，越大越偏向用户历史）\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -386,6 +388,9 @@ int main(int argc, char **argv) {
     bool dumpUser = false;       // --dump-user：导出用户学习历史
     bool top1Only = false;       // --top1：只输出首选候选
     bool predictMode = false;    // --predict：联想预测
+    std::string trainText;       // --train-text：从中文文本训练用户 LM
+    float historyWeight = -1.0f; // --history-weight：用户 LM 权重
+    // --predict：联想预测
 
     // --dump-user：导出用户学习历史
     std::string spScheme = "xiaohe";
@@ -405,7 +410,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.8.2\n";
+            std::cout << "pinyin_ime_cli 0.8.3\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -413,6 +418,18 @@ int main(int argc, char **argv) {
                 return 2;
             }
             batchFile = argv[++i];
+        } else if (a == "--history-weight") {
+            if (i + 1 >= argc) {
+                std::cerr << "--history-weight 缺少参数\n";
+                return 2;
+            }
+            historyWeight = std::stof(argv[++i]);
+        } else if (a == "--train-text") {
+            if (i + 1 >= argc) {
+                std::cerr << "--train-text 缺少文件参数\n";
+                return 2;
+            }
+            trainText = argv[++i];
         } else if (a == "--predict") {
             predictMode = true;
         } else if (a == "--top1") {
@@ -584,6 +601,46 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --history-weight：调整用户语言模型权重
+    if (historyWeight > 0) {
+        ime.model()->setHistoryWeight(historyWeight);
+    }
+
+    // --train-text：从中文文本训练用户语言模型
+    if (!trainText.empty()) {
+        std::ifstream tf(trainText);
+        if (!tf) {
+            std::cerr << "pinyin_ime_cli: 无法打开训练文件 " << trainText << "\n";
+            return 2;
+        }
+        size_t total = 0;
+        std::string line;
+        while (std::getline(tf, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            // 按 UTF-8 字符切分
+            std::vector<std::string> chars;
+            size_t i = 0;
+            while (i < line.size()) {
+                unsigned char c = line[i];
+                int len = 1;
+                if (c >= 0xF0) len = 4;
+                else if (c >= 0xE0) len = 3;
+                else if (c >= 0xC0) len = 2;
+                if (i + len > line.size()) break;
+                chars.push_back(line.substr(i, len));
+                i += len;
+            }
+            if (chars.size() >= 2) {
+                ime.model()->history().add(chars);
+                ++total;
+            }
+        }
+        save_user_data();
+        if (!quiet) std::cerr << "pinyin_ime_cli: 从文本训练完成，" << total
+                              << " 句已加入用户语言模型\n";
+        return 0;
     }
 
     // --predict：联想预测
