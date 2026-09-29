@@ -2095,11 +2095,89 @@ bash scripts/install.sh --prefix /usr/local  # 一键安装 CLI + addon
 echo nihao | pinyin_ime_cli --top1 --quiet    # 验证安装
 ```
 
+
+## 2026-09-30 v0.8.7+：领域LM训练 + 用户词库同步 + fcitx5实机验收 + 打包
+
+### 领域 LM 训练（scripts/train_domain_lm.py）
+
+可复用的领域语言模型训练脚本，支持多语料合并、可配 N-gram 阶数：
+
+```bash
+# 训练对话领域 3-gram LM
+python3 scripts/train_domain_lm.py --corpus bench/corpus/dialogue.txt bench/corpus/daily.txt --output /tmp/dialogue_lm.lm --order 3
+
+# 训练新闻领域 4-gram LM
+python3 scripts/train_domain_lm.py --corpus bench/corpus/news.txt --output /tmp/news_lm.lm --order 4
+```
+
+训练流程：语料 → jieba 分词 → kenlm lmplz ARPA → libime_slm_build_binary 二进制（trie+quant 格式）。
+
+**发现**：16K 句训练的自定义 LM 在 holdout 上不如原始 libime LM（35% vs 75% 句级准确率），
+原始 LM 训练语料远大于现有语料。需要更大规模语料或 LM 插值策略。
+
+### 用户词库同步（scripts/sync_user_data.py）
+
+支持用户学习数据的导出/导入/合并/远程同步，二进制安全：
+
+```bash
+# 导出用户词库
+python3 scripts/sync_user_data.py export --user-data ~/.local/share/pinyin-ime -o backup.json
+
+# 导入（合并模式）
+python3 scripts/sync_user_data.py import -i backup.json --user-data ~/.local/share/pinyin-ime --merge
+
+# 合并两设备词库
+python3 scripts/sync_user_data.py merge --from device1_data --to device2_data
+
+# 远程同步（需 rclone）
+python3 scripts/sync_user_data.py push --remote s3:bucket/pinyin-ime
+python3 scripts/sync_user_data.py pull --remote s3:bucket/pinyin-ime --merge
+```
+
+### fcitx5 addon 实机验收（scripts/test_fcitx5_addon.sh）
+
+在 Xvfb 虚拟显示 + DBus session 下启动 fcitx5 server，验证 addon 加载：
+
+```bash
+bash scripts/test_fcitx5_addon.sh
+```
+
+14 项检查全部通过：
+- addon 二进制 + 符号导出
+- 配置文件正确
+- libime 数据加载（zh_CN.lm 34.7MB + sc.dict 4.5MB）
+- Xvfb + DBus 启动
+- **fcitx5 server 成功加载 pinyinime addon**
+- **语言模型和字典加载成功**
+- **输入法注册成功（Found 1 input method in addon pinyinime）**
+- DBus 服务名注册
+- 无致命错误
+
+关键日志：
+```
+pinyinime: loaded lm=/usr/share/libime/zh_CN.lm dict=/usr/share/libime/sc.dict
+Loaded addon pinyinime
+Found 1 input method(s) in addon pinyinime
+```
+
+### 打包（scripts/package.sh）
+
+```bash
+bash scripts/package.sh --all     # tarball + RPM + DEB
+bash scripts/package.sh --tarball # 仅 tarball（4.4MB）
+bash scripts/package.sh --rpm     # RPM spec
+bash scripts/package.sh --deb     # DEB 目录
+```
+
+产物：
+- `packaging/build/pinyin-ime-0.8.7.tar.gz`（4.4MB）
+- `packaging/pinyin-ime.spec`（RPM spec，需目标系统完整依赖）
+- `packaging/debian/control`（DEB control）
+
 ### 未来优化方向（下一轮按优先级聚焦）
 
-1. **Route A 换语言模型**：用维基 + 字幕/对话语料训练更高阶 n-gram / 本地重排序，抬整句准确率（现基线句级 39.55%）。语料方向避开新闻类（敏感词风险 + 语料偏窄）。
-2. **M3 纠错集成**：把 `correction/`（CHIME 信道 + 音节二元转移）接进 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
-3. **Fcitx5 addon 实机验收**：编译 + 符号导出已通过，剩余带显示服务器的桌面机实测（headless 沙箱无显示服务器）。
-4. **用户词库/自学习**：误上屏撤回已实现 ✅；剩余跨设备同步、用户 LM 权重自动调优。
-5. **输入体验**：表情 ✅、候选部首/偏旁检索、候选窗内水平移动选字。
-6. **打包分发**：RPM/DEB 打包，方便用户一键安装。
+1. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+2. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+3. **桌面 GUI 实测**：在真实桌面环境（X11/GTK/Qt）中测试按键输入流程（headless 沙箱已验证 addon 加载）。
+4. **候选部首/偏旁检索**：生僻字输入。
+5. **双拼方案自定义**：用户可编辑双拼键位映射。

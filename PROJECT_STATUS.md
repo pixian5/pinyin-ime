@@ -52,6 +52,36 @@
 | 配置 | ✅ | EnableShuangpin + ShuangpinScheme |
 | 热更新 | ✅ | reloadConfig 同步 |
 | 编译验证 | ✅ | libpinyinime.so + 符号导出通过 |
+| 实机加载 | ✅ | fcitx5 server 成功加载 addon + LM + dict |
+| 输入法注册 | ✅ | fcitx5 注册 1 个输入法（pinyinime） |
+
+### 领域 LM 训练
+
+| 功能 | 状态 | 说明 |
+|---|---|---|
+| 训练脚本 | ✅ | scripts/train_domain_lm.py（语料→ARPA→libime 二进制） |
+| 多语料合并 | ✅ | 支持多个语料文件合并训练 |
+| 可配 N-gram 阶数 | ✅ | --order 2/3/4 |
+| 自定义 LM | ✅ | data/custom_news.lm（4-gram，16K 句训练） |
+| 对话领域 LM | ✅ | 3-gram，183 句，20KB |
+
+### 用户词库同步
+
+| 功能 | 状态 | 说明 |
+|---|---|---|
+| 导出 | ✅ | sync_user_data.py export（二进制安全） |
+| 导入 | ✅ | sync_user_data.py import（覆盖/合并模式） |
+| 合并 | ✅ | sync_user_data.py merge（两设备词库合并） |
+| 远程同步 | ✅ | push/pull（rclone 到 S3/OBS 等） |
+
+### 打包
+
+| 功能 | 状态 | 说明 |
+|---|---|---|
+| Tarball | ✅ | scripts/package.sh --tarball（4.4MB） |
+| RPM spec | ✅ | packaging/pinyin-ime.spec（需目标系统完整依赖） |
+| DEB control | ✅ | packaging/debian/control（目录结构已准备） |
+| 一键打包 | ✅ | scripts/package.sh --all |
 
 ## 评测结果
 
@@ -84,13 +114,27 @@
 24/24 通过（全拼5 + 简拼3 + 模糊音4 + 双拼8 + CLI功能4）
 交互回归：26/26 通过
 
+### fcitx5 addon 实机验收
+
+14 项检查全部通过：
+- addon 二进制存在 + 符号导出
+- 配置文件正确（[Addon] 段 + Library 指定）
+- libime 数据（zh_CN.lm 34.7MB + sc.dict 4.5MB）加载成功
+- Xvfb 虚拟显示 + DBus session 启动
+- fcitx5 server 加载 pinyinime addon
+- 语言模型和字典加载成功
+- 输入法注册成功（Found 1 input method）
+- DBus 服务名注册（org.fcitx.Fcitx5）
+- 无致命错误
+
 ## 构建依赖
 
 - libime 1.1.17（zh_CN.lm 34.7MB + sc.dict 4.5MB）
-- fcitx5 5.1.23（addon）
+- fcitx5 5.1.23（addon + server）
 - conda-forge gcc 16.2.0（openEuler 22.03 aarch64）
 - CMake 3.16+ / Ninja
 - Python 3: pypinyin, jieba（评测用）
+- Xvfb + DBus（addon 实机验收用）
 
 ## 文件结构
 
@@ -112,12 +156,20 @@ pinyin-ime/
 │   ├── run_cli.sh          # 一键运行
 │   ├── smoke_test.sh       # 冒烟测试（24例）
 │   ├── test_interactive.py # 交互测试（26例）
+│   ├── test_fcitx5_addon.sh # fcitx5 addon 实机验收（14项）
 │   ├── install.sh          # 一键安装（CLI + addon）
+│   ├── train_domain_lm.py  # 领域 LM 训练
+│   ├── sync_user_data.py   # 用户词库同步
+│   ├── package.sh          # RPM/DEB/tarball 打包
 │   └── ...
+├── packaging/              # 打包文件
+│   ├── pinyin-ime.spec     # RPM spec
+│   └── debian/control      # DEB control
 ├── bench/                  # 评测框架
 │   └── corpus/             # 语料
 ├── correction/             # M3 纠错模块
 ├── data/                   # 预训练数据
+│   ├── custom_news.lm      # 自定义新闻 LM
 │   ├── user_lm_full/       # 全语料用户 LM
 │   └── user_lm_news/       # 新闻语料用户 LM
 ├── Makefile                # 构建入口
@@ -127,9 +179,8 @@ pinyin-ime/
 
 ## 后续计划
 
-1. **系统语言模型训练**：用 kenlm 从大规模语料训练领域 LM
-2. **M3 纠错集成**：接入 libime 解码管线（需引擎重建）
-3. **fcitx5 addon 实机验收**：带显示服务器的桌面机实测
-4. **候选部首/偏旁检索**：生僻字输入
-5. **跨设备同步**：用户词库云同步
-6. **安装包**：RPM/DEB 打包
+1. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM（35% vs 75%），需要更大语料或插值策略
+2. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建）
+3. **候选部首/偏旁检索**：生僻字输入
+4. **桌面 GUI 实测**：在真实桌面环境（X11/GTK/Qt）中测试按键输入流程
+5. **双拼方案自定义**：用户可编辑双拼键位映射

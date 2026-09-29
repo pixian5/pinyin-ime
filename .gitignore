@@ -48,3 +48,6 @@ tools/keysend_target.o
 tools/gtk_ime_test_client
 .build_env
 .env.local
+packaging/build/
+*.lm
+!bench/corpus/*.txt

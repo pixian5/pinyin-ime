@@ -1,0 +1,23 @@
+Source: pinyin-ime
+Section: utils
+Priority: optional
+Maintainer: laotongtian <laotongtian@gitcode.com>
+Build-Depends: cmake, ninja-build, g++, libfcitx5core-dev, libfcitx5config-dev, libfcitx5utils-dev, libimecore-dev, libimepinyin-dev
+Standards-Version: 4.6.0
+Homepage: https://gitcode.com/laotongtian/pinyin-ime
+
+Package: pinyin-ime
+Architecture: any
+Depends: libime0, fcitx5, ${shlibs:Depends}
+Description: Linux pinyin input method based on libime
+ pinyin-ime is a Linux pinyin input method engine based on libime.
+ It provides both a command-line interface (pinyin_ime_cli) and a
+ Fcititx5 addon (libpinyinime.so) for system-level input.
+ .
+ Features:
+  * Full pinyin, simplified pinyin, fuzzy pinyin
+  * Double pinyin (8 schemes)
+  * User language model with self-learning
+  * Chinese/English switching, Chinese punctuation
+  * Emoji input, cursor movement, undo
+  * M3 correction module (CHIME + bigram transition)
