@@ -57,12 +57,13 @@ check "纠错不误伤简拼 zg"     '\Szg\s'           "中国"
 # 先重启 fcitx5 + 清空用户数据；每个翻页用例用不同拼音，避免互相学习污染。
 pkill -9 -x fcitx5 2>/dev/null   # SIGKILL：避免旧进程在 SIGTERM 退出回调里重新落盘用户数据
 sleep 1
-rm -rf /tmp/pinyin-ime-x11-ud
+rm -rf /tmp/pinyin-ime-x11-ud ~/.local/share/pinyin-ime   # 清隔离目录 + 防御性清默认目录（历史污染教训）
 bash scripts/xvfb_test_env.sh start > /dev/null 2>&1
-# 注：单次翻页后立即按数字在 XIM 快速发键下偶发候选索引漂移（XTest 异步投递竞态，
-#     非 addon 逻辑缺陷，addon 侧 DBG 已证 page=1/idx=9 稳定）；此处用 net-0 往返用例
-#     验证 - / = 翻页键被消费且方向正确（CLI 侧 test_interactive.py 有确定性全矩阵覆盖）。
-check "= 翻页后 - 翻回 (de)"  '\Sde=-\1'    "的"
+# 候选翻页：第 12 轮确认根因是「默认用户目录污染」而非竞态；隔离用户数据后页 2 首字完全确定
+# （yi 页2首=亿、ji 页2首=其）。每个用例用不同拼音，避免同会话 learn() 互相污染。
+check "= 翻页选字 (yi)"        '\Syi=\1'    "亿"
+check "PageDown 翻页选字 (ji)" '\Sji\d\1'   "其"
+check "= 翻页后 - 翻回 (de)"   '\Sde=-\1'    "的"
 
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]
