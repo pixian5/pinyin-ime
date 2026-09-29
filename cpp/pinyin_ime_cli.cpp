@@ -123,6 +123,7 @@ void usage(const char *prog) {
         << "  --json          行模式输出 JSON 数组（方便程序化调用）\n"
         << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
         << "  --version       显示版本号后退出\n"
+        << "  --learn-file F  批量学习：每行 拼音<TAB>中文，训练用户语言模型\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -373,6 +374,7 @@ int main(int argc, char **argv) {
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
     bool statsOnly = false;     // --stats：打印引擎统计后退出
     bool quiet = false;          // --quiet：抑制信息性 stderr 输出
+    std::string learnFile;       // --learn-file：批量学习
     std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
@@ -390,8 +392,14 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.7.7\n";
+            std::cout << "pinyin_ime_cli 0.7.8\n";
             return 0;
+        } else if (a == "--learn-file") {
+            if (i + 1 >= argc) {
+                std::cerr << "--learn-file 缺少文件参数\n";
+                return 2;
+            }
+            learnFile = argv[++i];
         } else if (a == "--quiet") {
             quiet = true;
         } else if (a == "--stats") {
@@ -551,6 +559,48 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --learn-file：批量学习模式
+    // 文件格式：每行 "拼音<TAB>中文"，逐行 type→select→learn，训练用户语言模型。
+    if (!learnFile.empty()) {
+        // 抑制 select_and_commit 的终端输出
+        std::cout.setstate(std::ios::failbit);
+        std::ifstream lf(learnFile);
+        if (!lf) {
+            std::cerr << "pinyin_ime_cli: 无法打开学习文件 " << learnFile << "\n";
+            return 2;
+        }
+        size_t total = 0, learned = 0;
+        std::string line;
+        while (std::getline(lf, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            auto tab = line.find('\t');
+            if (tab == std::string::npos) continue;
+            std::string pinyin = line.substr(0, tab);
+            std::string target = line.substr(tab + 1);
+            // type 拼音
+            ctx.clear();
+            for (char ch : pinyin) {
+                if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+            }
+            // 找到匹配候选并 select
+            auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+            for (size_t i = 0; i < cands.size(); ++i) {
+                if (cands[i] == target) {
+                    if (select_and_commit(ctx, i)) {
+                        ++learned;
+                    }
+                    break;
+                }
+            }
+            ++total;
+        }
+        save_user_data();
+        std::cout.clear();
+        std::cerr << "pinyin_ime_cli: 批量学习完成 " << learned << "/" << total
+                  << " 句已学习（用户数据已保存到 " << userDataDir << "）\n";
+        return 0;
     }
 
 #ifdef __unix__
