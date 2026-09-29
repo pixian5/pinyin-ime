@@ -625,6 +625,17 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
+    // PageUp/PageDown：候选翻页（与 - = , . [ ] 并列）；无拼音时不消费，交给应用/其它 IM
+    if (event.key().check(FcitxKey_Page_Up) ||
+        event.key().check(FcitxKey_Page_Down)) {
+        if (!ctx.empty()) {
+            state->flipPage(entry,
+                            event.key().check(FcitxKey_Page_Up) ? -1 : 1);
+            event.filterAndAccept();
+        }
+        return;
+    }
+
     // 空格 / 回车：上屏首选
     if (event.key().check(FcitxKey_space) ||
         event.key().check(FcitxKey_Return)) {

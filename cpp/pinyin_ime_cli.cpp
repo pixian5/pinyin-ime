@@ -109,7 +109,7 @@ void usage(const char *prog) {
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
-        << "候选翻页：逗号[,]/句号[.] 上一页/下一页；←/→ 逐词移动，Home/End 跳句首句尾\n"
+        << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Home/End 跳句首句尾\n"
         << "表情：Ctrl-E 进入表情选择（1-9 选表情，[,]/[.] 翻页，Esc 返回中文）\n";
 }
 
@@ -253,6 +253,8 @@ enum : int {
     kKeyDown = -5,
     kKeyHome = -6,
     kKeyEnd = -7,
+    kKeyPageUp = -8,
+    kKeyPageDown = -9,
 };
 
 // 与 read_key 共用：50ms 超时内读一个后续字节，失败返回 -1（解析转义序列用）。
@@ -312,6 +314,14 @@ int read_key() {
     }
     case '4': case '8': {       // \x1b[4~ / \x1b[8~（旧终端 End）
         if (read_esc_byte() == '~') return kKeyEnd;
+        return kKeyEsc;
+    }
+    case '5': {                 // \x1b[5~（PageUp 上一页）
+        if (read_esc_byte() == '~') return kKeyPageUp;
+        return kKeyEsc;
+    }
+    case '6': {                 // \x1b[6~（PageDown 下一页）
+        if (read_esc_byte() == '~') return kKeyPageDown;
         return kKeyEsc;
     }
     default: return kKeyEsc;
@@ -543,7 +553,7 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，-=/.及PageUp/PageDown翻页，Ctrl-C 退出\n";
     render();
 
     int key;
@@ -607,6 +617,12 @@ int main(int argc, char **argv) {
         } else if (key == kKeyEnd) {   // End：候选光标跳到句尾（输入末尾）
             page = 0;
             ctx.setCursor(static_cast<size_t>(ctx.size()));
+        } else if (key == kKeyPageUp) {   // PageUp：候选上一页
+            if (page > 0) --page;
+        } else if (key == kKeyPageDown) { // PageDown：候选下一页
+            const auto &cands = ctx.candidatesToCursor();
+            const size_t maxPage = cands.size() == 0 ? 0 : (cands.size() - 1) / kPageSize;
+            if (page < maxPage) ++page;
         } else {
             // ---- 中文模式（普通按键）----
             char ch = static_cast<char>(key);
@@ -619,10 +635,10 @@ int main(int argc, char **argv) {
                 engBuf.clear();
             } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
                 ctx.backspace();
-            } else if (ch == ',' || ch == '[') {  // 打拼音时上一页；空闲时作中文标点
+            } else if (ch == '-' || ch == ',' || ch == '[') {  // 打拼音时上一页（-=,[ ）；空闲时作中文标点
                 if (ctx.empty() && !punct.empty()) output_line(punct);
                 else if (page > 0) --page;
-            } else if (ch == '.' || ch == ']') {  // 打拼音时下一页；空闲时作中文标点
+            } else if (ch == '=' || ch == '.' || ch == ']') {  // 打拼音时下一页（=.] ）；空闲时作中文标点
                 if (ctx.empty() && !punct.empty()) {
                     output_line(punct);
                 } else {

@@ -10,6 +10,7 @@
  *   脚本支持转义：
  *     \s 空格   \t Tab   \n 回车   \e Esc   \xNN 带 Ctrl 的字符（如 \x05 = Ctrl-E）
  *     \, 逗号   \. 句号   \[ 左方括号   \] 右方括号   \1..\9 数字（无修饰）
+ *     \u PageUp   \d PageDown
  *   输出的每行 COMMIT:<text> 即输入法真正上屏的文本（XmbLookupString 结果）。
  *
  * 编译：gcc -O2 -o xim_test_client xim_test_client.c -lX11 -lXtst
@@ -116,6 +117,9 @@ static void run_script(const char *script) {
             case '6': case '7': case '8': case '9':
                 send_key((KeySym)(XK_1 + (e - '1')), 0);
                 break;
+            case 'u': send_key(XK_Page_Up, 0); break;   /* \u = PageUp */
+            case 'd': send_key(XK_Page_Down, 0); break; /* \d = PageDown */
+            case 'w': usleep(250000); break;            /* \w = 等 250ms（翻页前让解码落定）*/
             case 'x': { /* \xNN：带 Ctrl 的字符（如 \x05 = Ctrl-E） */
                 if (!script[i + 1] || !script[i + 2]) {
                     fprintf(stderr, "!! \\x 转义缺少两位 hex\n");

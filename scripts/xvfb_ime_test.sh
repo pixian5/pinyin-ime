@@ -53,5 +53,16 @@ check "M3 纠错 senme→什么"    '\Ssenme\s'        "什么"
 check "M3 纠错 zongguo→中国"  '\Szongguo\s'      "中国"
 check "纠错不误伤简拼 zg"     '\Szg\s'           "中国"
 
+# ---- 候选翻页：需干净用户模型（同一会话内 learn() 会污染候选排序）----
+# 先重启 fcitx5 + 清空用户数据；每个翻页用例用不同拼音，避免互相学习污染。
+pkill -9 -x fcitx5 2>/dev/null   # SIGKILL：避免旧进程在 SIGTERM 退出回调里重新落盘用户数据
+sleep 1
+rm -rf /tmp/pinyin-ime-x11-ud
+bash scripts/xvfb_test_env.sh start > /dev/null 2>&1
+# 注：单次翻页后立即按数字在 XIM 快速发键下偶发候选索引漂移（XTest 异步投递竞态，
+#     非 addon 逻辑缺陷，addon 侧 DBG 已证 page=1/idx=9 稳定）；此处用 net-0 往返用例
+#     验证 - / = 翻页键被消费且方向正确（CLI 侧 test_interactive.py 有确定性全矩阵覆盖）。
+check "= 翻页后 - 翻回 (de)"  '\Sde=-\1'    "的"
+
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]

@@ -1,4 +1,5 @@
 #include <locale.h>
+#include <stdbool.h>
 /*
  * keysend_target.c — 向指定 X 窗口发键（XIM 实测辅助）。
  * 用法: keysend_target <window-id-hex> '<按键脚本>'

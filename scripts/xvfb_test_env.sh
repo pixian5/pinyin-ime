@@ -27,7 +27,10 @@ export FCITX_ADDON_CONFIG_DIRS="$NB/opt/fcitx5-x11/share/fcitx5/addon"
 export FCITX_DATA_DIR="$NB/opt/fcitx5-x11/share/fcitx5"
 
 ensure_display() {
-    if [ ! -S /tmp/.X11-unix/X99 ]; then
+    # 判活依据是「Xvfb 进程」而非 socket：Xvfb 被 SIGKILL 时会留下 /tmp/.X11-unix/X99
+    # 僵尸 socket，仅靠 [ -S ] 会误判「还在运行」而不再拉起，导致后续 fcitx5 连不上显示。
+    if ! pgrep -x Xvfb > /dev/null 2>&1; then
+        rm -f /tmp/.X11-unix/X99 /tmp/.X99-lock 2>/dev/null
         echo "[env] 启动 Xvfb :99"
         setsid Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /tmp/xvfb.log 2>&1 < /dev/null &
         sleep 2

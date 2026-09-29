@@ -1124,3 +1124,81 @@ bash scripts/xvfb_ime_test.sh        # 起环境 + 写 conf(EnableCorrect=True) 
 3. **候选体验**：候选窗内水平移动选字、部首/偏旁检索、误上屏撤回。
 4. **纠错边界扩展**：`zhing` 这类「零编辑切分失败」的重错全拼（第 7 轮已声明的边界）。
 5. **Xvfb 实测纳入 CI 门禁**：`scripts/xvfb_ime_test.sh` 已可一键跑，建议接入 addon 变更后的自动回归。
+
+## 开发进度（2026-09-29 · 第10轮：候选翻页键补全/对齐 + fcitx5-X11 全流程固化为脚本）
+
+本轮目标「继续开发 Linux 输入法」：在新沙箱从零复现全套构建并全量回归通过（未用 docker），
+在「真正能跑起来的输入法」基础上补上一块真实的输入体验拼图——**候选翻页键补全与 CLI/addon 双侧对齐**，
+并把第 8/9 轮只存在口述里的 fcitx5-X11 补编流程固化成可复现脚本。
+
+### 环境与从零复现（镜像 + 代理，未用 docker）
+- **工具链**：conda-forge 走清华 tuna 镜像（本机检出 gcc **16.2.0** + cmake 4.2.3 + ninja）；
+  国外源码/二进制（micromamba、fcitx5、libime、kenlm、xcb-imdkit、yoga）统一走 mihomo 代理
+  `http://127.0.0.1:7890`；X11/Xvfb 系统库走 dnf（openEuler 仓库）。
+- **逐字节复现**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B，与 README 基线一致。
+- **回归护栏**：`smoke_test.sh` **20/20**、`test_interactive.py` **20/20**（含新增翻页 3 例）、
+  `xvfb_ime_test.sh` **15/15**（14 基线 + 1 翻页）。
+
+### 本轮功能：候选翻页键补全 / 对齐
+- **CLI**：翻页键补齐 `-` / `=`（此前只有 `,`/`.`/`[`/`]`，与 addon 不一致），并新增
+  `PageUp`（`\x1b[5~`）/ `PageDown`（`\x1b[6~`）。
+- **addon**：新增 `FcitxKey_Page_Up` / `FcitxKey_Page_Down` 翻页；默认 `NBest` 5 → **45**
+  （对齐 CLI 交互态的候选拉取量，让「每页 9 个、多页」的翻页真正有内容可翻）。
+- 中文注释按要求补齐。
+
+### fcitx5-X11 补编流程固化为脚本（本轮可复现性）
+- 新增 `scripts/setup_x11_deps.sh`：dnf 装 X11/Xvfb 依赖、conda 装 `nlohmann_json`、
+  源码编译 xcb-imdkit 1.0.3、补齐 yoga 子模块（facebook/yoga @042f5013152e）、
+  librsvg 2.50 兼容补丁（`rsvg_handle_get_intrinsic_size_in_pixels` → `get_dimensions`）。
+- 新增 `scripts/build_fcitx5_x11.sh`：用 conda gcc 16 补编 fcitx5-X11（X11/KEYBOARD/SERVER 开），
+  并注入系统头库（`-idirafter /usr/include`、`LIBRARY_PATH=/usr/lib64`、pkg-config 系统路径前置）。
+- 数据路径适配：libime「LM 在 `lib/libime`、dict 在 `share/libime`」的区分布局与 addon 的
+  `DataDir` 候选不匹配 → `lib/libime/sc.dict` 符号链接补齐；`default/zh_CN` 默认输入法由官方
+  `pinyin/rime` 覆盖为 `pinyinime`，使 Xvfb 下 Ctrl+Space 能直接切到本输入法。
+
+### 本轮修复的小问题
+- `xvfb_test_env.sh` 的 `ensure_display` 用 socket 判活：Xvfb 被 kill 后残留 `/tmp/.X11-unix/X99`
+  僵尸 socket，会误判「还在运行」而不再拉起 → 改为按 `pgrep -x Xvfb` 进程判活。
+- `tools/keysend_target.c` 缺 `#include <stdbool.h>`（`cc` 下 `bool` 未定义，编译不过）→ 已补。
+- `tools/xim_test_client.c` 新增 `\u/\d`（PageUp/PageDown）、`\w`（等 250ms）转义，支撑翻页用例。
+
+### 本轮重要发现（供下一轮参考）
+1. **addon 与 CLI 的候选人排序并不总是一致**：`nbest=45` 下 addon 单音节候选顺序
+   （如 `yi` → 一依矣亿以已亦易宜意…）与 CLI 行模式（一以已亦易宜意依矣亿…）不同——两者都
+   用同一套 libime + `zh_CN.lm` + `sc.dict`，差异来源（NBest 对 libime 格点 n-best 剪枝的影响、
+   或其它配置）尚未定位，需要下一轮用「同一 nbest、同一用户数据、逐字节对比候选」排查。
+2. **XIM 快速发键下单次翻页 + 立即按数字偶发候选索引漂移**：addon 侧 DBG 已证 `page=1/idx=9`
+   每次稳定，但 XTest 异步投递下偶发落在 idx 6~9；`=`/`-` 往返（net-0）用例稳定。CLI 侧 pty 驱动
+   的翻页用例（`test_interactive.py` ⑱⑲⑳）完全确定、20/20 全绿，故翻页正确性以 CLI 侧为准，
+   addon 侧以 net-0 用例兜底方向。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh          # 引擎工具链 + 源码（libime/zh_CN.lm/sc.dict）
+bash scripts/build_conda_forge.sh        # 引擎编译（fcitx5 头部 + libime + lmplz）
+bash scripts/build_cli.sh                # CLI
+bash scripts/smoke_test.sh               # 20 例
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"  # 20 例
+bash scripts/setup_x11_deps.sh           # X11/Xvfb + xcb-imdkit + yoga + rsvg 补丁
+bash scripts/build_fcitx5_x11.sh         # fcitx5-X11（XIM 前端）+ 数据路径/默认输入法适配
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$NB/opt/fcitx5-x11" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5-x11;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build && cmake --install fcitx5-addon/build
+cc tools/xim_test_client.c -lX11 -lXtst -o tools/xim_test_client
+cc tools/keysend_target.c  -lX11 -lXtst -o tools/keysend_target
+bash scripts/xvfb_ime_test.sh           # 15 例
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **定位 addon/CLI 候选排序差异**：同一 nbest/用户数据/语料下逐字节对比，确认是否 libime
+   `setNBest` 对格点 cut 的影响；若是，修正 addon 或 CLI 的 NBest 口径使其一致。
+2. **XIM 翻页竞态复现与根治**：确认是 xcb-imdkit 事件乱序还是 addon 状态机，必要时给 addon
+   翻页/选字加「每键落定」护栏（不 Proactively 改，先复现定位）。
+3. **Wayland / 真桌面验收**：承接第 9 轮，ENABLE_DBUS=On + fcitx5 im module 最终验证。
+4. **候选体验**：候选窗内水平移动选字、误上屏撤回。

@@ -37,7 +37,7 @@ namespace fcitx {
 
 FCITX_CONFIGURATION(
     PinyinIMEConfig,
-    Option<int> nbest{this, "NBest", _("Number of candidates"), 5};
+    Option<int> nbest{this, "NBest", _("Number of candidates"), 45};
     Option<int> pageSize{this, "PageSize", _("Candidates per page"), 9};
     Option<std::string> dataDir{this, "DataDir", _("Data directory"),
                                 "/usr/share/libime"};

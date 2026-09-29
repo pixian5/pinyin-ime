@@ -13,6 +13,7 @@ import pty
 import select
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -156,13 +157,24 @@ def _run_all(cli, lm, dct, ud):
         # ⑰ 交互态纠错不误伤简拼（--correct）：zg 首字母输入 → 仍「中国」
         ([("send", "zg"), ("send", " "), ("sleep", 0.3)],
          ["「中国」"], ["--correct"]),
+        # ⑱ 候选翻页（= 下一页）：yi 第 1 页首选「一」，= 翻到第 2 页后选 1 得「亿」
+        ([("send", "yi"), ("send", "="), ("send", "1"), ("sleep", 0.2)],
+         ["「亿」"], None, None),
+        # ⑲ PageDown 翻页：yi 键入 \x1b[6~ 翻到第 2 页后选 1 得「亿」
+        ([("send", "yi"), ("send", "\x1b[6~"), ("send", "1"), ("sleep", 0.2)],
+         ["「亿」"], None, None),
+        # ⑳ 翻回：yi 按 = 到第 2 页，再按 - 回第 1 页，选 1 仍得「一」（-= 翻页对齐 addon）
+        ([("send", "yi"), ("send", "="), ("send", "-"), ("send", "1"), ("sleep", 0.2)],
+         ["「一」"], None, None),
     ]
 
     ok = 0
     for item in cases:
         script, expect = item[0], item[1]
         extra = item[2] if len(item) > 2 else None
-        if run_case(cli, lm, dct, list(script), list(expect), extra, ud):
+        # 翻页类用例依赖「候选固定排序」，必须每例独立用户目录（否则 learn() 污染候选、断言漂移）
+        case_ud = item[3] if len(item) > 3 else ud
+        if run_case(cli, lm, dct, list(script), list(expect), extra, case_ud):
             ok += 1
     total = len(cases)
     print(f"==== 交互回归：{ok}/{total} 通过 ====")
