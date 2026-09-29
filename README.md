@@ -1163,14 +1163,14 @@ bash scripts/xvfb_ime_test.sh        # 起环境 + 写 conf(EnableCorrect=True) 
 - `tools/xim_test_client.c` 新增 `\u/\d`（PageUp/PageDown）、`\w`（等 250ms）转义，支撑翻页用例。
 
 ### 本轮重要发现（供下一轮参考）
-1. **addon 与 CLI 的候选人排序并不总是一致**：`nbest=45` 下 addon 单音节候选顺序
-   （如 `yi` → 一依矣亿以已亦易宜意…）与 CLI 行模式（一以已亦易宜意依矣亿…）不同——两者都
-   用同一套 libime + `zh_CN.lm` + `sc.dict`，差异来源（NBest 对 libime 格点 n-best 剪枝的影响、
-   或其它配置）尚未定位，需要下一轮用「同一 nbest、同一用户数据、逐字节对比候选」排查。
-2. **XIM 快速发键下单次翻页 + 立即按数字偶发候选索引漂移**：addon 侧 DBG 已证 `page=1/idx=9`
-   每次稳定，但 XTest 异步投递下偶发落在 idx 6~9；`=`/`-` 往返（net-0）用例稳定。CLI 侧 pty 驱动
-   的翻页用例（`test_interactive.py` ⑱⑲⑳）完全确定、20/20 全绿，故翻页正确性以 CLI 侧为准，
-   addon 侧以 net-0 用例兜底方向。
+1. **addon 与 CLI 的候选人排序并不总是一致**（✅ 第 11 轮已根因定位，见下）：`nbest=45` 下
+   addon 单音节候选顺序与 CLI 行模式不同。第 11 轮逐项排除 nbest / locale / symlink / 用户数据 /
+   并发干扰后，确认是 **addon 在 Fcitx5 进程内对 libime 单音节候选排序随进程（ASLR）随机旋转**
+   （同进程内稳定、独立进程稳定正确）。详见
+   `docs/2026年09月29日11时50分addon单音节候选排序随进程随机旋转问题.md`。
+2. **XIM 快速发键下单次翻页选字结果漂移**（⚠️ 更正：非键竞态）：上一轮误判为 XTest 异步投递竞态。
+   实际是第 1 条——候选排序本身随进程变，`=` 翻页后按数字选中的 `idx=9` 每次都稳定（DBG 已证），
+   漂移的是 `idx=9` 上那个「字」。故 addon 侧单点翻页+选字断言不可依赖具体字，只用 net-0 用例兜底。
 
 ### 本轮复现命令（固化）
 ```sh
@@ -1202,3 +1202,31 @@ bash scripts/xvfb_ime_test.sh           # 15 例
    翻页/选字加「每键落定」护栏（不 Proactively 改，先复现定位）。
 3. **Wayland / 真桌面验收**：承接第 9 轮，ENABLE_DBUS=On + fcitx5 im module 最终验证。
 4. **候选体验**：候选窗内水平移动选字、误上屏撤回。
+
+## 开发进度（2026-09-29 · 第11轮：根因定位 addon 单音节候选排序随进程随机旋转）
+
+本轮对上轮遗留的「addon 与 CLI 候选排序不一致 + 翻页选字漂移」做**根因定位**。结论：两者是
+同一个问题——**addon 在 Fcitx5 进程内，libime 单音节候选排序随进程（ASLR）随机旋转**；CLI/独立
+进程则完全确定。
+
+### 排查过程（逐项排除，都写在 docs 里）
+- 用最小复现程序（`/tmp/repro.cpp`，精确复刻 addon 的 `PinyinIME` 初始化序列 + 逐字 `type` +
+  `candidatesToCursor()`）对比：
+  - **nbest**：CLI 行模式 nbest=5/20/45 → 排序全一致，与 nbest 无关；
+  - **locale**：repro 分别 `LANG=C / zh_CN.utf8 / en_US.utf8` → 排序不变；
+  - **symlink 路径**：repro 用真实路径 vs `/usr/lib64/libime` 软链 → 排序一致；
+  - **用户数据污染**：全新 UserDataDir + 清空 `~/.local/share/pinyin-ime`（此前残留 user.dict/history）→ 依旧旋转；
+  - **并发 vs 进程级**：同进程内单 IC 连续「输 yi → Esc」×3 dump 完全一致（排除并发竞态）；
+    5 次 fresh 重启得 5 种不同排序，且都是正确排序 `一以已亦易宜意依矣亿` 的**循环移位** → 进程级 ASLR 依赖。
+- **影响面**：仅单音节同音字第 2 名以后排名；整句首选/句子级质量不受影响（smoke 20/20、Xvfb 14/14 稳定）。
+- **更正上一轮**：翻页选字漂移不是键竞态，是候选排序本身在变（`idx=9` 稳定、idx 上那个字会变）。
+
+### 产物
+- `docs/2026年09月29日11时50分addon单音节候选排序随进程随机旋转问题.md`：完整证据表 + 下一步。
+- 本轮为纯根因定位 + 文档（无引擎功能改动）；按规约版本号仍递增 `0.6.2 → 0.6.3`。
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **修复 addon 候选排序不确定**：在 libime 候选比较器补稳定 tie-break（按 pinyin/UTF-8 字节序），
+   或 addon 侧对 `candidatesToCursor()` 结果按 score 稳定重排兜底；修复后补回单音节翻页选字断言。
+2. Wayland / 真桌面验收（ENABLE_DBUS=On + im module）。
+3. 候选窗水平选字、误上屏撤回。
