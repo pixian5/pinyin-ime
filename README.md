@@ -1266,3 +1266,75 @@ bash scripts/xvfb_ime_test.sh           # 15 例
 ### 未来优化方向（下一轮按优先级聚焦）
 1. Wayland / 真桌面验收（ENABLE_DBUS=On + im module）。
 2. 候选窗水平选字、误上屏撤回。
+
+## 开发进度（2026-09-29 · 第13轮：误上屏撤回（Ctrl-Z）CLI + addon 双侧落地，回归 20/20 + 22/22 + 18/18）
+
+本轮在新 headless 沙箱从零复现全套构建（未用 docker，镜像 + 代理），在「真正能跑起来的输入法」
+基础上新增一个日用体验项——**误上屏撤回（Ctrl-Z）**：打错整句上屏后，Ctrl-Z 把刚上屏的候选
+「撤下来」，恢复成拼音候选态重新编辑，CLI 与 Fcitx5 addon 双侧同步实现（README「未来优化方向」
+已列两轮，本轮落地）。
+
+### 从零构建（安装依赖 · 未用 docker）
+- conda-forge 走清华 tuna 镜像；micromamba / fcitx5 / libime / kenlm / xcb-imdkit / yoga 等
+  国外源统一走 mihomo 代理 `http://127.0.0.1:7890`；X11/Xvfb 系统库走 dnf（openEuler 仓库）。
+- 引擎产物**逐字节复现**基线：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B；
+  fcitx5 5.1.23 + libime 1.1.17（含 kenlm + `lmplz`）+ fcitx5-X11（XIM 前端，`opt/fcitx5-x11`）。
+- 密钥处理：GitCode 访问令牌已写入仓库外独立文件（`~/.config/gitcode/token`，chmod 600），
+  不入库、不外显；克隆走 `https://oauth2:<token>@gitcode.com/...`。
+
+### 误上屏撤回（Ctrl-Z，新功能）
+- **CLI（`pinyin_ime_cli`）**：交互模式 Ctrl-Z 触发。维护「撤回栈」（最多 32 条，记录
+  上屏文本 + 拼音串）；上屏成功即压栈（仅候选整句上屏进栈，英文/标点/表情不动）；
+  Ctrl-Z 时若正在输入拼音则不撤（防误伤），否则清掉上屏行（`\e[1A\r\e[2K`，上屏文本独占一行）、
+  恢复拼音回候选态重新编辑，状态行尾部显示「（已撤回上屏，可继续编辑拼音）」提示（下次按键消失）。
+- **Fcitx5 addon（`pinyinime.cpp`）**：keyEvent 在「组合键交给框架」守卫**之前**拦截
+  Ctrl+Z（与 Ctrl-E 同策略）；`undoLastCommit()` 先 `inputContext_->forwardKey(BackSpace) × UTF-8
+  字符数` 通知应用删掉刚上屏文本，再把拼音 `context_.type()` 恢复成候选态；`deactivate()`（失焦）
+  清空撤回栈（防误伤别的窗口）。撤回栈随输入上下文（per-IC）独立。
+- 纯前端状态机，不复用/不触碰 libime 解码管线 —— 无需重建引擎，CLI 与 addon 共用同一套语义
+  （与中英切换/中文标点/引号配对同路径）。
+
+### 本轮发现并修复的真实问题（含 2 个脚本/编译期之外的坑）
+1. **addon 拼音收集时机**（关键）：`selectCandidate()` 里最初在 `selectCandidatesToCursor()`
+   **之后**收集恢复拼音——那时 `preedit()` 已变化/清空，撤回恢复的是空拼音、空格无法再上屏
+   （Xvfb 实测暴露：`nihao\s` 上屏「你好」→ Ctrl-Z → 空格无输出）。改为**选中之前**收集
+   `context_.preedit()`（滤空格/隔音符），Xvfb 实测撤回后再空格正常上屏「你好」。
+2. **`setup_x11_deps.sh` heredoc 缩进 bug**：rsvg 兼容补丁的 Python 内嵌脚本里顶层
+   `assert`/`open` 两行带前导空格（顶层语句不允许缩进 → IndentationError 中断脚本）；已修。
+3. **编译期小坑**：fcitx5 5.1.23 的 KeyState 无修饰值叫 `KeyState::NoState`（不是 `None`）；
+   `undoStack_` 初版放 private、`PinyinIMEEngine::deactivate` 越权访问报错 → 移到 public
+   （与 `page_`/`englishMode_` 等状态成员一致）。
+
+### 回归护栏（全绿）
+`smoke_test.sh` **20/20**、`test_interactive.py` **22/22**（新增 ㉑上屏→撤回→恢复拼音、
+㉒撤回后重新上屏两例）、C++/Python 纠错对拍 exit 0、`xvfb_ime_test.sh` **18/18**
+（新增「误上屏撤回 Ctrl-Z」一例：上屏「你好」→ Ctrl-Z → 空格重新上屏「你好」，
+断言用正则 `你好.*你好` 容忍 forwardKey 退格产生的中间 COMMIT）。addon 编译 + 工厂符号导出正常。
+
+### 本轮复现命令（固化）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+bash scripts/smoke_test.sh                                  # 20 例
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 22 例（含撤回）
+bash scripts/setup_x11_deps.sh && bash scripts/build_fcitx5_x11.sh
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$NB/opt/fcitx5-x11" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5-x11;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build && cmake --install fcitx5-addon/build
+cc tools/xim_test_client.c -lX11 -lXtst -o tools/xim_test_client
+bash scripts/xvfb_ime_test.sh                              # 18 例（含撤回）
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Wayland / 真桌面最终验收**：XIM（X11）链路已实测；补 `ENABLE_DBUS=On` + fcitx5-gtk/qt
+   im module，在带 DBus 与真实桌面的环境做最终验证（含配置经 DBus 载入的路径）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+3. **候选体验**：候选窗内水平移动选字、部首/偏旁检索（撤回已落地）。
+4. **纠错边界扩展**：`zhing` 这类「零编辑切分失败」的重错全拼（第 7 轮已声明的边界）。
+5. **撤回增强**：多级撤回提示可选回显被撤回文本（当前提示不含文本以便回归断言）；
+   addon 撤回在 xterm 之外的编辑器（Vim/浏览器）实测覆盖更广。

@@ -26,6 +26,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <libime/core/userlanguagemodel.h>
@@ -79,6 +80,8 @@ public:
     // 表情选择（Ctrl-E）：1-9 选表情，[,]/[.] 翻页，Esc/Ctrl-E 返回中文。
     bool emojiMode_ = false;
     size_t emojiPage_ = 0;
+    // 误上屏撤回栈：(上屏文本, 拼音串)，最近在上；deactivate（失焦）时清空。
+    std::vector<std::pair<std::string, std::string>> undoStack_;
 
     size_t pageSize() const;
     // 上屏一段已提交文本（整句 / 英文整行 / 标点），清面板并 commitString。
@@ -86,6 +89,8 @@ public:
     // 上屏中文标点：打拼音中先上屏首选，空闲直接上屏。
     void commitPunctuation(const InputMethodEntry &entry,
                            const std::string &fullwidth);
+    // 误上屏撤回（Ctrl-Z）：通知应用删除刚上屏的文本、恢复拼音重新编辑。
+    void undoLastCommit(const InputMethodEntry &entry);
 
 private:
     void updateUI(const InputMethodEntry &entry);

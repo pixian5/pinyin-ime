@@ -49,6 +49,16 @@ check "引号配对 “ ”"         '\S""'             "”"
 check "Ctrl-E 表情 😀"        '\S\x05\1'         "😀"
 check "Ctrl-E 翻页 👍"        '\S\x05.\1'        "👍"
 check "打拼音中先上屏再标点"  '\Szhongguo!'      "中国！"
+# 误上屏撤回：上屏「你好」→ Ctrl-Z（恢复拼音）→ 空格重新上屏「你好」。
+# 断言用正则（中间会有 forwardKey 退格产生的空 COMMIT，固定串匹配不过）。
+out=$(./tools/xim_test_client '\Snihao\s\x1a\s' 2>/dev/null | grep "^COMMIT:" | tr '\n' ' ')
+if printf '%s' "$out" | grep -qE '你好.*你好'; then
+    echo "  PASS  误上屏撤回 Ctrl-Z  -> $out"
+    pass=$((pass + 1))
+else
+    echo "  FAIL  误上屏撤回 Ctrl-Z  -> $out (期望两次「你好」)"
+    fail=$((fail + 1))
+fi
 check "M3 纠错 senme→什么"    '\Ssenme\s'        "什么"
 check "M3 纠错 zongguo→中国"  '\Szongguo\s'      "中国"
 check "纠错不误伤简拼 zg"     '\Szg\s'           "中国"

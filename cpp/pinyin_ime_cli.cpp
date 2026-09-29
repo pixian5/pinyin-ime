@@ -36,8 +36,9 @@
 //   光标左右移动（逐词分段：方向键按词边界移动候选光标）、
 //   Home/End（候选光标跳句首/句尾）、单引号智能配对（空闲‘/’交替，打拼音中仍是隔音符）、
 //   上屏即落盘（崩溃/被 kill 最多丢最后一次上屏的增量）、表情（Ctrl-E 进入表情选择，
-//   1-9 选表情上屏，[,]/[.] 翻页，Esc 返回中文）。
-// 待实现（见 README「未来优化方向」）：候选部首/偏旁检索、误上屏撤回、跨设备同步。
+//   1-9 选表情上屏，[,]/[.] 翻页，Esc 返回中文）、误上屏撤回（Ctrl-Z：撤回最近一次
+//   候选上屏，恢复拼音重新编辑，最多记住 32 条）。
+// 待实现（见 README「未来优化方向」）：候选部首/偏旁检索、跨设备同步。
 #include <cstdio>
 #include <cctype>
 #include <csignal>
@@ -48,6 +49,7 @@
 #include <memory>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <libime/core/userlanguagemodel.h>
@@ -82,6 +84,16 @@ bool is_pinyin_char(char ch) {
     return (ch >= 'a' && ch <= 'z') || ch == '\'';
 }
 
+// 取「上屏前」的连续拼音串：交互态 preedit 音节间可能带空格（渲染 "sen me"）、
+// 隔音符 xi'an 带 '，撤回时需要把这些消掉，恢复成可重新 type 的纯拼音串。
+std::string preedit_compact(const PinyinContext &ctx) {
+    std::string s;
+    for (char c : ctx.preedit()) {
+        if (c != '\'' && c != ' ') s.push_back(c);
+    }
+    return s;
+}
+
 bool exists(const std::string &p) {
     if (p.empty()) return false;
     std::ifstream f(p);
@@ -110,7 +122,8 @@ void usage(const char *prog) {
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
         << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Home/End 跳句首句尾\n"
-        << "表情：Ctrl-E 进入表情选择（1-9 选表情，[,]/[.] 翻页，Esc 返回中文）\n";
+        << "表情：Ctrl-E 进入表情选择（1-9 选表情，[,]/[.] 翻页，Esc 返回中文）\n"
+        << "撤回：Ctrl-Z 撤回最近一次候选上屏（恢复拼音，可继续编辑）\n";
 }
 
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
@@ -463,9 +476,23 @@ int main(int argc, char **argv) {
     }
 #endif
 
+    // 误上屏撤回栈：记录「最近一次候选上屏」的文本 + 拼音串（最近在上）。
+    // 上限 32 条，防长会话无限膨胀。
+    std::vector<std::pair<std::string, std::string>> undoStack;
+    // 撤回后的提示语（显示在状态行末尾，下一次按键即清除）。
+    std::string undoNotice;
+
     // 上屏即落盘：崩溃/被 kill 时最多丢「最后一次上屏」的增量（防丢措施，与 addon 对齐）。
+    // 成功上屏时把 (文本, 拼音) 压入撤回栈，供 Ctrl-Z 撤回后恢复拼音重新编辑。
     auto commit = [&](size_t idx) {
+        if (ctx.empty()) return;
+        const std::string preText = ctx.sentence();         // 上屏文本（撤回提示/删行用）
+        const std::string prePinyin = preedit_compact(ctx); // 恢复拼音（撤回后重新打字用）
         if (select_and_commit(ctx, idx)) {
+            if (!preText.empty()) {
+                undoStack.emplace_back(preText, prePinyin);
+                if (undoStack.size() > 32) undoStack.erase(undoStack.begin());
+            }
             save_user_data();
         }
     };
@@ -550,10 +577,13 @@ int main(int argc, char **argv) {
         if (total > kPageSize) {
             std::cout << "  [" << (page + 1) << "/" << (maxPage + 1) << "页 ,上一页 .下一页]";
         }
+        if (!undoNotice.empty()) {
+            std::cout << "  " << undoNotice;
+        }
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，-=/.及PageUp/PageDown翻页，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，-=/.及PageUp/PageDown翻页，Ctrl-Z 撤回上屏，Ctrl-C 退出\n";
     render();
 
     int key;
@@ -561,6 +591,10 @@ int main(int argc, char **argv) {
         if (key == 0x03) {  // Ctrl-C
             std::cout << "\n";
             break;
+        }
+        // 除撤回键（Ctrl-Z）外，任何按键都清除「已撤回」提示。
+        if (key != 0x1a) {
+            undoNotice.clear();
         }
         if (englishMode) {
             char ch = static_cast<char>(key);
@@ -627,7 +661,25 @@ int main(int argc, char **argv) {
             // ---- 中文模式（普通按键）----
             char ch = static_cast<char>(key);
             std::string punct = chinese_punct(ch);
-            if (ch == 0x05) {  // Ctrl-E：进入表情选择
+            if (ch == 0x1a) {  // Ctrl-Z：误上屏撤回（撤回最近一次候选上屏）
+                if (!ctx.empty()) {
+                    // 正在输入拼音：不撤回（避免误伤当前编辑）。
+                } else if (!undoStack.empty()) {
+                    const auto [unusedText, pinyin] = undoStack.back();
+                    (void)unusedText;
+                    undoStack.pop_back();
+                    // 布局：上屏行在上一行（「你好」），状态行在当前行。
+                    // 先清状态行，再退到上一行清掉上屏行；随后 render() 会重绘状态行。
+                    std::cout << "\r\x1b[2K";
+                    std::cout << "\x1b[1A\r\x1b[2K";
+                    page = 0;
+                    ctx.clear();
+                    for (char c : pinyin) {
+                        if (is_pinyin_char(c)) ctx.type(std::string(1, c));
+                    }
+                    undoNotice = "（已撤回上屏，可继续编辑拼音）";
+                }
+            } else if (ch == 0x05) {  // Ctrl-E：进入表情选择
                 emojiMode = true;
                 emojiPage = 0;
             } else if (ch == '\t') {  // Tab：切英文

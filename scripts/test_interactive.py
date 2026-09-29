@@ -166,6 +166,15 @@ def _run_all(cli, lm, dct, ud):
         # ⑳ 翻回：yi 按 = 到第 2 页，再按 - 回第 1 页，选 1 仍得「一」（-= 翻页对齐 addon）
         ([("send", "yi"), ("send", "="), ("send", "-"), ("send", "1"), ("sleep", 0.2)],
          ["「一」"], None, None),
+        # ㉑ 误上屏撤回：nihao 上屏「你好」→ Ctrl-Z（\x1a）撤回落回拼音态（可继续编辑拼音）
+        ([("send", "nihao"), ("send", " "), ("sleep", 0.2),
+          ("send", "\x1a"), ("sleep", 0.3)],
+         ["「你好」", "ni hao", "已撤回上屏"], None, None),
+        # ㉒ 撤回后重新上屏：上屏「你好」→ 撤回 → 空格再次上屏「你好」（恢复的拼音可复用）
+        ([("send", "nihao"), ("send", " "), ("sleep", 0.2),
+          ("send", "\x1a"), ("sleep", 0.2),
+          ("send", " "), ("sleep", 0.2)],
+         ["「你好」", "已撤回上屏", "「你好」"], None, None),
     ]
 
     ok = 0

@@ -75,8 +75,8 @@ new = '''    RsvgDimensionData dim{};
     if (dim.width > 0 && dim.height > 0) {
         return std::make_pair(std::max(1, dim.width), std::max(1, dim.height));
     }'''
-    assert s.count(old) == 1, s.count(old)
-    open(p, 'w', encoding='utf-8').write(s.replace(old, new))
+assert s.count(old) == 1, s.count(old)
+open(p, 'w', encoding='utf-8').write(s.replace(old, new))
 PY
 fi
 

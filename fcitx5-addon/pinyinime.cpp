@@ -149,6 +149,18 @@ std::string fullwidthPunct(const std::string &ascii) {
     }
 }
 
+// UTF-8 字符串的「字符数」（按首字节统计，非字节数）。
+// 用于撤回时告诉应用要按多少个 BackSpace 删除刚上屏的文本（xterm/编辑器按字符删）。
+size_t utf8Len(const std::string &s) {
+    size_t n = 0;
+    for (unsigned char c : s) {
+        if ((c & 0xC0) != 0x80) {
+            ++n;
+        }
+    }
+    return n;
+}
+
 } // namespace
 
 // ---------------- PinyinIMEState ----------------
@@ -278,10 +290,24 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
     if (context_.empty() || idx >= cands.size()) {
         return;
     }
+    // 误上屏撤回：先收集恢复拼音（必须在此刻——selectCandidatesToCursor 之后
+    // preedit() 会变化/清空，撤回时才能把拼音放回候选态）。
+    std::string pinyin;
+    for (char c : context_.preedit()) {
+        if (c != '\'' && c != ' ') {
+            pinyin.push_back(c);
+        }
+    }
     context_.selectCandidatesToCursor(idx);
     if (context_.selected()) {
         const std::string text = context_.sentence();
         if (!text.empty()) {
+            // 与 CLI commit() 语义一致——仅「候选整句上屏」进栈
+            // （英文/标点/表情不动），上限 32 条防膨胀。
+            undoStack_.emplace_back(text, pinyin);
+            if (undoStack_.size() > 32) {
+                undoStack_.erase(undoStack_.begin());
+            }
             context_.learn();
             commitText(text);
         }
@@ -317,6 +343,30 @@ void PinyinIMEState::commitPunctuation(const InputMethodEntry &entry,
     if (!context_.empty()) {
         refreshUI(entry);
     }
+}
+
+void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
+    // 正在输入拼音时不撤回（避免误伤当前编辑）；无撤回历史直接忽略。
+    if (!context_.empty() || undoStack_.empty()) {
+        return;
+    }
+    const auto [text, pinyin] = undoStack_.back();
+    undoStack_.pop_back();
+    // 1) 向前台应用转发 BackSpace × text 字符数，删掉刚上屏的文本。
+    //    （依赖应用支持退格删除；xterm/常见编辑器都支持。）
+    for (size_t i = 0; i < utf8Len(text); ++i) {
+        inputContext_->forwardKey(Key(FcitxKey_BackSpace, KeyState::NoState));
+    }
+    // 2) 把拼音恢复回候选态（与 CLI 撤回语义一致，用户可继续编辑/重上屏）。
+    context_.clear();
+    page_ = 0;
+    maxPage_ = 0;
+    for (char c : pinyin) {
+        if ((c >= 'a' && c <= 'z') || c == '\'') {
+            context_.type(std::string(1, c));
+        }
+    }
+    refreshUI(entry);
 }
 
 // ---------------- PinyinIMEEngine ----------------
@@ -454,6 +504,14 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             state->emojiPage_ = 0;
         }
         state->refreshUI(entry);
+        event.filterAndAccept();
+        return;
+    }
+
+    // 误上屏撤回（Ctrl-Z）：与 Ctrl-E 一样在「组合键交给框架」守卫之前拦截。
+    if (event.key().check(FcitxKey_Z, KeyState::Ctrl) ||
+        event.key().check(FcitxKey_z, KeyState::Ctrl)) {
+        state->undoLastCommit(entry);
         event.filterAndAccept();
         return;
     }
@@ -763,6 +821,8 @@ void PinyinIMEEngine::deactivate(const InputMethodEntry &entry,
     saveUserData();
     auto *state = event.inputContext()->propertyFor(&factory_);
     state->reset();
+    // 失焦后撤回没有意义（文本已落在别的应用窗口），清空撤回栈防误伤。
+    state->undoStack_.clear();
 }
 
 class PinyinIMEFactory : public AddonFactory {
