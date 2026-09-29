@@ -119,6 +119,8 @@ void usage(const char *prog) {
         << "  --correct       先经 M3 纠错（CHIME+二元转移）修复打错的拼音再解码\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
+        << "  --json          行模式输出 JSON 数组（方便程序化调用）\n"
+        << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
         << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Ctrl+←/→ 移动候选焦点（空格上屏焦点候选），Home/End 跳句首句尾\n"
@@ -364,6 +366,8 @@ int main(int argc, char **argv) {
     bool fuzzy = false;
     bool correctPinyin = false;  // --correct：先经 M3 纠错再解码
     bool shuangpin = false;
+    bool jsonOutput = false;     // --json：行模式输出 JSON 数组
+    bool statsOnly = false;     // --stats：打印引擎统计后退出
     std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
@@ -378,6 +382,10 @@ int main(int argc, char **argv) {
             }
             spScheme = argv[++i];
             shuangpin = true;  // 指定方案即启用双拼
+        } else if (a == "--json") {
+            jsonOutput = true;
+        } else if (a == "--stats") {
+            statsOnly = true;
         } else if (a == "--correct") {
             correctPinyin = true;
         } else if (a == "--fuzzy" || a == "-f") {
@@ -436,6 +444,19 @@ int main(int argc, char **argv) {
     ime.dict()->load(PinyinDictionary::SystemDict, dictPath.c_str(),
                      PinyinDictFormat::Binary);
     ime.setNBest(static_cast<size_t>(nbest));
+
+    if (statsOnly) {
+        // --stats：打印引擎统计后退出
+        std::cout << "{\n";
+        std::cout << "  \"lm_path\": \"" << lmPath << "\",\n";
+        std::cout << "  \"dict_path\": \"" << dictPath << "\",\n";
+        std::cout << "  \"nbest\": " << nbest << ",\n";
+        std::cout << "  \"fuzzy\": " << (fuzzy ? "true" : "false") << ",\n";
+        std::cout << "  \"shuangpin\": " << (shuangpin ? "true" : "false");
+        if (shuangpin) std::cout << ",\n  \"sp_scheme\": \"" << spScheme << "\"";
+        std::cout << "\n}\n";
+        return 0;
+    }
 
     if (fuzzy) {
         ime.setFuzzyFlags(common_fuzzy_flags());
@@ -528,9 +549,26 @@ int main(int argc, char **argv) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-            for (size_t i = 0; i < cands.size(); ++i) {
-                if (i) std::cout << '\t';
-                std::cout << cands[i];
+            if (jsonOutput) {
+                // JSON 数组输出：["候选1","候选2",...]
+                std::cout << '[';
+                for (size_t i = 0; i < cands.size(); ++i) {
+                    if (i) std::cout << ',';
+                    std::cout << '"';
+                    // 转义 JSON 特殊字符
+                    for (char c : cands[i]) {
+                        if (c == '"') std::cout << "\\\"";
+                        else if (c == '\\') std::cout << "\\\\";
+                        else std::cout << c;
+                    }
+                    std::cout << '"';
+                }
+                std::cout << ']';
+            } else {
+                for (size_t i = 0; i < cands.size(); ++i) {
+                    if (i) std::cout << '\t';
+                    std::cout << cands[i];
+                }
             }
             std::cout << '\n';
             std::cout.flush();

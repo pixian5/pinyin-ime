@@ -1873,3 +1873,28 @@ bash scripts/smoke_test.sh
 **源码构建**：fcitx5 5.1.23, libime 1.1.17 (含 kenlm), 数据文件 (zh_CN.lm + sc.dict)
 
 **Python（评测/纠错）**：pypinyin, opencc-python-reimplemented, jieba
+
+## 2026-09-29 v0.7.5：CLI 新增 --json / --stats 模式
+
+### 新增功能
+
+1. **`--json` 行模式输出**：每行输出 JSON 数组 `["候选1","候选2",...]`，方便程序化调用和自动化测试集成。特殊字符自动转义。
+
+2. **`--stats` 引擎统计**：打印 JSON 格式的引擎配置信息（LM 路径、词典路径、nbest、模糊音/双拼状态），方便调试和配置确认。
+
+### 用法示例
+
+```bash
+# JSON 输出（方便 jq 等工具处理）
+echo "nihao" | pinyin_ime_cli --json zh_CN.lm sc.dict
+# → ["你好","拟好","你毫","你号","你耗"]
+
+# 引擎统计
+pinyin_ime_cli --stats zh_CN.lm sc.dict
+# → {"lm_path":"...","dict_path":"...","nbest":5,"fuzzy":false,"shuangpin":false}
+```
+
+### 验证
+
+- CLI 编译通过
+- 冒烟测试 20/20 全通过（无回归）
