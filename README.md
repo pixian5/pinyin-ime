@@ -2014,3 +2014,25 @@ pinyin_ime_cli --learn-file pairs.txt zh_CN.lm sc.dict
 # 使用预训练模型
 echo nihao | pinyin_ime_cli --user-data data/user_lm_news zh_CN.lm sc.dict
 ```
+
+## 2026-09-29 v0.8.6：全语料训练 + 多领域评测
+
+### 全语料训练结果
+
+用 14242 句（news+baike+wiki+recent+dialogue）训练，7063 句成功学习：
+
+| 语料 | 句数 | 基线 | 训练后 | 改进 |
+|---|---|---|---|---|
+| news | 200 | 42.5% | 59.0% | +16.5pp |
+| wiki | 200 | 26.0% | 35.0% | +9.0pp |
+| baike | 200 | 36.5% | 60.0% | +23.5pp |
+
+### 预训练模型
+
+- `data/user_lm_full/`：全语料训练的用户 LM（推荐）
+- `data/user_lm_news/`：新闻语料训练的用户 LM
+
+```bash
+# 使用全语料预训练模型
+echo nihao | pinyin_ime_cli --user-data data/user_lm_full zh_CN.lm sc.dict
+```
