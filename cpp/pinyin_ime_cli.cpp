@@ -125,6 +125,7 @@ void usage(const char *prog) {
         << "  --version       显示版本号后退出\n"
         << "  --learn-file F  批量学习：每行 拼音<TAB>中文，训练用户语言模型\n"
         << "  --dump-user     导出用户学习历史（人类可读）后退出\n"
+        << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -376,7 +377,10 @@ int main(int argc, char **argv) {
     bool statsOnly = false;     // --stats：打印引擎统计后退出
     bool quiet = false;          // --quiet：抑制信息性 stderr 输出
     std::string learnFile;       // --learn-file：批量学习
+    std::string batchFile;       // --batch：从文件批量处理
     bool dumpUser = false;       // --dump-user：导出用户学习历史
+
+    // --dump-user：导出用户学习历史
     std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
@@ -394,8 +398,14 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.7.9\n";
+            std::cout << "pinyin_ime_cli 0.8.0\n";
             return 0;
+        } else if (a == "--batch") {
+            if (i + 1 >= argc) {
+                std::cerr << "--batch 缺少文件参数\n";
+                return 2;
+            }
+            batchFile = argv[++i];
         } else if (a == "--dump-user") {
             dumpUser = true;
         } else if (a == "--learn-file") {
@@ -563,6 +573,54 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --batch：从文件批量处理
+    if (!batchFile.empty()) {
+        std::ifstream bf(batchFile);
+        if (!bf) {
+            std::cerr << "pinyin_ime_cli: 无法打开批量文件 " << batchFile << "\n";
+            return 2;
+        }
+        std::string line;
+        while (std::getline(bf, line)) {
+            if (line.empty() || line[0] == '#') {
+                if (jsonOutput) std::cout << "[]\n";
+                else std::cout << "\n";
+                continue;
+            }
+            ctx.clear();
+            if (correctPinyin && pinyin_corrector::should_correct(line)) {
+                std::string fixed = pinyin_corrector::correct_to_string(line);
+                if (!fixed.empty()) line = fixed;
+            }
+            for (char ch : line) {
+                if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+            }
+            auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+            if (jsonOutput) {
+                std::cout << '[';
+                for (size_t i = 0; i < cands.size(); ++i) {
+                    if (i) std::cout << ',';
+                    std::cout << '"';
+                    for (char c : cands[i]) {
+                        if (c == '"') std::cout << "\\\"";
+                        else if (c == '\\') std::cout << "\\\\";
+                        else std::cout << c;
+                    }
+                    std::cout << '"';
+                }
+                std::cout << "]\n";
+            } else {
+                for (size_t i = 0; i < cands.size(); ++i) {
+                    if (i) std::cout << '\t';
+                    std::cout << cands[i];
+                }
+                std::cout << '\n';
+            }
+        }
+        std::cout.flush();
+        return 0;
     }
 
     // --dump-user：导出用户学习历史
