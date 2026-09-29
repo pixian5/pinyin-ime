@@ -74,5 +74,46 @@ while IFS='|' read -r p w; do [ -n "$p" ] && run_case "$p" "$w" --fuzzy; done <<
 echo "== 双拼（小鹤）=="
 while IFS='|' read -r p w; do [ -n "$p" ] && run_case "$p" "$w" --shuangpin; done <<< "$SHUANGPIN"
 
+echo "== CLI 功能 =="
+# --version
+ver="$("$CLI" --version 2>/dev/null)"
+if [[ "$ver" == pinyin_ime_cli* ]]; then
+    printf '  PASS  --version             -> %s\n' "$ver"
+    pass=$((pass + 1))
+else
+    printf '  FAIL  --version             -> 「%s」\n' "$ver"
+    fail=$((fail + 1))
+fi
+
+# --stats（JSON 输出，含 lm_path）
+stats="$("$CLI" --stats "$LM" "$DICT" 2>/dev/null)"
+if echo "$stats" | grep -q '"lm_path"' && echo "$stats" | grep -q '"dict_path"'; then
+    printf '  PASS  --stats               -> JSON OK\n'
+    pass=$((pass + 1))
+else
+    printf '  FAIL  --stats               -> 未输出有效 JSON\n'
+    fail=$((fail + 1))
+fi
+
+# --json --quiet（输出 JSON 数组）
+json_out="$(printf 'nihao\n' | "$CLI" --json --quiet --user-data "$UD" "$LM" "$DICT" 2>/dev/null)"
+if echo "$json_out" | grep -q '\["你好"'; then
+    printf '  PASS  --json --quiet        -> %s\n' "$json_out"
+    pass=$((pass + 1))
+else
+    printf '  FAIL  --json --quiet        -> 「%s」期望以 ["你好" 开头\n' "$json_out"
+    fail=$((fail + 1))
+fi
+
+# --correct（纠错模式：senme → 什么）
+corr_top="$(printf 'senme\n' | "$CLI" --correct --fuzzy --user-data "$UD" "$LM" "$DICT" 5 2>/dev/null | cut -f1)"
+if [ "$corr_top" = "什么" ]; then
+    printf '  PASS  --correct --fuzzy     -> %s\n' "$corr_top"
+    pass=$((pass + 1))
+else
+    printf '  FAIL  --correct --fuzzy     -> 「%s」期望「什么」\n' "$corr_top"
+    fail=$((fail + 1))
+fi
+
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]
