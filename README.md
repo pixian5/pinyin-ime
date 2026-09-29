@@ -1979,3 +1979,38 @@ echo "你好" | pinyin_ime_cli --predict --quiet zh_CN.lm sc.dict
 - 首词命中率：top1 95.8% / top5 99.9%
 - 逐键延迟：平均 0.97ms / P50 0.79ms / P99 2.51ms
 - 冒烟测试：24/24 全通过
+
+## 2026-09-29 v0.8.4：用户语言模型训练 + 评测
+
+### 重大改进：词级学习提升准确率
+
+用 `--learn-file` 从 2000 句新闻语料做词级学习，效果显著：
+
+| 指标 | 训练前 | 训练后 | 改进 |
+|---|---|---|---|
+| 句级准确率 | 36.2% | 53.6% | +17.4pp |
+| 字级准确率 | 89.0% | 90.7% | +1.7pp |
+| 正确句数 | 181/500 | 268/500 | +87 |
+
+### 新增功能
+
+- `--train-text F`：从中文文本直接训练用户 LM（字符级 bigram，快速）
+- `--history-weight F`：调整用户语言模型权重
+- `scripts/train_from_corpus.py`：从中文语料生成拼音→中文训练对
+- `scripts/quick_eval.py`：快速评测句级/字级准确率
+- `scripts/train_and_eval.sh`：一键训练 + 评测
+- `data/user_lm_news/`：预训练用户 LM（news 语料）
+
+### 用法
+
+```bash
+# 一键训练 + 评测
+bash scripts/train_and_eval.sh bench/corpus/news.txt
+
+# 手动训练
+python3 scripts/train_from_corpus.py corpus.txt pairs.txt
+pinyin_ime_cli --learn-file pairs.txt zh_CN.lm sc.dict
+
+# 使用预训练模型
+echo nihao | pinyin_ime_cli --user-data data/user_lm_news zh_CN.lm sc.dict
+```

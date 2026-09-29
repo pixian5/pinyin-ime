@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.8.3\n";
+            std::cout << "pinyin_ime_cli 0.8.4\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
