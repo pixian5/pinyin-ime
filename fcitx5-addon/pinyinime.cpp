@@ -81,6 +81,39 @@ libime::PinyinFuzzyFlags commonFuzzyFlags() {
             PinyinFuzzyFlag::Correction};
 }
 
+// 双拼方案名 → libime 枚举（与 CLI sp_profile_from 保持一致）。
+
+libime::ShuangpinBuiltinProfile shuangpinProfileFrom(std::string name) {
+
+    for (auto &c : name) {
+
+        c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+
+    }
+
+    if (name == "ziranma") return libime::ShuangpinBuiltinProfile::Ziranma;
+
+    if (name == "ms" || name == "微软") return libime::ShuangpinBuiltinProfile::MS;
+
+    if (name == "ziguang" || name == "紫光") return libime::ShuangpinBuiltinProfile::Ziguang;
+
+    if (name == "abc" || name == "智能abc") return libime::ShuangpinBuiltinProfile::ABC;
+
+    if (name == "zhongwenzhixing" || name == "中文之星") return libime::ShuangpinBuiltinProfile::Zhongwenzhixing;
+
+    if (name == "pinyinjiajia" || name == "拼音加加") return libime::ShuangpinBuiltinProfile::PinyinJiajia;
+
+    if (name == "xiaohe" || name == "小鹤") return libime::ShuangpinBuiltinProfile::Xiaohe;
+
+    if (name == "gb") return libime::ShuangpinBuiltinProfile::GB;
+
+    FCITX_WARN() << "pinyinime: unknown shuangpin scheme \"" << name
+                 << "\", falling back to Xiaohe";
+
+    return libime::ShuangpinBuiltinProfile::Xiaohe;
+
+}
+
 // US 布局下把 (KeySym, Shift) 还原成屏幕上会出现的 ASCII 字符。
 // 兼容「符号已折叠进 keysym」（如 Shift+/ → FcitxKey_question）与
 // 「基键 + Shift 状态」（如 FcitxKey_1 + Shift → !）两套前端约定；非打印键返回空串。
@@ -169,6 +202,11 @@ PinyinIMEState::PinyinIMEState(PinyinIMEEngine *engine, InputContext *ic)
     : engine_(engine), inputContext_(ic), context_(engine->ime()) {
     for (int i = 0; i < 9; ++i) {
         selectionKeys_.emplace_back(static_cast<KeySym>(FcitxKey_1 + i));
+    }
+    // 双拼：从引擎配置初始化运行时开关
+    shuangpinEnabled_ = engine_->config().enableShuangpin.value();
+    if (shuangpinEnabled_) {
+        context_.setUseShuangpin(true);
     }
 }
 
@@ -428,6 +466,12 @@ bool PinyinIMEEngine::ensureDataLoaded() {
         ime_->setFuzzyFlags(commonFuzzyFlags());
     }
 
+    // 双拼 profile（与 CLI setShuangpinProfile 一致）
+    if (config().enableShuangpin.value()) {
+        auto sp = shuangpinProfileFrom(config().shuangpinScheme.value());
+        ime_->setShuangpinProfile(std::make_shared<libime::ShuangpinProfile>(sp));
+    }
+
     // 用户词库 / 自学习历史持久化
     const std::string userDir = expandHome(config().userDataDir.value());
     std::error_code ec;
@@ -469,6 +513,11 @@ void PinyinIMEEngine::reloadConfig() {
     if (ime_) {
         ime_->setNBest(
             static_cast<size_t>(std::max(1, config().nbest.value())));
+        // 双拼 profile 热更新（配置变更后即时生效）
+        if (config().enableShuangpin.value()) {
+            auto sp = shuangpinProfileFrom(config().shuangpinScheme.value());
+            ime_->setShuangpinProfile(std::make_shared<libime::ShuangpinProfile>(sp));
+        }
     }
 }
 
@@ -518,6 +567,16 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_Z, KeyState::Ctrl) ||
         event.key().check(FcitxKey_z, KeyState::Ctrl)) {
         state->undoLastCommit(entry);
+        event.filterAndAccept();
+        return;
+    }
+
+    // 双拼运行时切换（Ctrl+Shift+S）：全拼↔双拼即时切换，不影响已输入内容。
+    if ((event.key().check(FcitxKey_S, KeyState::Ctrl_Shift) ||
+         event.key().check(FcitxKey_s, KeyState::Ctrl_Shift))) {
+        state->shuangpinEnabled_ = !state->shuangpinEnabled_;
+        ctx.setUseShuangpin(state->shuangpinEnabled_);
+        state->refreshUI(entry);
         event.filterAndAccept();
         return;
     }

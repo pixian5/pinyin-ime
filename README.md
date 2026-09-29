@@ -1817,3 +1817,59 @@ bash scripts/smoke_test.sh
 **源码构建**：fcitx5 5.1.23, libime 1.1.17 (含 kenlm), 数据文件 (zh_CN.lm + sc.dict)
 
 **Python（评测/纠错）**：见 `bench/requirements.txt` 和 `correction/` 模块
+
+---
+
+## 2026-09-29 v0.7.4：fcitx5 addon 双拼支持
+
+### 新增功能
+
+**fcitx5 addon 双拼（双拼/简拼互切）**：此前 CLI 已支持 8 种双拼方案（小鹤/自然码/微软/紫光/智能ABC/中文之星/拼音加加/国标），fcitx5 addon 缺失。本轮补齐：
+
+1. **配置项**（`conf/pinyinime.conf`）：
+   - `EnableShuangpin=true/false` — 启用双拼（默认 false）
+   - `ShuangpinScheme=xiaohe` — 双拼方案（xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb）
+
+2. **运行时切换**：**Ctrl+Shift+S** 即时切换全拼↔双拼，不影响已输入内容。切换后 `context_.setUseShuangpin()` 即时生效，无需重启 fcitx5。
+
+3. **热更新**：`reloadConfig()` 中同步更新 ShuangpinProfile，配置变更后即时生效。
+
+### 代码变更
+
+| 文件 | 变更 |
+|---|---|
+| `fcitx5-addon/pinyinime.h` | 添加 `enableShuangpin`/`shuangpinScheme` 配置项；`shuangpinEnabled_` 运行时状态；`#include <shuangpinprofile.h>` |
+| `fcitx5-addon/pinyinime.cpp` | 添加 `shuangpinProfileFrom()` 方案映射函数；`ensureDataLoaded()` 应用 profile；构造函数 `setUseShuangpin`；`keyEvent` 添加 Ctrl+Shift+S 切换；`reloadConfig` 热更新 |
+
+### 验证
+
+- fcitx5 addon 编译通过（`libpinyinime.so`）
+- CLI 冒烟测试 20/20 全通过（无回归）
+- CLI 双拼功能不受影响（`--shuangpin` / `--sp-scheme`）
+
+### 当前进度总结
+
+- ✅ **M1 CLI 输入法**：全拼/简拼/模糊音/双拼/自学习/中英切换/中文标点/表情/撤回
+- ✅ **fcitx5 addon**：全拼/简拼/模糊音/**双拼（新增）**/自学习/中英切换/中文标点/表情/撤回/候选焦点
+- ✅ **M3 纠错模块**：C++ 移植 + Python 原版
+- ✅ **评测框架**：句级 39.60% / 字级 88.82% / 码长 3.099
+
+### 未来优化方向
+
+1. **fcitx5 addon 实机安装验证**：在真实桌面环境（X11/Wayland）安装 addon，验证 GUI 输入体验（含双拼切换）
+2. **Route A 语言模型训练**：用 LCCC 口语语料训练专属 LM，提升口语域句级准确率（当前 49.24% → 目标 55%+）
+3. **词频校准**：接入搜狗/微软真实用户词频，提升首词命中率
+4. **双拼方案自动检测**：根据用户输入习惯自动推荐双拼方案
+5. **性能优化**：aarch64 上逐键延迟 P99 约 2.54ms，可探索 NEON 指令加速
+6. **跨设备同步**：用户词库/自学习数据云端同步
+7. **候选部首/偏旁检索**：生僻字输入体验提升
+
+### 所需依赖
+
+**系统级（dnf）**：ninja-build, pkg-config, make, python3-pip
+
+**conda-forge（micromamba）**：gcc 16.2.0, gxx, boost-cpp 1.85.0, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
+
+**源码构建**：fcitx5 5.1.23, libime 1.1.17 (含 kenlm), 数据文件 (zh_CN.lm + sc.dict)
+
+**Python（评测/纠错）**：pypinyin, opencc-python-reimplemented, jieba

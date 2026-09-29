@@ -33,6 +33,7 @@
 #include <libime/pinyin/pinyincontext.h>
 #include <libime/pinyin/pinyindictionary.h>
 #include <libime/pinyin/pinyinime.h>
+#include <libime/pinyin/shuangpinprofile.h>
 
 namespace fcitx {
 
@@ -48,7 +49,12 @@ FCITX_CONFIGURATION(
     Option<bool> enableFuzzy{this, "EnableFuzzy", _("Enable fuzzy pinyin"),
                              false};
     Option<bool> enableCorrect{
-        this, "EnableCorrect", _("Enable M3 spelling correction"), false};);
+        this, "EnableCorrect", _("Enable M3 spelling correction"), false};
+    Option<bool> enableShuangpin{
+        this, "EnableShuangpin", _("Enable double pinyin (shuangpin)"), false};
+    Option<std::string> shuangpinScheme{
+        this, "ShuangpinScheme", _("Double pinyin scheme (xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb)"),
+        "xiaohe"};);
 
 class PinyinIMEEngine;
 
@@ -81,6 +87,8 @@ public:
     std::string engBuf_;
     // 表情选择（Ctrl-E）：1-9 选表情，[,]/[.] 翻页，Esc/Ctrl-E 返回中文。
     bool emojiMode_ = false;
+    // 双拼运行时开关（Ctrl+Shift+S 切换，初始值来自配置）
+    bool shuangpinEnabled_ = false;
     size_t emojiPage_ = 0;
     // 误上屏撤回栈：(上屏文本, 拼音串)，最近在上；deactivate（失焦）时清空。
     std::vector<std::pair<std::string, std::string>> undoStack_;
