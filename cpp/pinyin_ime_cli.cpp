@@ -126,6 +126,7 @@ void usage(const char *prog) {
         << "  --learn-file F  批量学习：每行 拼音<TAB>中文，训练用户语言模型\n"
         << "  --dump-user     导出用户学习历史（人类可读）后退出\n"
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
+        << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -379,6 +380,7 @@ int main(int argc, char **argv) {
     std::string learnFile;       // --learn-file：批量学习
     std::string batchFile;       // --batch：从文件批量处理
     bool dumpUser = false;       // --dump-user：导出用户学习历史
+    bool top1Only = false;       // --top1：只输出首选候选
 
     // --dump-user：导出用户学习历史
     std::string spScheme = "xiaohe";
@@ -398,7 +400,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.8.0\n";
+            std::cout << "pinyin_ime_cli 0.8.1\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -406,6 +408,8 @@ int main(int argc, char **argv) {
                 return 2;
             }
             batchFile = argv[++i];
+        } else if (a == "--top1") {
+            top1Only = true;
         } else if (a == "--dump-user") {
             dumpUser = true;
         } else if (a == "--learn-file") {
@@ -598,7 +602,10 @@ int main(int argc, char **argv) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-            if (jsonOutput) {
+            if (top1Only) {
+                if (!cands.empty()) std::cout << cands[0];
+                std::cout << '\n';
+            } else if (jsonOutput) {
                 std::cout << '[';
                 for (size_t i = 0; i < cands.size(); ++i) {
                     if (i) std::cout << ',';
@@ -718,7 +725,9 @@ int main(int argc, char **argv) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-            if (jsonOutput) {
+            if (top1Only) {
+                if (!cands.empty()) std::cout << cands[0];
+            } else if (jsonOutput) {
                 // JSON 数组输出：["候选1","候选2",...]
                 std::cout << '[';
                 for (size_t i = 0; i < cands.size(); ++i) {

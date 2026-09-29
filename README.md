@@ -1898,3 +1898,43 @@ pinyin_ime_cli --stats zh_CN.lm sc.dict
 
 - CLI 编译通过
 - 冒烟测试 20/20 全通过（无回归）
+
+## 2026-09-29 v0.8.0-v0.8.1：CLI 工具链完善
+
+### 新增功能
+
+| 版本 | 功能 | 说明 |
+|---|---|---|
+| v0.8.0 | `--batch F` | 从文件批量处理拼音，支持 `--json`/`--top1` |
+| v0.8.0 | `--dump-user` | 导出用户学习历史（HistoryBigram::dump） |
+| v0.8.0 | addon 配置模板 | `fcitx5-addon/conf/pinyinime.conf` |
+| v0.8.1 | `--top1` | 只输出首选候选，方便管道 `|` 其他工具 |
+
+### CLI 完整功能列表
+
+```
+pinyin_ime_cli [选项] [lm] [dict] [nbest]
+
+输入模式：
+  行模式（stdin 非 TTY）    每行拼音 → 候选列表
+  交互模式（stdin 为 TTY）  逐键输入，数字/空格上屏
+
+功能选项：
+  -f, --fuzzy       模糊音
+  -s, --shuangpin   双拼（默认小鹤）
+  --sp-scheme S     双拼方案（8种）
+  --correct         M3 拼写纠错
+  --user-data DIR   用户数据目录
+  --learn-file F    批量学习（拼音<TAB>中文）
+  --batch F         批量处理（文件输入）
+  --json            JSON 数组输出
+  --top1            只输出首选
+  --stats           引擎统计 JSON
+  --dump-user       导出学习历史
+  --quiet           抑制信息输出
+  --version         版本号
+  -h, --help        帮助
+
+配置文件：~/.config/pinyin-ime/config
+  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data
+```
