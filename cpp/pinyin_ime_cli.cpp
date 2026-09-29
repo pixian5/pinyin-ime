@@ -124,6 +124,7 @@ void usage(const char *prog) {
         << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
         << "  --version       显示版本号后退出\n"
         << "  --learn-file F  批量学习：每行 拼音<TAB>中文，训练用户语言模型\n"
+        << "  --dump-user     导出用户学习历史（人类可读）后退出\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -375,6 +376,7 @@ int main(int argc, char **argv) {
     bool statsOnly = false;     // --stats：打印引擎统计后退出
     bool quiet = false;          // --quiet：抑制信息性 stderr 输出
     std::string learnFile;       // --learn-file：批量学习
+    bool dumpUser = false;       // --dump-user：导出用户学习历史
     std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
@@ -392,8 +394,10 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.7.8\n";
+            std::cout << "pinyin_ime_cli 0.7.9\n";
             return 0;
+        } else if (a == "--dump-user") {
+            dumpUser = true;
         } else if (a == "--learn-file") {
             if (i + 1 >= argc) {
                 std::cerr << "--learn-file 缺少文件参数\n";
@@ -559,6 +563,12 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --dump-user：导出用户学习历史
+    if (dumpUser) {
+        ime.model()->history().dump(std::cout);
+        return 0;
     }
 
     // --learn-file：批量学习模式
