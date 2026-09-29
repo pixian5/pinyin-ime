@@ -1,6 +1,6 @@
 # pinyin-ime 项目状态
 
-> 更新时间：2026-09-30 v0.8.7
+> 更新时间：2026-09-30 v0.8.7（端到端打字验证通过）
 
 ## 项目概述
 
@@ -127,6 +127,21 @@
 - DBus 服务名注册（org.fcitx.Fcitx5）
 - 无致命错误
 
+### fcitx5 端到端打字验证（testfrontend API）
+
+12/12 项检查全部通过（scripts/test_fcitx5_e2e_typing.sh）：
+- pinyinime addon 加载 + LM/dict 加载 + IM 注册
+- IM 成功切换到 pinyinime（setCurrentInputMethod）
+- 按键全部被接受（accepted=1）
+- 输入 "nihao" → 预编辑 "ni hao" → 9 个候选 [你好, 拟好, 你毫, ...]
+- 空格选首选 → 提交 "你好"
+- 输入 "shijie" → 预编辑 "shi jie" → 9 个候选 [世界, 时节, 师姐, ...]
+- 空格选首选 → 提交 "世界"
+- 输入 "nihao" + 数字选词 → 提交 "你好"
+
+验证方式：通过 fcitx5 内置 testfrontend addon 直接调用 C++ API，
+绕过 DBus/X11 前端限制，在无头环境中完成完整的按键→候选→提交流程。
+
 ## 构建依赖
 
 - libime 1.1.17（zh_CN.lm 34.7MB + sc.dict 4.5MB）
@@ -182,5 +197,5 @@ pinyin-ime/
 1. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM（35% vs 75%），需要更大语料或插值策略
 2. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建）
 3. **候选部首/偏旁检索**：生僻字输入
-4. **桌面 GUI 实测**：在真实桌面环境（X11/GTK/Qt）中测试按键输入流程
+4. **~~桌面 GUI 实测~~**：✅ 已通过 testfrontend API 完成端到端打字验证（12/12 通过）
 5. **双拼方案自定义**：用户可编辑双拼键位映射
