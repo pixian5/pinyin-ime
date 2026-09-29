@@ -2296,3 +2296,33 @@ bash scripts/install_all.sh
 | 系统词典 | sc.dict | 4.3MB |
 | fcitx5 server | opt/fcitx5-server/bin/fcitx5 | 449KB |
 | lmplz (LM训练) | build/kenlm/bin/lmplz | 1.4MB |
+
+### fcitx5 端到端打字测试（E2E）
+
+通过 fcitx5 `testfrontend` addon 直接调用 C++ API 模拟真实打字流程：
+按键输入 → 预编辑(preedit) → 候选列表(candidate list) → 空格提交(commit)
+
+**结果：18/18 通过，100% 准确率**
+
+| 测试项 | 输入 | 候选首项 | 结果 |
+|---|---|---|---|
+| 基本问候 | nihao | 你好 | ✅ |
+| 基本词 | shijie | 世界 | ✅ |
+| 国名 | zhongguo | 中国 | ✅ |
+| 城市名 | beijing | 北京 | ✅ |
+| 常用名词 | xuesheng | 学生 | ✅ |
+| 常用名词 | laoshi | 老师 | ✅ |
+| 常用短语 | xiexie | 谢谢 | ✅ |
+| 常用短语 | zaijian | 再见 | ✅ |
+| 大学名称 | beijingdaxue | 北京大学 | ✅ |
+| 大学名称 | qinghuadaxue | 清华大学 | ✅ |
+| 复合词 | zhongguoren | 中国人 | ✅ |
+| 句子 | woshizhongguoren | 我是中国人 | ✅ |
+| 短语组合 | nihaozhongguo | 你好中国 | ✅ |
+| 句子 | woaixuexi | 我爱学习 | ✅ |
+| 较长短语 | jintiandetianqi | 今天的天气 | ✅ |
+| 长句 | qingwenyixiaruzhushenmefangjian | 请问一下入住什么房间 | ✅ |
+| 句子 | woxiangdingyigefangjian | 我想订一个房间 | ✅ |
+| 句子 | qingbangwochaxunyixia | 请帮我查询一下 | ✅ |
+
+运行方式：`scripts/build_e2e_test.sh`
