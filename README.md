@@ -2181,3 +2181,60 @@ bash scripts/package.sh --deb     # DEB 目录
 3. **桌面 GUI 实测**：在真实桌面环境（X11/GTK/Qt）中测试按键输入流程（headless 沙箱已验证 addon 加载）。
 4. **候选部首/偏旁检索**：生僻字输入。
 5. **双拼方案自定义**：用户可编辑双拼键位映射。
+
+---
+
+## 构建记录：2026-09-30 v0.8.8（openEuler 22.03 aarch64 全量重建）
+
+### 环境
+
+- OS: openEuler 22.03 LTS (aarch64)
+- 工具链: conda-forge gcc 16.2.0（micromamba，清华镜像源）
+- 系统工具: cmake 3.22 / ninja 1.10 / python 3.11
+- 代理: 本地 mihomo 7890（GitHub 下载用）
+
+### 构建结果
+
+| 组件 | 状态 | 产物 |
+|---|---|---|
+| fcitx5 5.1.23 | ✅ 编译安装 | /root/workspace/native-build/opt/fcitx5/ |
+| libime 1.1.17 (4-gram) | ✅ 编译安装 | zh_CN.lm 34MB + sc.dict 4.3MB |
+| pinyin_ime_cli | ✅ 编译 | cpp/build/pinyin_ime_cli (688KB) |
+| fcitx5 addon (libpinyinime.so) | ✅ 编译 | fcitx5-addon/build/libpinyinime.so (772KB) |
+| kenlm lmplz | ✅ 编译 | build/kenlm/bin/lmplz (用于LM训练) |
+
+### 测试结果
+
+| 测试 | 结果 |
+|---|---|
+| 自检 (--self-test) | ✅ 通过（nihao→你好） |
+| 冒烟测试 (smoke_test.sh) | ✅ 24/24 通过 |
+| 交互回归 (test_interactive.py) | ✅ 26/26 通过 |
+| 基本输入验证 | ✅ nihao→你好, shijie→世界, zhongguo→中国, beijing→北京 |
+
+### 新增文件
+
+- `run.sh`: 一键运行脚本（自动设置环境变量，支持命令行和交互模式）
+
+### 使用方法
+
+```bash
+# 一键运行（交互模式）
+./run.sh
+
+# 命令行模式
+./run.sh nihao    # 输出: 你好  拟好  你毫  你号  你耗
+
+# 环境变量方式
+export PATH="/root/workspace/native-build/mamba-env/bin:$PATH"
+export LD_LIBRARY_PATH="/root/workspace/native-build/mamba-env/lib:/root/workspace/native-build/opt/fcitx5/lib:/root/workspace/native-build/opt/libime/lib"
+./cpp/build/pinyin_ime_cli /root/workspace/native-build/opt/libime/lib/libime/zh_CN.lm /root/workspace/native-build/opt/libime/share/libime/sc.dict
+```
+
+### 后续优化方向
+
+1. **准确率提升**：当前句级准确率 ~40%，需更大语料训练 LM 或插值策略
+2. **fcitx5 实机集成**：addon 已编译，需在桌面环境（X11/Wayland）实测
+3. **纠错深度集成**：M3 纠错模块接入 libime 解码管线
+4. **双拼方案自定义**：用户可编辑双拼键位映射
+5. **性能优化**：当前逐键延迟 ~1ms，可进一步优化候选排序

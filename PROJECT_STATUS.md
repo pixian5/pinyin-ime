@@ -199,3 +199,13 @@ pinyin-ime/
 3. **候选部首/偏旁检索**：生僻字输入
 4. **~~桌面 GUI 实测~~**：✅ 已通过 testfrontend API 完成端到端打字验证（12/12 通过）
 5. **双拼方案自定义**：用户可编辑双拼键位映射
+
+## v0.8.8 构建验证（2026-09-30）
+
+- **环境**: openEuler 22.03 LTS aarch64, conda-forge gcc 16.2.0
+- **fcitx5**: 5.1.23 从源码编译（禁用 X11/Wayland/DBus/Server，仅核心库）
+- **libime**: 1.1.17 从源码编译（4-gram, KENLM_MAX_ORDER=4）
+- **CLI**: pinyin_ime_cli 编译通过，24/24 冒烟 + 26/26 交互测试全通过
+- **Addon**: libpinyinime.so 编译通过
+- **lmplz**: kenlm lmplz 编译通过（用于自定义 LM 训练）
+- **数据**: zh_CN.lm 34MB + sc.dict 4.3MB（libime 自带）

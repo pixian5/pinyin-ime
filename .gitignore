@@ -51,3 +51,4 @@ tools/gtk_ime_test_client
 packaging/build/
 *.lm
 !bench/corpus/*.txt
+.secrets
