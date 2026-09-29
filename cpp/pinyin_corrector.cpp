@@ -375,26 +375,55 @@ bool is_full_pinyin(const std::string &pinyin) {
     return model().trie.canSegmentZeroEdit(pinyin);
 }
 
+// 拼音元音（含 v，ü 的输入代写）。
+static bool isVowel(char c) {
+    return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' || c == 'v';
+}
+
 bool should_correct(const std::string &pinyin) {
     // ① 零编辑可切分（真全拼）：直接放行（与旧门控一致，senme/cifan 等都在此列）。
     if (is_full_pinyin(pinyin)) {
         return true;
     }
-    // ② 疑似全拼打错：保守启发式（见头文件注释）。
     const size_t n = pinyin.size();
     if (n < 3) {
         return false; // zg 等 2 字母简拼：长度不足
     }
     size_t vowels = 0;
     for (char c : pinyin) {
-        if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' ||
-            c == 'v') {
+        if (isVowel(c)) {
             ++vowels;
         }
     }
+
+    // ② 删元音型（del）：全辅音串，疑似「漏打一个元音」（zhng→zhong/zheng）。
+    //    用「音节数 + 元音分布」更强判据收紧：恰好补 1 个元音（maxDist=1，结果长 n+1）
+    //    **且得到单个合法音节**才放行。多音节简拼（bjdx→bo|ji|de|xi）与混合输入被
+    //    「音节数=1」过滤；字母数过短的全辅音串（n<4，多数 3 字简拼）仍不放开。
     if (vowels == 0) {
-        return false; // bjdx / zhng 等零元音：简拼或删元音型，本轮不放开
+        if (n < 4) {
+            return false;
+        }
+        auto r = correct(pinyin, 1);
+        if (r && r->size() == 1) {
+            const std::string &syl = (*r)[0];
+            bool hasVowel = false;
+            for (char c : syl) {
+                if (isVowel(c)) {
+                    hasVowel = true;
+                    break;
+                }
+            }
+            // 元音分布校验：结果音节含元音（合法拼音音节必有韵母），且确为「只补一个元音」
+            // 的插入型纠错（结果恰比输入长 1），而非其他编辑类型。
+            if (hasVowel && syl.size() == n + 1) {
+                return true;
+            }
+        }
+        return false; // 其余全辅音串：简拼 / 无法单音节兜底，不放开
     }
+
+    // ③ 含元音的疑似全拼打错：保守启发式（见头文件注释）。
     auto r = correct(pinyin, 2); // 允许 1~2 处单元编辑（替换为主）
     if (!r || r->size() > 2) {
         // 纠正失败或纠正后音节过多（bjdaxue 会被切成 bo|da|xue 三音节）→ 疑似混合输入

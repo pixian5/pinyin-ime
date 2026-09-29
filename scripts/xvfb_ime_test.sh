@@ -61,6 +61,7 @@ else
 fi
 check "M3 纠错 senme→什么"    '\Ssenme\s'        "什么"
 check "纠错边界 zhing→中"    '\Szhing\s'        "中"
+check "纠错边界 zhng→中"     '\Szhng\s'         "中"
 check "M3 纠错 zongguo→中国"  '\Szongguo\s'      "中国"
 check "纠错不误伤简拼 zg"     '\Szg\s'           "中国"
 

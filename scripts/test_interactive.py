@@ -186,6 +186,10 @@ def _run_all(cli, lm, dct, ud):
         ([("send", "yi"), ("send", "\x1b[1;5C"), ("send", "\x1b[1;5C"),
           ("send", " "), ("sleep", 0.3)],
          ["「已」"], None, None),
+        # ㉖ 纠错边界扩展（--correct）：zhng（删元音型重错，想打 zhong/zheng）
+        #    → should_correct 全辅音串分支放行 → 纠正为「中」（zhong）
+        ([("send", "zhng"), ("send", " "), ("sleep", 0.3)],
+         ["「中」"], ["--correct"]),
     ]
 
     ok = 0
