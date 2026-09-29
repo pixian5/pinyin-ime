@@ -1510,3 +1510,75 @@ bash scripts/xvfb_desktop_ime_test.sh          # DBus+GTK  10/10（本轮新增�
 4. **候选体验**：部首/偏旁检索（撤回、候选焦点已落地）。
 5. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
 6. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。
+
+## 开发进度（2026-09-29 · 第17轮：全新 headless 沙箱从零复现全链路四路回归 + 修复 keysend_target 构建缺口）
+
+本轮按用户要求「继续开发、做成真正能跑起来的输入法」，在**全新 headless 沙箱**（openEuler 22.03
+**aarch64**，conda-forge gcc 16，含 4-gram）从零复现全套构建（未用 docker），四路回归全绿；并修复
+一个会让「真桌面通道」在全新环境复现时 **0/10** 的构建脚本缺口。
+
+### 从零复现（安装依赖 · 未用 docker · 镜像 + 代理）
+- GitCode 访问令牌写入仓库外独立文件（`/root/workspace/.secrets/gitcode.env`，chmod 600），不入库；
+  克隆走 `https://oauth2:<token>@gitcode.com/laotongtian/pinyin-ime.git`。
+- conda-forge 走清华 tuna 镜像；micromamba / fcitx5 / libime / kenlm / xcb-imdkit / yoga / fcitx5-gtk
+  等国外源统一走 mihomo 代理 `http://127.0.0.1:7890`；X11/Xvfb/DBus/GTK3 系统库走 dnf（openEuler 源）。
+- 引擎产物**逐字节复现基线**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B；
+  fcitx5 5.1.23 + libime 1.1.17（含 kenlm + `lmplz` + 4-gram 补丁）+ fcitx5-X11（XIM + DBus 双前端）
+  + fcitx5-gtk 5.1.7（GTK3 im module）。
+
+### 四路回归（全绿，共 75 例 + 纠错对拍）
+| 通道 | 用例数 | 结果 |
+|---|---|---|
+| `smoke_test.sh`（CLI 全拼/简拼/模糊音/双拼） | 20 | **20/20** |
+| `test_interactive.py`（上屏/中英/标点/撤回/纠错/焦点选字） | 25 | **25/25** |
+| C++/Python 纠错对拍（`pinyin_corrector_test`） | — | exit 0 |
+| `xvfb_ime_test.sh`（XIM，X11 虚拟桌面） | 20 | **20/20** |
+| `xvfb_desktop_ime_test.sh`（DBus + GTK3 im module 真桌面） | 10 | **10/10** |
+
+### 本轮发现并修复的真实问题（复现缺口）
+- **`keysend_target` 未纳入任何构建脚本**：`xvfb_desktop_ime_test.sh` 依赖独立按键注入器
+  `tools/keysend_target`（`XSetInputFocus` + `XTestFakeKeyEvent`），但 `build_fcitx5_gtk.sh` 只编译了
+  `gtk_ime_test_client`（收上屏的 GTK3 应用），没编 keysend_target；更适合此前第 8/13 轮的手工
+  `cc` 命令在第 16 轮合并复现块时被漏掉。全新环境复现时真桌面测试 **0/10**（按键从未送达 → 客户端
+  `inserted-text` 永不触发 → 输出恒空）。**修复**：`build_fcitx5_gtk.sh` 尾部补编译 `keysend_target`
+  （与 `gtk_ime_test_client` 一起固化，加中文注释说明其硬依赖地位），修完重跑 **10/10**。
+- 完整排查与教训见 `docs/2026年09月29日17时01分真桌面复现缺口_keysend_target未纳入构建脚本.md`：
+  「0/N 且输出全空」先怀疑输入没送达（注入器缺失），再查 im module/DBus/引擎解码。
+
+### 本轮复现命令（固化，可一键重跑）
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+# 引擎 + CLI
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+# fcitx5-X11（XIM + DBus 双前端）
+bash scripts/setup_x11_deps.sh && bash scripts/build_fcitx5_x11.sh
+# addon + XIM 实测客户端
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$NB/opt/fcitx5-x11" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5-x11;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build && cmake --install fcitx5-addon/build
+cc tools/xim_test_client.c -lX11 -lXtst -o tools/xim_test_client
+# 真桌面（DBus + GTK3 im module；build_fcitx5_gtk.sh 现已顺带编译 keysend_target）
+bash scripts/setup_desktop_deps.sh && bash scripts/build_fcitx5_gtk.sh
+# 回归护栏（四路全绿）
+bash scripts/smoke_test.sh                     # 20/20
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 25/25
+bash scripts/xvfb_ime_test.sh                  # XIM  20/20
+bash scripts/xvfb_desktop_ime_test.sh          # DBus+GTK  10/10
+```
+
+### 版本
+`0.6.8 → 0.6.9`（VERSION + fcitx5-addon/CMakeLists.txt 同步）。
+
+### 未来优化方向（下一轮按优先级聚焦，与第 16 轮一致——本轮为复现 + 脚本修复，未改功能）
+1. **Wayland 真桌面延展**：XIM + DBus/GTK 两条链路均已验；补 `ENABLE_WAYLAND=On` + gtk/qt
+   Wayland im module，在带物理显示器/合成器的真桌面做视觉终验（含候选焦点高亮 `setCursorIndex`）。
+2. **候选焦点视觉高亮**（`setCursorIndex`）：语义已对（第 15 轮），视觉打磨留待真桌面。
+3. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+4. **候选体验**：部首/偏旁检索（撤回、候选焦点已落地）。
+5. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
+6. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。

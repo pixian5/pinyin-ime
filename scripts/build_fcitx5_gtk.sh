@@ -52,8 +52,13 @@ if [ -f "$MODDIR/im-fcitx5.so" ]; then
 fi
 
 # ---- 编译 GTK3 实测客户端（系统 gcc + 系统 gtk3）----
-echo "=== 编译 tools/gtk_ime_test_client ==="
+echo "=== 编译 tools/gtk_ime_test_client（真实 GTK3 应用，供端到端断言 GTK_COMMIT）==="
 gcc -O2 -o tools/gtk_ime_test_client tools/gtk_ime_test_client.c \
     $(pkg-config --cflags --libs gtk+-3.0 gdk-x11-3.0) 2>&1
+
+# keysend_target：向 GTK 客户端窗口注入按键（XTest）。它是 xvfb_desktop_ime_test.sh 的硬依赖，
+# 此前漏编译导致真桌面测试「0/10」（按键从未送达）。与 gtk_ime_test_client 一起固化在此，不再手工 cc。
+echo "=== 编译 tools/keysend_target（按键注入器，xvfb_desktop_ime_test.sh 依赖）==="
+gcc -O2 -o tools/keysend_target tools/keysend_target.c -lX11 -lXtst 2>&1
 
 echo "FCITX5-GTK DONE -> $OPT/fcitx5-x11  （immodule 已注册到系统 immodules.cache）"
