@@ -1720,3 +1720,100 @@ CLI 与 addon 共用同一 `pinyin_corrector.cpp`，行为一致。
 2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
 3. **候选体验**：部首/偏旁检索（撤回、候选焦点、焦点高亮、纠错边界均已落地）。
 4. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。
+
+---
+
+## 2026-09-29 构建日志：openEuler 22.03 aarch64 全链路从零搭建
+
+### 环境
+
+- **OS**：openEuler 22.03 LTS aarch64
+- **工具链**：conda-forge gcc 16.2.0（micromamba 2.9.0，清华镜像 `mirrors.tuna.tsinghua.edu.cn`）
+  - 系统 dnf 仅有 gcc 10.3.1，缺少 `<source_location>`（C++20，gcc 11+），必须走 conda-forge
+  - 华为云 conda 镜像有 ZSTD 解压问题，改用清华镜像成功
+- **fcitx5**：5.1.23（GitHub archive → gh-proxy.com 加速下载）
+- **libime**：1.1.17（GitHub archive + kenlm codeload 归档，KENLM_MAX_ORDER=4，StateSize=32）
+- **数据**：`zh_CN.lm` 34MB / `sc.dict` 4.3MB（语言模型 tarball 经代理 7890 从 download.fcitx-im.org 下载，SHA256 校验通过）
+- **依赖**：boost 1.85.0 / fmt 8.0.1 / zstd 1.5.0 / libuv 1.42.0 / ECM 6.12.0 / gettext 0.21 / libuuid 2.37.2
+
+### 构建产物
+
+| 组件 | 路径 | 状态 |
+|---|---|---|
+| fcitx5 库 | `native-build/opt/fcitx5/` | ✅ 编译安装完成 |
+| libime 库 + 数据 | `native-build/opt/libime/` | ✅ 编译安装完成（含 zh_CN.lm + sc.dict） |
+| CLI 输入法 | `cpp/build/pinyin_ime_cli` | ✅ 编译完成 |
+| fcitx5 addon | `fcitx5-addon/build/libpinyinime.so` | ✅ 编译完成 |
+| 运行脚本 | `run_cli.sh` | ✅ 自动设置环境变量启动 CLI |
+
+### 冒烟测试（20/20 全通过）
+
+```
+== 全拼 ==
+  PASS  nihao                -> 你好
+  PASS  zhongguo             -> 中国
+  PASS  woshiyige            -> 我是一个
+  PASS  beijingdaxue         -> 北京大学
+  PASS  zhongguoruanjian     -> 中国软件
+== 简拼 ==
+  PASS  bjdx                 -> 北京大学
+  PASS  zg                   -> 中国
+  PASS  js                   -> 技术
+== 模糊音 ==
+  PASS  cifan                -> 吃饭
+  PASS  senme                -> 什么
+  PASS  zeli                 -> 这里
+  PASS  lanfang              -> 南方
+== 双拼（小鹤）==
+  PASS  nihc                 -> 你好
+  PASS  vsgo                 -> 中国
+  PASS  bwjkdaxt             -> 北京大学
+  PASS  ufme                 -> 什么
+  PASS  veli                 -> 这里
+  PASS  iifj                 -> 吃饭
+  PASS  jiuu                 -> 技术
+  PASS  wouiyige             -> 我是一个
+==== 结果：20 通过 / 0 失败 ====
+```
+
+### 快速验证
+
+```bash
+# 行模式（脚本/评测）
+echo "nihao" | ./run_cli.sh 5
+# → 你好	拟好	你毫	你号	你耗
+
+# 交互模式（真人打字）
+./run_cli.sh
+# 然后键入拼音，空格上屏，1-9 选候选
+
+# 全量冒烟测试
+bash scripts/smoke_test.sh
+```
+
+### 当前进度总结
+
+- ✅ **M1 最小可运行输入法**：CLI 全链路打通（打字 → 候选 → 选词上屏），支持全拼/简拼/模糊音/双拼/自学习/中英切换/中文标点/表情
+- ✅ **fcitx5 addon**：编译通过，产出 `libpinyinime.so` + `pinyinime.conf`，可安装到桌面环境
+- ✅ **M3 纠错模块**：C++ 移植编译通过
+- ✅ **评测框架**：`libime_bench` 适配器编译通过
+
+### 未来优化方向
+
+1. **fcitx5 addon 实机安装验证**：在真实桌面环境（X11/Wayland）安装 addon，验证 GUI 输入体验
+2. **Route A 语言模型训练**：用 LCCC 口语语料训练专属 LM，提升口语域句级准确率（当前 49.24% → 目标 55%+）
+3. **词频校准**：接入搜狗/微软真实用户词频，提升首词命中率
+4. **模糊音增强**：当前模糊音规则覆盖平翘舌/前后鼻音/键盘邻近，可扩展更多方言习惯
+5. **性能优化**：aarch64 上逐键延迟 P99 约 2.54ms，可探索 NEON 指令加速拼音匹配
+6. **跨设备同步**：用户词库/自学习数据云端同步
+7. **候选部首/偏旁检索**：生僻字输入体验提升
+
+### 所需依赖
+
+**系统级（dnf）**：ninja-build, pkg-config, make, python3-pip
+
+**conda-forge（micromamba）**：gcc 16.2.0, gxx, boost-cpp 1.85.0, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
+
+**源码构建**：fcitx5 5.1.23, libime 1.1.17 (含 kenlm), 数据文件 (zh_CN.lm + sc.dict)
+
+**Python（评测/纠错）**：见 `bench/requirements.txt` 和 `correction/` 模块
