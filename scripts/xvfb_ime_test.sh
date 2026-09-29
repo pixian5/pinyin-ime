@@ -76,5 +76,13 @@ check "= 翻页选字 (yi)"        '\Syi=\1'    "亿"
 check "PageDown 翻页选字 (ji)" '\Sji\d\1'   "其"
 check "= 翻页后 - 翻回 (de)"   '\Sde=-\1'    "的"
 
+# ---- 候选焦点（Ctrl+→）：独立清空用户数据，避免 learn 污染候选排序 ----
+# yi 页 1 候选（干净用户目录下固定）：1.一 2.以 3.已 —— 焦点移到 2 后空格上屏「以」。
+pkill -9 -x fcitx5 2>/dev/null
+sleep 1
+rm -rf /tmp/pinyin-ime-x11-ud ~/.local/share/pinyin-ime
+bash scripts/xvfb_test_env.sh start > /dev/null 2>&1
+check "候选焦点 Ctrl+→ + 空格 (yi)" '\Syi\r\s' "以"
+
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]

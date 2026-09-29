@@ -119,6 +119,8 @@ static void run_script(const char *script) {
                 break;
             case 'u': send_key(XK_Page_Up, 0); break;   /* \u = PageUp */
             case 'd': send_key(XK_Page_Down, 0); break; /* \d = PageDown */
+            case 'l': send_key(XK_Left, ControlMask); break;  /* \l = Ctrl+Left（候选焦点左移） */
+            case 'r': send_key(XK_Right, ControlMask); break; /* \r = Ctrl+Right（候选焦点右移） */
             case 'w': usleep(250000); break;            /* \w = 等 250ms（翻页前让解码落定）*/
             case 'x': { /* \xNN：带 Ctrl 的字符（如 \x05 = Ctrl-E） */
                 if (!script[i + 1] || !script[i + 2]) {

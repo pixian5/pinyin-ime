@@ -179,6 +179,13 @@ def _run_all(cli, lm, dct, ud):
         #    → should_correct 放行 → 纠正为合法单字首选（旧门控会分裂成「知唔」）
         ([("send", "zhing"), ("send", " "), ("sleep", 0.3)],
          ["「中」"], ["--correct"]),
+        # ㉔ 候选焦点选字：yi + Ctrl+→（\x1b[1;5C）+ 空格 → 上屏焦点候选「以」（非首选「一」）
+        ([("send", "yi"), ("send", "\x1b[1;5C"), ("send", " "), ("sleep", 0.3)],
+         ["「以」"], None, None),
+        # ㉕ 候选焦点多步移动：yi + Ctrl+→ ×2 + 空格 → 「已」（焦点步进到第三候选）
+        ([("send", "yi"), ("send", "\x1b[1;5C"), ("send", "\x1b[1;5C"),
+          ("send", " "), ("sleep", 0.3)],
+         ["「已」"], None, None),
     ]
 
     ok = 0

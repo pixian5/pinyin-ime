@@ -1384,3 +1384,53 @@ CLI 与 addon 共用同一 `pinyin_corrector.cpp`，行为一致。
 4. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开；
    `should_correct` 目前按「等长替换型 + <=2 音节」保守取舍，del/ins 型与 3+ 音节替换型留待后续。
 5. **撤回增强**：多级撤回提示可选回显被撤回文本；addon 撤回在 xterm 之外的编辑器（Vim/浏览器）实测。
+
+## 开发进度（2026-09-29 · 第15轮：候选焦点选字（Ctrl+←/→）CLI + addon 双侧落地，回归 20/20 + 25/25 + 20/20）
+
+本轮补上主流中文输入法（搜狗/微软）的标配交互——**候选窗内水平移动焦点选字**：在候选列表里
+用 `Ctrl+←/Ctrl+→` 左右移动「焦点候选」，空格上屏焦点候选（不再只能数字选字或整页选字）。纯前端
+状态机，不触碰 libime 解码管线。
+
+### CLI（`pinyin_ime_cli`）
+- `read_key()` 扩展识别 `\x1b[1;5D`（Ctrl+←）/ `\x1b[1;5C`（Ctrl+→）两个转义序列（xterm 修饰键
+  序列，`read_esc_byte` 50ms 探测继续复用）；新增 `kKeyCtrlLeft/kKeyCtrlRight` 逻辑键。
+- 新增候选焦点状态 `candFocus`（页内 0..8，默认 0 = 首选）。渲染时焦点候选加 `*` 前缀标记
+  （`*2.候选`），空格/回车/标点/引号「打拼音中上屏」统一改为上屏**焦点候选**（默认 0 与旧
+  「首选」语义完全一致）；数字选字后焦点跟随所选候选。
+- 焦点复位：退格、新拼音、词边界 ←/→、Home/End、翻页（PageUp/Down 与 -,=[,].）、纠错重输后均把
+  焦点归零（候选刷新后焦点回到首选）。
+
+### Fcitx5 addon（`pinyinime.cpp`）
+- `keyEvent` 在「组合键交给框架」守卫**之前**新增 Ctrl+←/→ 拦截，且**仅当有拼音候选时**才拦截——
+  空闲时透传（编辑器里 Ctrl+←/→ 是「按词移动文本光标」，不能吃掉）。这与 Ctrl-E（表情）、Ctrl-Z
+  （撤回）放同一层守卫前。
+- `PinyinIMEState` 新增 `candFocus_`；`reset()`/`flipPage()`/退格/拼音输入/纠错重输统一复位为 0；
+  空格/回车 `selectCandidate(page*pageSize + candFocus_)` 上屏焦点候选（默认 0 = 首选）。
+- 候选窗视觉高亮（`CommonCandidateList::setCursorIndex`）留待真实桌面实机（headless 沙箱候选窗
+  由 classicui 渲染，先保证上屏语义正确，视觉打磨不阻塞功能）。
+
+### 测试工具与回归
+- `tools/xim_test_client.c` 新增 `\l`（Ctrl+Left）/`\r`（Ctrl+Right）转义（XTest 发 `XK_Left/Right +
+  ControlMask`），支撑 addon 焦点用例。
+- **回归护栏全绿**：`smoke_test.sh` 20/20、`test_interactive.py` **25/25**（新增 ㉔ yi+Ctrl+→+空格
+  →「以」、㉕ yi+Ctrl+→×2+空格→「已」）、C++/Python 纠错对拍 exit 0、`xvfb_ime_test.sh` **20/20**
+  （新增「候选焦点 Ctrl+→ + 空格 (yi)→以」）。
+
+### 本轮重要发现（再次印证第 12 轮教训）
+候选焦点用例首版放在 Xvfb 基础区时，`yi` 的候选排序被**同一 fcitx5 会话里反复 `learn()` 污染**，
+导致焦点功能「看似」失效（`focus=1` 却上屏「亿」、`focus=2` 上屏「一」）——实为候选排序被历史
+learn 提权打乱，非焦点逻辑缺陷。诊断日志确认 `candFocus_` 0→1→2 推进、空格 `idx` 计算完全正确。
+修复：焦点用例移到**独立清空用户数据块**（`rm -rf` 隔离目录 + 防御性清默认目录 + 重启 fcitx5），
+与翻页用例同一策略后 PASS。**结论：addon 候选排序本身确定，出问题先查数据隔离，再归因逻辑。**
+
+### 版本
+`0.6.6 → 0.6.7`（VERSION + fcitx5-addon/CMakeLists.txt 同步）。
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Wayland / 真桌面最终验收**：XIM（X11）链路已实测；补 `ENABLE_DBUS=On` + fcitx5-gtk/qt
+   im module，在带 DBus 与真实桌面的环境做最终验证（含配置经 DBus 载入的路径）；并补 addon
+   候选焦点视觉高亮（`setCursorIndex`）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+3. **候选体验**：部首/偏旁检索（撤回收回、候选焦点已落地）。
+4. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
+5. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 xterm 之外编辑器实测。

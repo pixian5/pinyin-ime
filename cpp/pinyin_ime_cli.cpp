@@ -121,7 +121,7 @@ void usage(const char *prog) {
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
-        << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Home/End 跳句首句尾\n"
+        << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Ctrl+←/→ 移动候选焦点（空格上屏焦点候选），Home/End 跳句首句尾\n"
         << "表情：Ctrl-E 进入表情选择（1-9 选表情，[,]/[.] 翻页，Esc 返回中文）\n"
         << "撤回：Ctrl-Z 撤回最近一次候选上屏（恢复拼音，可继续编辑）\n";
 }
@@ -268,6 +268,8 @@ enum : int {
     kKeyEnd = -7,
     kKeyPageUp = -8,
     kKeyPageDown = -9,
+    kKeyCtrlLeft = -11,   // Ctrl+←：候选焦点向左移动
+    kKeyCtrlRight = -12,  // Ctrl+→：候选焦点向右移动
 };
 
 // 与 read_key 共用：50ms 超时内读一个后续字节，失败返回 -1（解析转义序列用）。
@@ -321,7 +323,21 @@ int read_key() {
     case 'D': return kKeyLeft;
     case 'H': return kKeyHome;  // \x1b[H / \x1bOH
     case 'F': return kKeyEnd;   // \x1b[F / \x1bOF
-    case '1': case '7': {       // \x1b[1~ / \x1b[7~（旧终端 Home）
+    case '1': {                 // \x1b[1~（旧终端 Home）或 \x1b[1;5D/C（Ctrl+←/→）
+        int c4 = read_esc_byte();
+        if (c4 == '~') return kKeyHome;
+        if (c4 == ';') {        // 修饰键序列 \x1b[1;<mod><dir>
+            int c5 = read_esc_byte();  // 修饰数：5=Ctrl
+            int c6 = read_esc_byte();  // 方向字母 D/C
+            if (c5 == '5') {
+                if (c6 == 'D') return kKeyCtrlLeft;
+                if (c6 == 'C') return kKeyCtrlRight;
+            }
+            return kKeyEsc;
+        }
+        return kKeyEsc;
+    }
+    case '7': {                 // \x1b[7~（旧终端 Home）
         if (read_esc_byte() == '~') return kKeyHome;
         return kKeyEsc;
     }
@@ -528,6 +544,7 @@ int main(int argc, char **argv) {
     ime.setNBest(std::max<size_t>(static_cast<size_t>(nbest), 45));
     const size_t kPageSize = 9;  // 匹配 1-9 选字键
     size_t page = 0;
+    size_t candFocus = 0;       // 候选焦点（页内 0..8）：Ctrl+←/→ 移动，空格上屏焦点候选
     bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
     bool emojiMode = false;    // 表情选择：Ctrl-E 进入；1-9 选表情、[,]/[.] 翻页、Esc 返回
     size_t emojiPage = 0;      // 表情当前页（每页 9 个）
@@ -572,7 +589,12 @@ int main(int argc, char **argv) {
         const size_t begin = page * kPageSize;
         const size_t end = std::min<size_t>(total, begin + kPageSize);
         for (size_t i = begin; i < end; ++i) {
-            std::cout << (i - begin + 1) << "." << cands[i].toString() << "  ";
+            if (i - begin == candFocus) {
+                // 焦点候选：* 前缀标记（状态行可读；回归按 "\*2\." 等断言）
+                std::cout << "*" << (i - begin + 1) << "." << cands[i].toString() << "  ";
+            } else {
+                std::cout << (i - begin + 1) << "." << cands[i].toString() << "  ";
+            }
         }
         if (total > kPageSize) {
             std::cout << "  [" << (page + 1) << "/" << (maxPage + 1) << "页 ,上一页 .下一页]";
@@ -583,7 +605,7 @@ int main(int argc, char **argv) {
         std::cout.flush();
     };
 
-    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Home/End 跳句首句尾，-=/.及PageUp/PageDown翻页，Ctrl-Z 撤回上屏，Ctrl-C 退出\n";
+    std::cout << "pinyin_ime_cli 交互模式：输入拼音（支持简拼），数字/空格/回车上屏，退格删除，Esc 清空，Tab 中英切换，Ctrl-E 表情，←/→ 逐词移动光标，Ctrl+←/→ 移动候选焦点，空格上屏焦点候选，Home/End 跳句首句尾，-=/.及PageUp/PageDown翻页，Ctrl-Z 撤回上屏，Ctrl-C 退出\n";
     render();
 
     int key;
@@ -637,26 +659,47 @@ int main(int argc, char **argv) {
             int b = ctx.pinyinBeforeCursor();
             if (b >= 0) {
                 page = 0;
+                candFocus = 0;
                 ctx.setCursor(static_cast<size_t>(b));
             }
         } else if (key == kKeyRight) {  // 右箭头：候选光标移到下一词边界
             int a = ctx.pinyinAfterCursor();
             if (a >= 0) {
                 page = 0;
+                candFocus = 0;
                 ctx.setCursor(static_cast<size_t>(a));
             }
         } else if (key == kKeyHome) {  // Home：候选光标跳到句首
             page = 0;
+            candFocus = 0;
             ctx.setCursor(0);
         } else if (key == kKeyEnd) {   // End：候选光标跳到句尾（输入末尾）
             page = 0;
+            candFocus = 0;
             ctx.setCursor(static_cast<size_t>(ctx.size()));
         } else if (key == kKeyPageUp) {   // PageUp：候选上一页
             if (page > 0) --page;
+            candFocus = 0;
         } else if (key == kKeyPageDown) { // PageDown：候选下一页
             const auto &cands = ctx.candidatesToCursor();
             const size_t maxPage = cands.size() == 0 ? 0 : (cands.size() - 1) / kPageSize;
             if (page < maxPage) ++page;
+            candFocus = 0;
+        } else if (key == kKeyCtrlLeft || key == kKeyCtrlRight) {
+            // Ctrl+←/→：候选焦点在当页候选间左右移动；空格上屏焦点候选。
+            // （与普通 ←/→ 词边界移动、Home/End 跳首尾、PageUp/Down 翻页互不干扰。）
+            const auto &cands = ctx.candidatesToCursor();
+            if (!ctx.empty() && !cands.empty()) {
+                const size_t begin = page * kPageSize;
+                const size_t end = std::min<size_t>(cands.size(), begin + kPageSize);
+                if (end > begin) {
+                    if (key == kKeyCtrlLeft) {
+                        candFocus = candFocus > 0 ? candFocus - 1 : 0;
+                    } else {
+                        candFocus = std::min<size_t>(candFocus + 1, end - begin - 1);
+                    }
+                }
+            }
         } else {
             // ---- 中文模式（普通按键）----
             char ch = static_cast<char>(key);
@@ -687,6 +730,7 @@ int main(int argc, char **argv) {
                 engBuf.clear();
             } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
                 ctx.backspace();
+                candFocus = 0;
             } else if (ch == '-' || ch == ',' || ch == '[') {  // 打拼音时上一页（-=,[ ）；空闲时作中文标点
                 if (ctx.empty() && !punct.empty()) output_line(punct);
                 else if (page > 0) --page;
@@ -711,14 +755,16 @@ int main(int argc, char **argv) {
                         std::string fixed = pinyin_corrector::correct_to_string(cont);
                         if (!fixed.empty() && fixed != cont) {
                             page = 0;
+                            candFocus = 0;
                             ctx.clear();
                             for (char c : fixed) ctx.type(std::string(1, c));
                         }
                     }
                 }
-                commit(0);
+                commit(page * kPageSize + candFocus);
             } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
                 commit(page * kPageSize + static_cast<size_t>(ch - '1'));
+                candFocus = static_cast<size_t>(ch - '1');  // 焦点跟随所选候选
             } else if (ch == '\'') {  // 单引号：空闲智能配对‘/’；打拼音中仍是隔音符（xi'an）
                 if (ctx.empty()) {
                     output_line(singleQuoteOpen ? "’" : "‘");
@@ -728,12 +774,13 @@ int main(int argc, char **argv) {
                 }
             } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
                 ctx.type(std::string(1, ch));
-            } else if (ch == '"') {  // 双引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏首选
-                if (!ctx.empty()) commit(0);
+                candFocus = 0;
+            } else if (ch == '"') {  // 双引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏焦点候选
+                if (!ctx.empty()) commit(page * kPageSize + candFocus);
                 output_line(quoteOpen ? "”" : "“");
                 quoteOpen = !quoteOpen;
-            } else if (!punct.empty()) {  // 标点：空闲直接上屏；打拼音中先上首选再出标点
-                if (!ctx.empty()) commit(0);
+            } else if (!punct.empty()) {  // 标点：空闲直接上屏；打拼音中先上屏焦点候选再出标点
+                if (!ctx.empty()) commit(page * kPageSize + candFocus);
                 output_line(punct);
             }
         }
