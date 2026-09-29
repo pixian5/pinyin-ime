@@ -2326,3 +2326,25 @@ bash scripts/install_all.sh
 | 句子 | qingbangwochaxunyixia | 请帮我查询一下 | ✅ |
 
 运行方式：`scripts/build_e2e_test.sh`
+
+### 准确率评测（引擎实测）
+
+#### fcitx5 端到端打字测试
+通过 testfrontend addon 直接调用 fcitx5 C++ API，模拟真实按键→候选→提交流程：
+- **18/18 通过，100% 准确率**（常用短语/句子）
+
+#### 日常句子评测（40句）
+- 句级准确率：**87.5%**（35/40）
+- 字级准确率：**94.7%**（251/265）
+- 失败原因：同音字选择（是/市、西/现、时/世）
+
+#### 新闻/百科评测（200句）
+- 句级准确率：**33.5%**（67/200）
+- 字级准确率：**84.4%**（3148/3732）
+- 失败原因：长句同音字、罕见字、专有名词
+
+#### 评测脚本
+- `scripts/eval_all.sh` — 完整评测套件
+- `scripts/eval_daily.py` — 日常句子评测
+- `scripts/eval_engine2.py` — 新闻/百科评测（对比 baseline/correct/fuzzy）
+- `scripts/build_e2e_test.sh` — fcitx5 E2E 测试
