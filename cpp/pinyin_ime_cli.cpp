@@ -504,7 +504,7 @@ int main(int argc, char **argv) {
         while (std::getline(std::cin, line)) {
             ctx.clear();
             // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
-            if (correctPinyin && pinyin_corrector::is_full_pinyin(line)) {
+            if (correctPinyin && pinyin_corrector::should_correct(line)) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
@@ -707,7 +707,7 @@ int main(int argc, char **argv) {
                     for (char c : ctx.preedit()) {
                         if (c != '\'' && c != ' ') cont.push_back(c);
                     }
-                    if (!cont.empty() && pinyin_corrector::is_full_pinyin(cont)) {
+                    if (!cont.empty() && pinyin_corrector::should_correct(cont)) {
                         std::string fixed = pinyin_corrector::correct_to_string(cont);
                         if (!fixed.empty() && fixed != cont) {
                             page = 0;

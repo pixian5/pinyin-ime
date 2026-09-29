@@ -20,6 +20,15 @@ std::optional<std::vector<std::string>> correct(const std::string &pinyin,
 // 供解码前端使用：只有真全拼才值得做纠错，避免把简拼误纠成其他全拼。
 bool is_full_pinyin(const std::string &pinyin);
 
+// 判断当前输入是否「值得走纠错」（比 is_full_pinyin 更宽的保守门控）：
+//   ① 零编辑可切分（真全拼，含音节内打错如 senme——本就是合法音节串）→ true；
+//   ② 否则仅当「疑似全拼打错」才 true：长度 >= 3、含元音、纠正结果与输入等长
+//      （纯替换型，不做插入/删除）、替换数 1~2 处、纠正后 <= 2 音节。
+// 目的：放开第 7 轮声明的边界（zhing→zheng 这类『零编辑切分失败』的重错全拼），
+// 同时不误伤简拼（zg/bjdx：无元音或长度过短）、双拼与混合输入（bjdaxue：纠正后
+// 音节数 > 2 或不等长）。
+bool should_correct(const std::string &pinyin);
+
 // 便捷封装：纠正后串成 `'` 分隔字符串（供解码前端）；失败返回空串。
 std::string correct_to_string(const std::string &pinyin, int maxDist = 2);
 

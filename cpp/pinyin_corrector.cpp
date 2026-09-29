@@ -375,6 +375,47 @@ bool is_full_pinyin(const std::string &pinyin) {
     return model().trie.canSegmentZeroEdit(pinyin);
 }
 
+bool should_correct(const std::string &pinyin) {
+    // ① 零编辑可切分（真全拼）：直接放行（与旧门控一致，senme/cifan 等都在此列）。
+    if (is_full_pinyin(pinyin)) {
+        return true;
+    }
+    // ② 疑似全拼打错：保守启发式（见头文件注释）。
+    const size_t n = pinyin.size();
+    if (n < 3) {
+        return false; // zg 等 2 字母简拼：长度不足
+    }
+    size_t vowels = 0;
+    for (char c : pinyin) {
+        if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' ||
+            c == 'v') {
+            ++vowels;
+        }
+    }
+    if (vowels == 0) {
+        return false; // bjdx / zhng 等零元音：简拼或删元音型，本轮不放开
+    }
+    auto r = correct(pinyin, 2); // 允许 1~2 处单元编辑（替换为主）
+    if (!r || r->size() > 2) {
+        // 纠正失败或纠正后音节过多（bjdaxue 会被切成 bo|da|xue 三音节）→ 疑似混合输入
+        return false;
+    }
+    std::string rejoin;
+    for (const auto &syl : *r) {
+        rejoin += syl;
+    }
+    if (rejoin.size() != n) {
+        return false; // 不等长：含插入/删除，不是纯替换型打错
+    }
+    size_t diffs = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (pinyin[i] != rejoin[i]) {
+            ++diffs;
+        }
+    }
+    return diffs >= 1 && diffs <= 2;
+}
+
 std::string correct_to_string(const std::string &pinyin, int maxDist) {
     auto r = correct(pinyin, maxDist);
     if (!r) return "";

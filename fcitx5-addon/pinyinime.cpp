@@ -707,7 +707,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                         cont.push_back(c);
                     }
                 }
-                if (!cont.empty() && pinyin_corrector::is_full_pinyin(cont)) {
+                if (!cont.empty() && pinyin_corrector::should_correct(cont)) {
                     std::string fixed = pinyin_corrector::correct_to_string(cont);
                     if (!fixed.empty() && fixed != cont) {
                         state->page_ = 0;

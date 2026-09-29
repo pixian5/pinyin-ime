@@ -175,6 +175,10 @@ def _run_all(cli, lm, dct, ud):
           ("send", "\x1a"), ("sleep", 0.2),
           ("send", " "), ("sleep", 0.2)],
          ["「你好」", "已撤回上屏", "「你好」"], None, None),
+        # ㉓ 纠错边界扩展（--correct）：zhing（想打 zheng/zhong，零编辑切分失败的重错全拼）
+        #    → should_correct 放行 → 纠正为合法单字首选（旧门控会分裂成「知唔」）
+        ([("send", "zhing"), ("send", " "), ("sleep", 0.3)],
+         ["「中」"], ["--correct"]),
     ]
 
     ok = 0
