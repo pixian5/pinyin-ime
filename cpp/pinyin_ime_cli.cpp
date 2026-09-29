@@ -123,6 +123,8 @@ void usage(const char *prog) {
         << "  --json          行模式输出 JSON 数组（方便程序化调用）\n"
         << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
         << "  --version       显示版本号后退出\n"
+        << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
+        << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
         << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Ctrl+←/→ 移动候选焦点（空格上屏焦点候选），Home/End 跳句首句尾\n"
@@ -388,7 +390,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.7.6\n";
+            std::cout << "pinyin_ime_cli 0.7.7\n";
             return 0;
         } else if (a == "--quiet") {
             quiet = true;
@@ -414,6 +416,47 @@ int main(int argc, char **argv) {
             positional.push_back(a);
         }
     }
+    // 配置文件：~/.config/pinyin-ime/config（key=value 格式）
+    // 命令行参数优先于配置文件；配置文件优先于内置默认值。
+    {
+        std::string cfgPath;
+        if (const char *home = std::getenv("HOME"); home && *home) {
+            cfgPath = std::string(home) + "/.config/pinyin-ime/config";
+        }
+        if (!cfgPath.empty() && std::filesystem::exists(cfgPath)) {
+            std::ifstream cfg(cfgPath);
+            std::string line;
+            while (std::getline(cfg, line)) {
+                // 跳过注释和空行
+                if (line.empty() || line[0] == '#' || line[0] == ';') continue;
+                auto eq = line.find('=');
+                if (eq == std::string::npos) continue;
+                std::string key = line.substr(0, eq);
+                std::string val = line.substr(eq + 1);
+                // trim 空格
+                while (!key.empty() && key.back() == ' ') key.pop_back();
+                while (!val.empty() && val.front() == ' ') val.erase(val.begin());
+                // 只在命令行未指定时采用配置文件值
+                if (key == "lm_path" && positional.empty()) {
+                    positional.push_back(val);
+                } else if (key == "dict_path" && positional.size() < 2) {
+                    positional.push_back(val);
+                } else if (key == "nbest" && positional.size() < 3) {
+                    positional.push_back(val);
+                } else if (key == "fuzzy" && !fuzzy) {
+                    fuzzy = (val == "true" || val == "1");
+                } else if (key == "shuangpin" && !shuangpin) {
+                    shuangpin = (val == "true" || val == "1");
+                } else if (key == "sp_scheme" && spScheme == "xiaohe") {
+                    spScheme = val;
+                } else if (key == "user_data" && userDataDir.empty()) {
+                    userDataDir = val;
+                }
+            }
+            if (!quiet) std::cerr << "pinyin_ime_cli: 已加载配置 " << cfgPath << "\n";
+        }
+    }
+
     std::string lmPath = positional.size() > 0 ? positional[0] : "";
     std::string dictPath = positional.size() > 1 ? positional[1] : "";
     int nbest = positional.size() > 2 ? std::atoi(positional[2].c_str()) : 5;
