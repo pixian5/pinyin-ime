@@ -2238,3 +2238,34 @@ export LD_LIBRARY_PATH="/root/workspace/native-build/mamba-env/lib:/root/workspa
 3. **纠错深度集成**：M3 纠错模块接入 libime 解码管线
 4. **双拼方案自定义**：用户可编辑双拼键位映射
 5. **性能优化**：当前逐键延迟 ~1ms，可进一步优化候选排序
+
+### fcitx5 Server 实机加载验证（v0.8.8 新增）
+
+在 Xvfb 虚拟显示 + DBus session 下启动完整 fcitx5 server（含 X11 前端），验证结果：
+
+```
+I instance.cpp:669] Starting fcitx5 5.1.23
+I pinyinime.cpp:492] pinyinime: loaded lm=/usr/share/libime/libime/zh_CN.lm dict=/usr/share/libime/sc.dict
+I addonmanager.cpp:208] Loaded addon pinyinime
+I inputmethodmanager.cpp:213] Found 1 input method(s) in addon pinyinime
+```
+
+- ✅ fcitx5 server 5.1.23 启动成功
+- ✅ pinyinime addon 加载成功
+- ✅ 语言模型 zh_CN.lm (34MB) 加载成功
+- ✅ 系统词典 sc.dict (4.3MB) 加载成功
+- ✅ 输入法注册成功（1 个输入法）
+
+fcitx5 server 完整构建（含 X11 + DBus + Server + Keyboard）：
+- 额外依赖：xcb-imdkit 1.0.3（源码编译）、cairo/pango/librsvg/nlohmann_json（conda-forge）、yoga v3.2.1（facebook 布局引擎）
+- 产出：fcitx5 server binary + 所有核心库 + X11 前端模块
+
+### 安装方法
+
+```bash
+# 一键安装 CLI + addon + 数据
+bash scripts/install_all.sh
+
+# 或手动测试 CLI
+./run.sh nihao    # → 你好  拟好  你毫  你号  你耗
+```
