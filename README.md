@@ -1582,3 +1582,48 @@ bash scripts/xvfb_desktop_ime_test.sh          # DBus+GTK  10/10
 4. **候选体验**：部首/偏旁检索（撤回、候选焦点已落地）。
 5. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
 6. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。
+
+## 开发进度（2026-09-29 · 第18轮：候选焦点视觉高亮（setCursorIndex）落地 + keysend_target 补 Ctrl+←/→）
+
+承接连续两轮置顶的「候选焦点视觉高亮」：第 15 轮只实现了「Ctrl+←/→ 移动焦点、空格上屏焦点候选」
+的**上屏语义**（`candFocus_` 推进 + `selectCandidate(page*pageSize + candFocus_)`），但候选窗里
+classicui 的「高亮光标」一直写死在第 1 个候选（`setCursorIndex(0)`），视觉与语义脱节。本轮把
+高亮对齐到 `candFocus_`，并在 headless 沙箱里用**截图像素比对**做了视觉验证。
+
+### 实现（`fcitx5-addon/pinyinime.cpp` updateUI，主候选列表）
+- `setCursorIndex(0)` → `setCursorIndex(static_cast<int>(candFocus_))`。
+- `candFocus_` 页内索引已钳制到 `< end-begin` 且 `end>begin` 才建列表，索引必有效；翻页/新拼音/
+  退格/纠错重输均把 `candFocus_` 归零，高亮同步回页首。表情列表无焦点移动，不涉及。
+- 纯 UI 层，不触碰 libime 解码管线，无需重建引擎。
+
+### 视觉验证（headless 做「视觉」验证的可行手法）
+headless 无物理显示器，但 classicui 会把候选窗画进 Xvfb 的 X11 帧缓冲。用 `XGetImage` 抓屏比对
+（临时工具 `/tmp/x11capture.c`，不入库），在 GTK3 客户端里逐帧证实高亮条随焦点水平移动（候选窗
+Y≈[149,177]、单槽约 45px）：
+
+| 状态 | 高亮条 X 区间 | 候选 |
+|---|---|---|
+| 焦点 0（默认） | [11, 55] | 「一」 |
+| 焦点 1（Ctrl+→ 一次） | [55, 100] | 「以」 |
+| 焦点 2（Ctrl+→ 两次） | [100, 145] | 「已」 |
+
+### 顺带修复：keysend_target 缺 Ctrl+←/→ 转义
+`tools/keysend_target.c`（DBus+GTK 端到端按键注入器）此前没有 `\l`/`\r`（Ctrl+←/→）转义，遇未知
+转义提前 `return` 终止脚本，导致首次截图验证时焦点按键根本没发出；与 `tools/xim_test_client.c`
+（早已支持）词汇不一致。已补 `case 'l'/'r'`，两兄弟测试工具语义统一，焦点用例可跨 XIM/DBus+GTK
+双通道复现。
+
+### 回归护栏（全绿）
+`smoke_test.sh` 20/20、`test_interactive.py` 25/25、纠错对拍 exit 0、`xvfb_ime_test.sh` 20/20、
+`xvfb_desktop_ime_test.sh` 10/10。
+
+### 版本
+`0.6.9 → 0.7.0`（VERSION + fcitx5-addon/CMakeLists.txt 同步）。
+
+### 未来优化方向（下一轮按优先级聚焦）
+1. **Wayland 真桌面延展**：XIM + DBus/GTK 两条链路均已验；补 `ENABLE_WAYLAND=On` + gtk/qt
+   Wayland im module，在带物理显示器/合成器的真桌面做视觉终验（候选焦点高亮已落地，第 18 轮）。
+2. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+3. **候选体验**：部首/偏旁检索（撤回、候选焦点、焦点高亮已落地）。
+4. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
+5. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。

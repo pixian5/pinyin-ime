@@ -269,7 +269,11 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
         candidateList->setCursorIncludeUnselected(true);
-        candidateList->setCursorIndex(0);
+        // 候选焦点视觉高亮：把 classicui 的「高亮光标」对齐到 candFocus_（页内 0..8），
+        // 让 Ctrl+←/→ 移动焦点后，候选窗里高亮的就是即将上屏的那个候选（第 15 轮只做了
+        // 上屏语义、视觉仍固定在第 1 个）。candFocus_ 已在 keyEvent 钳制到 < end-begin，
+        // 且 end>begin 时才走到这里，故索引必有效。翻页/新拼音/退格已把 candFocus_ 归零。
+        candidateList->setCursorIndex(static_cast<int>(candFocus_));
         inputContext_->inputPanel().setCandidateList(std::move(candidateList));
     }
     inputContext_->updatePreedit();

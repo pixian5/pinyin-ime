@@ -75,6 +75,8 @@ static void run_script(const char *s) {
             case '[': send_key(XK_bracketleft, 0); break;
             case ']': send_key(XK_bracketright, 0); break;
             case 'S': send_key(XK_space, ControlMask); break;
+            case 'l': send_key(XK_Left, ControlMask); break;  /* Ctrl+Left（候选焦点左移） */
+            case 'r': send_key(XK_Right, ControlMask); break; /* Ctrl+Right（候选焦点右移） */
             case 'x':
                 if (!s[i + 1] || !s[i + 2]) return;
                 char hex[3] = {s[i + 1], s[i + 2], 0};
