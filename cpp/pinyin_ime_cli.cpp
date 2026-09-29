@@ -119,8 +119,10 @@ void usage(const char *prog) {
         << "  --correct       先经 M3 纠错（CHIME+二元转移）修复打错的拼音再解码\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
+        << "  --quiet         抑制信息性 stderr 输出（配合 --json 使用更干净）\n"
         << "  --json          行模式输出 JSON 数组（方便程序化调用）\n"
         << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
+        << "  --version       显示版本号后退出\n"
         << "  -h, --help      显示本帮助\n"
         << "简拼（首字母输入）默认开启：bjdx → 北京大学\n"
         << "候选翻页：- , [ / = . ] 上一页/下一页，PageUp/PageDown 翻页；←/→ 逐词移动，Ctrl+←/→ 移动候选焦点（空格上屏焦点候选），Home/End 跳句首句尾\n"
@@ -368,6 +370,7 @@ int main(int argc, char **argv) {
     bool shuangpin = false;
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
     bool statsOnly = false;     // --stats：打印引擎统计后退出
+    bool quiet = false;          // --quiet：抑制信息性 stderr 输出
     std::string spScheme = "xiaohe";
     std::string userDataDir;
     std::vector<std::string> positional;
@@ -384,6 +387,11 @@ int main(int argc, char **argv) {
             shuangpin = true;  // 指定方案即启用双拼
         } else if (a == "--json") {
             jsonOutput = true;
+        } else if (a == "--version") {
+            std::cout << "pinyin_ime_cli 0.7.6\n";
+            return 0;
+        } else if (a == "--quiet") {
+            quiet = true;
         } else if (a == "--stats") {
             statsOnly = true;
         } else if (a == "--correct") {
@@ -460,7 +468,7 @@ int main(int argc, char **argv) {
 
     if (fuzzy) {
         ime.setFuzzyFlags(common_fuzzy_flags());
-        std::cerr << "pinyin_ime_cli: 模糊音已启用\n";
+        if (!quiet) std::cerr << "pinyin_ime_cli: 模糊音已启用\n";
     }
 
     // 用户词库 + 自学习历史持久化：简拼歧义大，让用户常用词/新词靠前的关键。
@@ -480,7 +488,7 @@ int main(int argc, char **argv) {
         if (std::filesystem::exists(userDictPath)) {
             ime.dict()->load(PinyinDictionary::UserDict, userDictPath.c_str(),
                              PinyinDictFormat::Binary);
-            std::cerr << "pinyin_ime_cli: 已加载用户数据 " << userDataDir << "\n";
+            if (!quiet) std::cerr << "pinyin_ime_cli: 已加载用户数据 " << userDataDir << "\n";
         }
     }
     auto save_user_data = [&]() {
@@ -499,7 +507,7 @@ int main(int argc, char **argv) {
         ShuangpinBuiltinProfile sp = sp_profile_from(spScheme);
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
-        std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+        if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
     }
 
 #ifdef __unix__
