@@ -57,6 +57,7 @@
 #include <libime/pinyin/pinyindictionary.h>
 #include <libime/pinyin/pinyinencoder.h>
 #include <libime/pinyin/pinyinime.h>
+#include <libime/core/prediction.h>
 #include <libime/pinyin/shuangpinprofile.h>
 
 #include "emoji_list.h"
@@ -127,6 +128,7 @@ void usage(const char *prog) {
         << "  --dump-user     导出用户学习历史（人类可读）后退出\n"
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
+        << "  --predict       联想预测：输入中文文本，输出可能的下一个词\n"
         << "配置文件：~/.config/pinyin-ime/config（key=value，命令行参数优先）\n"
         << "  可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data\n"
         << "  -h, --help      显示本帮助\n"
@@ -379,8 +381,11 @@ int main(int argc, char **argv) {
     bool quiet = false;          // --quiet：抑制信息性 stderr 输出
     std::string learnFile;       // --learn-file：批量学习
     std::string batchFile;       // --batch：从文件批量处理
+
+    // --batch：从文件批量处理
     bool dumpUser = false;       // --dump-user：导出用户学习历史
     bool top1Only = false;       // --top1：只输出首选候选
+    bool predictMode = false;    // --predict：联想预测
 
     // --dump-user：导出用户学习历史
     std::string spScheme = "xiaohe";
@@ -400,7 +405,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.8.1\n";
+            std::cout << "pinyin_ime_cli 0.8.2\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -408,6 +413,8 @@ int main(int argc, char **argv) {
                 return 2;
             }
             batchFile = argv[++i];
+        } else if (a == "--predict") {
+            predictMode = true;
         } else if (a == "--top1") {
             top1Only = true;
         } else if (a == "--dump-user") {
@@ -577,6 +584,48 @@ int main(int argc, char **argv) {
         ime.setShuangpinProfile(std::make_shared<ShuangpinProfile>(sp));
         ctx.setUseShuangpin(true);
         if (!quiet) std::cerr << "pinyin_ime_cli: 双拼已启用（方案：" << sp_display_name(sp) << "）\n";
+    }
+
+    // --predict：联想预测
+    if (predictMode) {
+        libime::Prediction pred;
+        pred.setUserLanguageModel(ime.model());
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            if (line.empty()) continue;
+            // 简单分词：按字符切分（UTF-8 每个汉字 3 字节）
+            std::vector<std::string> words;
+            size_t i = 0;
+            while (i < line.size()) {
+                unsigned char c = line[i];
+                int len = 1;
+                if (c >= 0xF0) len = 4;
+                else if (c >= 0xE0) len = 3;
+                else if (c >= 0xC0) len = 2;
+                if (i + len > line.size()) break;
+                words.push_back(line.substr(i, len));
+                i += len;
+            }
+            // 用最后 4 个字作为上下文预测
+            size_t ctxStart = words.size() > 4 ? words.size() - 4 : 0;
+            std::vector<std::string> ctx(words.begin() + ctxStart, words.end());
+            auto results = pred.predict(ctx, 10);
+            if (jsonOutput) {
+                std::cout << '[';
+                for (size_t j = 0; j < results.size(); ++j) {
+                    if (j) std::cout << ',';
+                    std::cout << '"' << results[j] << '"';
+                }
+                std::cout << "]\n";
+            } else {
+                for (size_t j = 0; j < results.size(); ++j) {
+                    if (j) std::cout << '\t';
+                    std::cout << results[j];
+                }
+                std::cout << '\n';
+            }
+        }
+        return 0;
     }
 
     // --batch：从文件批量处理
