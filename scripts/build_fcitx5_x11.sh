@@ -3,7 +3,9 @@
 # 实机运行 pinyinime addon（scripts/xvfb_ime_test.sh 的前提）。
 #
 # 与 build_conda_forge.sh（引擎版 fcitx5，X11/Wayland/DBus/Server 全关）的区别：
-#   开 ENABLE_X11=On / ENABLE_KEYBOARD=On / ENABLE_SERVER=On，其余保持一致。
+#   开 ENABLE_X11=On / ENABLE_KEYBOARD=On / ENABLE_SERVER=On，其余保持一致；
+#   第16轮起 ENABLE_DBUS=On（补 dbus 模块 + dbusfrontend），支撑「真桌面」DBus 会话
+#   验收与 fcitx5-gtk im module（GTK_IM_MODULE=fcitx）端到端打字，XIM 前端不受影响。
 #
 # 关键坑（openEuler 22.03 aarch64 实测，见 README「第8轮」）：
 #   1. conda-forge gcc 16 是交叉式编译器，默认 include 搜索只有 conda 前缀的 sysroot，
@@ -51,7 +53,7 @@ cmake -S "$SRC/fcitx5-5.1.23" -B "$FCITX_BUILD" -G Ninja \
     -DENABLE_ENCHANT=Off \
     -DENABLE_X11=On \
     -DENABLE_WAYLAND=Off \
-    -DENABLE_DBUS=Off \
+    -DENABLE_DBUS=On \
     -DENABLE_DOC=Off \
     -DENABLE_SERVER=On \
     -DENABLE_KEYBOARD=On \

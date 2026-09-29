@@ -565,10 +565,11 @@ im-config    # 选 fcitx5 → 确定 → 注销重新登录
 
 > 已把「构建 → 运行 → 自检」做成可复现一键脚本（`build_cli.sh` / `run_cli.sh` /
 > `smoke_test.sh` / `test_interactive.py`），后续每步改动可用 `bash scripts/smoke_test.sh`
-> 与 `python3 scripts/test_interactive.py` 做回归护栏；下述第 1 项（图形 addon）仍需
-> 显示服务器，本 headless 沙箱无法验收，留待带图形环境再落地。
+> 与 `python3 scripts/test_interactive.py` 做回归护栏；图形 addon 的 XIM 链路与
+> DBus + GTK3 im module 链路均已在本 headless 沙箱用 Xvfb 实测通过（见第 8、16 轮），
+> 真正缺少的只剩带物理显示器/真桌面的环境做最终视觉验收。
 
-1. **Fcitx5 addon / 图形落地**：✅ 已落地首版并补齐中英切换 / 中文标点 / 引号配对 / 光标移动（`fcitx5-addon/`，见「Fcitx5 addon」一节）——引擎解码 / 候选 / 上屏已接入，沙箱内编译与符号导出验证通过；剩余：实机验收、（可选）`EngineProc` 进程外骨架（40ms 防抖 / 异步 IO / 崩溃重启）。
+1. **Fcitx5 addon / 图形落地**：✅ 已落地首版并补齐中英切换 / 中文标点 / 引号配对 / 光标移动（`fcitx5-addon/`，见「Fcitx5 addon」一节）——引擎解码 / 候选 / 上屏已接入；✅ XIM 链路（第 8 轮起 Xvfb 实测）与 **DBus + fcitx5-gtk im module 链路（第 16 轮，GTK3 真实应用端到端 10/10）** 均已通过。剩余：① Wayland 真桌面（ENABLE_WAYLAND + im module）、② addon 候选焦点视觉高亮（`setCursorIndex`，headless 下候选窗由 classicui 渲染，视觉打磨不阻塞功能）、③（可选）`EngineProc` 进程外骨架（40ms 防抖 / 异步 IO / 崩溃重启）。
 2. **用户词库 / 自学习**：会话内 `learn()` + 用户词自动造词已实现，且已落到**独立用户路径**
    （`--user-data`，`user.history` + `user.dict`，不覆盖系统 `zh_CN.lm`）✅；✅ 上屏即落盘
    （崩溃 / 被 kill 最多丢最后一次上屏的增量，CLI 与 addon 双侧）。剩余：误上屏撤回、跨设备同步
@@ -1434,3 +1435,78 @@ learn 提权打乱，非焦点逻辑缺陷。诊断日志确认 `candFocus_` 0�
 3. **候选体验**：部首/偏旁检索（撤回收回、候选焦点已落地）。
 4. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
 5. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 xterm 之外编辑器实测。
+
+## 开发进度（2026-09-29 · 第16轮：真桌面终验——DBus + fcitx5-gtk im module + GTK3 应用端到端，10/10）
+
+承接连续 5 轮置顶的「真桌面最终验收」：补齐 XIM 之外的**主流真实桌面通道**——`fcitx5` 开启
+DBus 前端 + `fcitx5-gtk` 的 GTK3 im module，用真实 GTK3 应用（GtkEntry）经 `GTK_IM_MODULE=fcitx`
+打出中文。这是浏览器/编辑器等 GTK 应用使用输入法的同一条路，至此「真正能跑起来的输入法」闭环。
+
+### 打通的两条现实通道（对照）
+
+| 通道 | 客户端 | 中间环节 | 验收 |
+|---|---|---|---|
+| XIM（X11） | `tools/xim_test_client`（XIM 协议） | libxim + xcb-imdkit | 第 8 轮起，现 20/20 |
+| **DBus + GTK im module** | `tools/gtk_ime_test_client`（真实 GTK3 应用） | im-fcitx5.so → DBus → fcitx5 | **本轮新增，10/10** |
+
+### 实现
+
+- **fcitx5 开 DBus**（`scripts/build_fcitx5_x11.sh` 改 `ENABLE_DBUS=On`）：增量编译出 `dbus`
+  模块 + `dbusfrontend` 前端；XIM 前端不动、回归仍 20/20，双前端并存。
+- **fcitx5-gtk 5.1.7 → GTK3 im module**（`scripts/build_fcitx5_gtk.sh`）：纯客户端库，用**系统
+  gcc 10.3** 编译（避免 conda libstdc++ 与系统 GTK3 应用冲突）；只编 GTK3（关 GTK2/4/GIR/SNOOPER）。
+- **注册 immodule**：openEuler GTK3 靠 `immodules.cache` 缓存文件发现（非运行时扫描），用
+  `gtk-query-immodules-3.0-64` 生成写入 `/usr/lib64/gtk-3.0/3.0.0/`。
+- **GTK3 实测客户端**（`tools/gtk_ime_test_client.c`）：带 GtkEntry 的应用，每次上屏打印
+  `GTK_COMMIT:<text>`；按键经 `tools/keysend_target`（XTest）注入；每个用例先 `Ctrl+Space`
+  激活输入法。
+- 完整路线与踩坑见 `docs/2026年09月29日14时58分真桌面终验_DBus加fcitx5gtk打通.md`。
+
+### 实测结果（Xvfb :99 · DBus 会话 · GTK3 3.24.30 · fcitx5 5.1.23 · addon）
+
+全拼 `nihao→你好`、`zhongguo→中国`、整句 `woshiyige→我是一个`、简拼 `zg→中国`/`bjdx→北京大学`、
+纠错 `senme→什么`/`zongguo→中国`、中英切换 `Tab+hello→hello`、中文标点 `,→，`、
+先上屏再标点 `zhongguo!→中国！` —— **10/10 全绿**。
+
+### 本轮复现命令（固化，可一键重跑）
+
+```sh
+cd pinyin-ime
+export NB=/root/workspace/native-build
+export MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+export PROXY=http://127.0.0.1:7890
+# 引擎 + CLI（不变）
+bash scripts/setup_build_env.sh && bash scripts/build_conda_forge.sh && bash scripts/build_cli.sh
+# fcitx5-X11（现含 DBus 前端）
+bash scripts/setup_x11_deps.sh && bash scripts/build_fcitx5_x11.sh
+# addon + XIM 实测客户端（不变）
+cmake -S fcitx5-addon -B fcitx5-addon/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$NB/opt/fcitx5-x11" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_PREFIX_PATH="$NB/opt/fcitx5-x11;$NB/opt/libime;$NB/mamba-env"
+cmake --build fcitx5-addon/build && cmake --install fcitx5-addon/build
+cc tools/xim_test_client.c -lX11 -lXtst -o tools/xim_test_client
+# 真桌面（DBus + GTK3 im module）—— 本轮新增
+bash scripts/setup_desktop_deps.sh && bash scripts/build_fcitx5_gtk.sh
+# 回归护栏（四路全绿）
+bash scripts/smoke_test.sh                     # 20/20
+python3 scripts/test_interactive.py cpp/build/pinyin_ime_cli \
+  "$NB/opt/libime/lib/libime/zh_CN.lm" "$NB/opt/libime/share/libime/sc.dict"   # 25/25
+bash scripts/xvfb_ime_test.sh                  # XIM  20/20
+bash scripts/xvfb_desktop_ime_test.sh          # DBus+GTK  10/10（本轮新增）
+```
+
+> 注：`build_fcitx5_gtk.sh` 需 root（写系统 `immodules.cache`）；`keysend_target` 与
+> `gtk_ime_test_client` 均由对应构建脚本顺带编译。
+
+### 版本
+`0.6.7 → 0.6.8`（VERSION + fcitx5-addon/CMakeLists.txt 同步）。
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **Wayland 真桌面延展**：XIM + DBus/GTK 两条链路均已验；补 `ENABLE_WAYLAND=On` + gtk/qt
+   Wayland im module，在带物理显示器/合成器的真桌面做视觉终验（含候选焦点高亮 `setCursorIndex`）。
+2. **候选焦点视觉高亮**（`setCursorIndex`）：语义已对（第 15 轮），视觉打磨留待真桌面。
+3. **LM 域插值/集成**（承接第 5 轮结论）：对话倾向 LM 与官方 `zh_CN.lm` 分数插值，两域兼得。
+4. **候选体验**：部首/偏旁检索（撤回、候选焦点已落地）。
+5. **纠错边界再扩展**：`zhng` 类删元音型（del）重错，在「音节数 + 元音分布」更强判据下评估放开。
+6. **撤回增强**：多级撤回提示回显被撤回文本；addon 撤回在 Vim/浏览器等真实编辑器实测。

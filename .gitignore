@@ -45,3 +45,4 @@ tools/keysend_target.o
 
 # 本机构建环境变量（NB/MIRROR/PROXY，不入库）
 .build.env
+tools/gtk_ime_test_client
