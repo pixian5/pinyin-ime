@@ -2269,3 +2269,30 @@ bash scripts/install_all.sh
 # 或手动测试 CLI
 ./run.sh nihao    # → 你好  拟好  你毫  你号  你耗
 ```
+
+### 完整测试结果汇总（v0.8.8）
+
+| 测试项 | 结果 | 详情 |
+|---|---|---|
+| CLI 自检 | ✅ 通过 | nihao→你好 |
+| 冒烟测试 | ✅ 24/24 | 全拼5+简拼3+模糊音4+双拼8+功能4 |
+| 交互回归 | ✅ 26/26 | 含中英切换/标点/表情/撤回/翻页 |
+| 句级准确率 | 52.0% | 50句 news.txt 评测 |
+| 字级准确率 | 92.4% | 50句 news.txt 评测 |
+| 纠错 delete top1/top3 | 12.14%/45.65% | M3 纠错模块 |
+| 纠错 insert top1/top3 | 78.10%/98.81% | M3 纠错模块 |
+| 纠错 substitute top1/top3 | 27.62%/59.05% | M3 纠错模块 |
+| 混淆排序 top2 | 86.05% | M3 纠错模块 |
+| fcitx5 addon 加载 | ✅ 通过 | LM+dict 加载+IM 注册 |
+| CLI 延迟（含启动） | ~39ms avg | 交互模式逐键 <1ms |
+
+### 构建产物清单
+
+| 产物 | 路径 | 大小 |
+|---|---|---|
+| CLI 二进制 | cpp/build/pinyin_ime_cli | 688KB |
+| fcitx5 addon | fcitx5-addon/build/libpinyinime.so | 772KB |
+| 语言模型 | zh_CN.lm | 34MB |
+| 系统词典 | sc.dict | 4.3MB |
+| fcitx5 server | opt/fcitx5-server/bin/fcitx5 | 449KB |
+| lmplz (LM训练) | build/kenlm/bin/lmplz | 1.4MB |
