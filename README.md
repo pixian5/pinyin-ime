@@ -1938,3 +1938,44 @@ pinyin_ime_cli [选项] [lm] [dict] [nbest]
 配置文件：~/.config/pinyin-ime/config
   可配键：lm_path, dict_path, nbest, fuzzy, shuangpin, sp_scheme, user_data
 ```
+
+## 2026-09-29 v0.8.2：CLI 联想预测
+
+### 新增功能
+
+- `--predict`：基于 libime::Prediction API 的联想预测。输入中文文本，输出 top10 可能的下一个词。用最后 4 字作为上下文，支持 `--json` 输出。
+
+### 用法示例
+
+```bash
+# 联想预测
+echo "你好" | pinyin_ime_cli --predict --quiet
+# → 吗  的  不  了  。  ，  呢  、  吧  得
+
+# 批量学习 + 预测
+echo -e "nihao\t你好\nshijie\t世界" > learn.txt
+pinyin_ime_cli --learn-file learn.txt --quiet zh_CN.lm sc.dict
+echo "你好" | pinyin_ime_cli --predict --quiet zh_CN.lm sc.dict
+```
+
+### 本轮开发总结（v0.7.3 → v0.8.2）
+
+| 版本 | 功能 | 模块 |
+|---|---|---|
+| v0.7.4 | fcitx5 addon 双拼（8方案 + Ctrl+Shift+S 切换） | addon |
+| v0.7.5 | --json / --stats | CLI |
+| v0.7.6 | --quiet / --version + 扩展冒烟测试 | CLI |
+| v0.7.7 | 配置文件 ~/.config/pinyin-ime/config | CLI |
+| v0.7.8 | --learn-file 批量学习 | CLI |
+| v0.7.9 | --dump-user 导出学习历史 | CLI |
+| v0.8.0 | --batch 批量处理 + addon 配置模板 | CLI + addon |
+| v0.8.1 | --top1 只输出首选 | CLI |
+| v0.8.2 | --predict 联想预测 | CLI |
+
+### 评测结果
+
+- 句级准确率：39.6%（受限系统 LM，需 Route A 口语语料训练提升）
+- 字级准确率：88.8%
+- 首词命中率：top1 95.8% / top5 99.9%
+- 逐键延迟：平均 0.97ms / P50 0.79ms / P99 2.51ms
+- 冒烟测试：24/24 全通过
