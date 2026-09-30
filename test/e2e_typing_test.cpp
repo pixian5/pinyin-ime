@@ -135,6 +135,37 @@ void runTests(EventDispatcher *dispatcher) {
         // --- Fuzzy additional ---
         {"sijiao", "视角", "fuzzy: si→shi"},
         {"zeliangge", "这两个", "fuzzy: ze→zhe"},
+        // --- Extended test cases (v0.9.9) ---
+        {"shurufa", "输入法", "technical term"},
+        {"ruanjian", "软件", "common noun"},
+        {"kaifazhe", "开发者", "common noun"},
+        {"jisuanji", "计算机", "technical term"},
+        {"wangluo", "网络", "common noun"},
+        {"shujuku", "数据库", "technical term"},
+        {"zaixian", "在线", "common phrase"},
+        {"xitong", "系统", "common noun"},
+        {"anquan", "安全", "common noun"},
+        {"mima", "密码", "common noun"},
+        {"denglu", "登陆", "common phrase"},
+        {"zhuce", "注册", "common phrase"},
+        {"shoujihao", "手机号", "common phrase"},
+        {"dianziyoujian", "电子邮件", "technical term"},
+        {"wangzhan", "网站", "common noun"},
+        {"yunduan", "云端", "technical term"},
+        {"rengongzhineng", "人工智能", "technical term"},
+        {"jiqixuexi", "机器学习", "technical term"},
+        {"shenduxuexi", "深度学习", "technical term"},
+        {"jiankangma", "健康码", "common phrase"},
+        // --- More sentences ---
+        {"woyaochifan", "我要吃饭", "sentence"},
+        {"qinggeiwohuidianhua", "请给我回电话", "sentence"},
+        {"mingtianjian", "明天见", "common phrase"},
+        {"zhuyuandankuaile", "祝元旦快乐", "greeting"},
+        // --- More fuzzy/correct ---
+        {"zongguoren", "中国人", "fuzzy+correct: zong→zhong"},
+        {"sengri", "生日", "correct: sengri→shengri"},
+        {"zaoan", "早安", "greeting"},
+        {"wanan", "晚安", "greeting"},
     };
 
     int pass = 0, fail = 0;
