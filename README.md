@@ -12,6 +12,54 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-09）
+### v0.9.17（2026-09-30）：从零完整重建验证
+
+**在全新 openEuler 22.03 aarch64 沙箱从零构建，全部通过。**
+
+- **环境搭建**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + boost 1.85.0，
+  TUNA 镜像安装 conda 包，gh-proxy.com + 代理7890 下载 GitHub 源码，
+  download.fcitx-im.org 下载语言模型数据（77MB lm_sc.arpa）。
+- **构建产物**：
+  - CLI 二进制 `cpp/build/pinyin_ime_cli`（738KB）✅
+  - fcitx5 addon `fcitx5-addon/build/libpinyinime.so`（755KB）✅
+  - 语言模型 `zh_CN.lm`（34MB）✅
+  - 系统词典 `sc.dict`（4.3MB）✅
+  - fcitx5 5.1.23 headless 库 ✅
+  - libime 1.1.17（KENLM_MAX_ORDER=4）✅
+- **功能验证**（全部通过）：
+  - 冒烟测试：24/24 ✅
+  - 综合测试：41/41 ✅（全拼/简拼/模糊音/纠错/双拼/用户学习/整句/JSON/联想/多候选/统计/消歧）
+  - 交互测试：26/26 ✅（中英切换/标点配对/表情/撤回/光标移动）
+  - daily 40句评测：40/40 = 100%（句级+字级）✅
+  - 功能演示：10类全部正常 ✅
+- **性能**：~35句/秒（含进程启动），交互模式 <1ms/键
+- **预热学习**：warmup.sh 预置36个消歧短语，修复 shanghaishi→上海是 等消歧问题
+
+**构建步骤**（无 Docker，纯本机构建）：
+```bash
+# 1. 安装 micromamba（gh-proxy.com 加速）
+# 2. 创建 conda 环境（TUNA 镜像，gcc 16.2.0 + boost 1.85.0）
+# 3. 下载 fcitx5 5.1.23 + libime 1.1.17 源码（代理7890）
+# 4. 下载 kenlm 子模块 + 打 4-gram 补丁
+# 5. 构建 fcitx5（headless）→ 构建 libime（含数据）→ 构建 CLI + addon
+# 6. bash scripts/warmup.sh  # 预热学习数据
+# 7. echo "nihao" | ./run.sh  → 你好
+```
+
+**所需依赖**：
+- 构建工具：micromamba/conda-forge、gcc 16.2.0、cmake、ninja
+- 库：boost 1.85.0、fmt、zstd、libuv、extra-cmake-modules、gettext、libuuid
+- 源码：fcitx5 5.1.23、libime 1.1.17（含 kenlm）
+- 数据：zh_CN.lm（34MB）、sc.dict（4.3MB）——构建时自动下载
+- Python：pypinyin、jieba（评测用）
+
+**未来优化方向**：
+1. **fcitx5 完整 server 构建**：当前为 headless，需加 X11/Wayland/DBus 支持做桌面实机验证
+2. **E2E 端到端打字测试**：需构建 fcitx5-full（ENABLE_TESTING_ADDONS=On）+ testfrontend
+3. **更大语言模型**：用 LCCC 口语语料训练专属 LM，提升对话域准确率
+4. **用户词频校准**：接入真实用户词频数据，提升首词命中率
+5. **实机安装验证**：在 Ubuntu/Fedora 桌面环境验证 addon 加载和打字
+
 ### v0.9.16（2026-09-30）：addon消歧 + Web演示
 
 **fcitx5 addon 拼音消歧功能 + Web演示服务器。**
