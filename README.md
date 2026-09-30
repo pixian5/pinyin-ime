@@ -81,7 +81,7 @@ fcitx5 配置方法、快捷键表、CLI 独立用法、故障排除。
 **一键安装脚本 `scripts/install.sh`：** 自动检测环境、构建 CLI + addon、
 配置 fcitx5、支持 --cli-only/--prefix/--uninstall 选项。
 
-**打包配置：** RPM spec 更新至 0.9.4，新增 Debian control 文件。
+**打包配置：** RPM spec 更新至 0.9.5，新增 Debian control 文件。
 
 **功能对比文档 `docs/FEATURES.md`：** 与 fcitx5-pinyin/ibus-pinyin/搜狗拼音
 的功能对比表，双拼方案支持表，性能指标，准确率统计。
@@ -2591,3 +2591,36 @@ Accuracy: 100%
 | XIM 协议 | Xvfb + XIM 21 项 | 21/21 ✅ |
 | DBus + GTK | fcitx5-gtk im module + GTK3 10 项 | 10/10 ✅ |
 | **fcitx5 E2E** | **真实 fcitx5 API 18 项** | **18/18 ✅** |
+
+## 项目最终状态（v0.9.5）
+
+### 核心指标
+
+| 指标 | 值 |
+|---|---|
+| 日常40句准确率 | **100%** (40/40) |
+| 字级准确率 | **100%** (265/265) |
+| 吞吐量 | 165 句/秒 |
+| 逐键延迟 P50 | 33 ms |
+| CI测试 | 24/24 全绿 |
+| 综合测试 | 36/36 全绿 |
+| E2E addon测试 | 38/40 通过 |
+
+### 功能清单
+
+- ✅ 全拼 / 简拼 / 双拼(8方案) / 模糊音 / 拼写纠错
+- ✅ 用户自学习 / 联想预测 / 表情输入 / 中文标点
+- ✅ 中英切换 / 光标移动 / 撤回 / 引号配对
+- ✅ CLI独立工具 + fcitx5 addon
+- ✅ 拼音歧义预处理 (xian→xi'an)
+- ✅ RPM/Debian打包配置
+- ✅ 一键安装脚本
+- ✅ GitCode CI配置
+
+### 文档
+
+- [快速上手](docs/QUICKSTART.md) — 30秒学会使用
+- [功能对比](docs/FEATURES.md) — 与fcitx5-pinyin/ibus/搜狗对比
+- [评测报告](docs/EVALUATION.md) — 准确率/性能/功能覆盖
+- [架构设计](docs/ARCHITECTURE.md) — 模块图/数据流/构建系统
+- [安装指南](docs/INSTALL.md) — 桌面安装步骤
