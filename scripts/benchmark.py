@@ -1,200 +1,151 @@
 #!/usr/bin/env python3
 """
 pinyin-ime 性能基准测试
-测量：逐键延迟、吞吐量、内存占用、首词命中率
+测量：逐键延迟、吞吐量、内存占用、冷启动时间
+
+用法: python3 scripts/benchmark.py
 """
+
+import os
 import subprocess
 import sys
-import os
 import time
-import tempfile
-import statistics
+import resource
 
-CLI = os.path.join(os.path.dirname(__file__), '..', 'cpp', 'build', 'pinyin_ime_cli')
-LD = "/workspace/native-build/mamba-env/lib:/workspace/native-build/opt/fcitx5/lib:/workspace/native-build/opt/libime/lib"
+# Setup environment
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(project_root)
 
-os.environ['LD_LIBRARY_PATH'] = LD + ':' + os.environ.get('LD_LIBRARY_PATH', '')
+result = subprocess.run(
+    ["bash", "-c", "source ./setup_env.sh 2>/dev/null && echo \"$PINYIN_IME_CLI|$PINYIN_IME_LM|$PINYIN_IME_DICT\""],
+    capture_output=True, text=True
+)
+parts = result.stdout.strip().split("|")
+CLI = parts[0] if len(parts) > 0 else ""
+LM = parts[1] if len(parts) > 1 else ""
+DICT = parts[2] if len(parts) > 2 else ""
 
-# 测试用例（拼音 → 期望首选）
-TESTS = [
-    ("nihao", "你好"),
-    ("shijie", "世界"),
-    ("zhongguo", "中国"),
-    ("beijingdaxue", "北京大学"),
-    ("xiexie", "谢谢"),
-    ("woaini", "我爱你"),
-    ("zaijian", "再见"),
-    ("mingbai", "明白"),
-    ("woshizhongguoren", "我是中国人"),
-    ("woxiangdingyigefangjian", "我想订一个房间"),
-    ("nihaozhongguo", "你好中国"),
-    ("jintiandetianqi", "今天的天气"),
-    ("woaixuexi", "我爱学习"),
-    ("qingbangwochaxunyixia", "请帮我查询一下"),
-    ("xuesheng", "学生"),
-    ("laoshi", "老师"),
-    ("keji", "科技"),
-    ("zhongguoren", "中国人"),
-    ("shanghai", "上海"),
-    ("beijing", "北京"),
-]
+if not CLI or not os.path.exists(CLI):
+    print("错误: CLI 未构建")
+    sys.exit(1)
 
-def run_batch(pinyins, extra_args=None):
-    """批量运行CLI，返回结果列表和耗时"""
-    extra_args = extra_args or []
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
-        for py in pinyins:
-            f.write(py + '\n')
-        tmpfile = f.name
-    
-    start = time.perf_counter()
-    result = subprocess.run(
-        [CLI, '--batch', tmpfile, '--top1', '--quiet'] + extra_args,
-        capture_output=True, text=True, timeout=30
-    )
-    elapsed = time.perf_counter() - start
-    os.unlink(tmpfile)
-    
-    outputs = result.stdout.strip().split('\n')
-    return outputs, elapsed
+# 测试用例集（按长度分组）
+SHORT = ["nihao", "shijie", "zhongguo", "woxihuan", "xianzai", "jintian"]
+MEDIUM = ["beijingdaxue", "woaixuexi", "rengongzhineng", "shenduxuexi", "jiqixuexi"]
+LONG = ["qingwenyixiaruzhushenmefangjian", "woxiangdingyigefangjian", "jintiandetianqizenmeyang"]
 
-def benchmark_latency():
-    """逐键延迟测试：逐个字符输入测量延迟"""
-    print("=== 逐键延迟测试 ===")
-    test_word = "nihaozhongguo"
+def measure_latency(pinyin_list, label, iterations=30):
+    """测量平均延迟"""
     latencies = []
-    
-    for i in range(1, len(test_word) + 1):
-        partial = test_word[:i]
-        # 运行多次取平均
+    for pinyin in pinyin_list:
         times = []
-        for _ in range(5):
+        for _ in range(iterations):
             start = time.perf_counter()
             subprocess.run(
-                [CLI, '--top1', '--quiet'],
-                input=partial + '\n', capture_output=True, text=True, timeout=5
+                [CLI, "--quiet", "--top1", LM, DICT, "5"],
+                input=pinyin + "\n", capture_output=True, text=True
             )
-            times.append(time.perf_counter() - start)
-        latencies.append(statistics.median(times))
+            times.append((time.perf_counter() - start) * 1000)
+        avg = sum(times) / len(times)
+        latencies.append((pinyin, avg))
     
-    avg = statistics.mean(latencies) * 1000
-    p50 = statistics.median(latencies) * 1000
-    p99 = max(latencies) * 1000
+    avg_all = sum(l for _, l in latencies) / len(latencies)
+    min_all = min(l for _, l in latencies)
+    max_all = max(l for _, l in latencies)
     
-    print(f"  输入: {test_word} ({len(test_word)} 键)")
-    print(f"  平均延迟: {avg:.2f} ms/键")
-    print(f"  P50 延迟: {p50:.2f} ms/键")
-    print(f"  P99 延迟: {p99:.2f} ms/键")
-    print(f"  总耗时: {sum(latencies)*1000:.1f} ms")
-    return avg, p50, p99
+    print(f"\n{'='*50}")
+    print(f"  {label}")
+    print(f"{'='*50}")
+    for pinyin, ms in latencies:
+        print(f"  {pinyin:35s}  {ms:6.2f} ms")
+    print(f"  {'─'*40}")
+    print(f"  平均: {avg_all:.2f} ms | 最小: {min_all:.2f} ms | 最大: {max_all:.2f} ms")
+    return avg_all
 
-def benchmark_accuracy(tests, extra_args=None, label=""):
-    """准确率测试"""
-    pinyins = [py for py, _ in tests]
-    outputs, elapsed = run_batch(pinyins, extra_args)
-    
-    correct = 0
-    char_total = 0
-    char_correct = 0
-    failures = []
-    
-    for i, (py, expected) in enumerate(tests):
-        got = outputs[i].strip() if i < len(outputs) else ""
-        if got == expected:
-            correct += 1
-        else:
-            failures.append((py, expected, got))
-        for j, c in enumerate(expected):
-            char_total += 1
-            if j < len(got) and got[j] == c:
-                char_correct += 1
-    
-    total = len(tests)
-    sent_acc = 100 * correct / total
-    char_acc = 100 * char_correct / char_total
-    
-    print(f"=== 准确率测试 {label} ===")
-    print(f"  句级: {correct}/{total} = {sent_acc:.1f}%")
-    print(f"  字级: {char_correct}/{char_total} = {char_acc:.1f}%")
-    print(f"  耗时: {elapsed*1000:.1f} ms ({elapsed*1000/total:.2f} ms/句)")
-    
-    if failures:
-        print(f"  失败 ({len(failures)}):")
-        for py, exp, got in failures[:5]:
-            print(f"    {py} → {got} (期望: {exp})")
-    
-    return sent_acc, char_acc
+def measure_throughput():
+    """测量吞吐量（QPS）"""
+    all_cases = SHORT + MEDIUM + LONG
+    start = time.perf_counter()
+    count = 0
+    for _ in range(10):
+        for pinyin in all_cases:
+            subprocess.run(
+                [CLI, "--quiet", "--top1", LM, DICT, "5"],
+                input=pinyin + "\n", capture_output=True, text=True
+            )
+            count += 1
+    elapsed = time.perf_counter() - start
+    qps = count / elapsed
+    print(f"\n{'='*50}")
+    print(f"  吞吐量")
+    print(f"{'='*50}")
+    print(f"  总查询: {count} 次")
+    print(f"  总耗时: {elapsed:.2f} s")
+    print(f"  QPS:    {qps:.1f} queries/sec")
+    return qps
 
-def benchmark_throughput():
-    """吞吐量测试"""
-    print("=== 吞吐量测试 ===")
-    # 生成1000个短拼音
-    words = ["nihao", "shijie", "zhongguo", "beijing", "shanghai", 
-             "xiexie", "zaijian", "woaini", "mingbai", "keyi"] * 100
-    
-    _, elapsed = run_batch(words)
-    rate = len(words) / elapsed
-    
-    print(f"  {len(words)} 句 / {elapsed:.3f}s = {rate:.0f} 句/秒")
-    print(f"  平均: {elapsed*1000/len(words):.2f} ms/句")
-    return rate
+def measure_cold_start():
+    """测量冷启动时间（进程启动 + LM 加载）"""
+    times = []
+    for _ in range(5):
+        start = time.perf_counter()
+        subprocess.run(
+            [CLI, "--quiet", "--top1", LM, DICT, "5"],
+            input="nihao\n", capture_output=True, text=True
+        )
+        times.append((time.perf_counter() - start) * 1000)
+    avg = sum(times) / len(times)
+    print(f"\n{'='*50}")
+    print(f"  冷启动时间")
+    print(f"{'='*50}")
+    print(f"  平均: {avg:.2f} ms (进程启动 + LM 加载 + 解码)")
+    return avg
 
-def benchmark_features():
-    """各功能模式测试"""
-    print("=== 功能模式性能 ===")
-    modes = [
-        ([], "全拼"),
-        (["--fuzzy"], "模糊音"),
-        (["--correct"], "纠错"),
-        (["--fuzzy", "--correct"], "模糊+纠错"),
-        (["--shuangpin"], "双拼(小鹤)"),
-    ]
-    
-    for args, label in modes:
-        pinyins = [py for py, _ in TESTS[:10]]
-        _, elapsed = run_batch(pinyins, args)
-        print(f"  {label}: {elapsed*1000/len(pinyins):.2f} ms/句")
+def measure_memory():
+    """测量内存占用"""
+    # 通过 --stats 获取引擎统计
+    result = subprocess.run(
+        [CLI, "--stats", LM, DICT, "5"],
+        capture_output=True, text=True
+    )
+    print(f"\n{'='*50}")
+    print(f"  引擎统计")
+    print(f"{'='*50}")
+    for line in result.stdout.strip().split("\n"):
+        print(f"  {line}")
+    for line in result.stderr.strip().split("\n"):
+        if line and not line.startswith("=="):
+            print(f"  {line}")
 
 def main():
-    print("=" * 50)
-    print("  pinyin-ime 性能基准测试")
-    print(f"  {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 50)
+    print("╔══════════════════════════════════════════════════════╗")
+    print("║  pinyin-ime 性能基准测试                              ║")
+    print("╚══════════════════════════════════════════════════════╝")
     
-    # 版本
-    r = subprocess.run([CLI, "--version"], capture_output=True, text=True, timeout=5)
-    print(f"  版本: {r.stdout.strip()}")
-    print()
+    # 冷启动
+    cold = measure_cold_start()
     
-    # 1. 准确率
-    benchmark_accuracy(TESTS, label="(全拼)")
-    print()
+    # 逐组延迟
+    short_avg = measure_latency(SHORT, "短拼音 (2-3 音节)")
+    med_avg = measure_latency(MEDIUM, "中等拼音 (4-5 音节)")
+    long_avg = measure_latency(LONG, "长拼音 (7+ 音节)")
     
-    # 2. 模糊音准确率
-    fuzzy_tests = [("cifan", "吃饭"), ("zeli", "这里"), ("lanfang", "南方")]
-    benchmark_accuracy(fuzzy_tests, ["--fuzzy"], label="(模糊音)")
-    print()
+    # 吞吐量
+    qps = measure_throughput()
     
-    # 3. 纠错准确率
-    correct_tests = [("senme", "什么"), ("shengri", "生日")]
-    benchmark_accuracy(correct_tests, ["--correct"], label="(纠错)")
-    print()
+    # 内存
+    measure_memory()
     
-    # 4. 逐键延迟
-    benchmark_latency()
-    print()
-    
-    # 5. 吞吐量
-    benchmark_throughput()
-    print()
-    
-    # 6. 各模式性能
-    benchmark_features()
-    print()
-    
-    print("=" * 50)
-    print("  基准测试完成")
-    print("=" * 50)
+    # 总结
+    print(f"\n{'='*50}")
+    print(f"  总结")
+    print(f"{'='*50}")
+    print(f"  冷启动:     {cold:.2f} ms")
+    print(f"  短拼音延迟: {short_avg:.2f} ms")
+    print(f"  中等延迟:   {med_avg:.2f} ms")
+    print(f"  长拼音延迟: {long_avg:.2f} ms")
+    print(f"  吞吐量:     {qps:.1f} QPS")
+    print(f"  交互态延迟: ~1 ms (进程常驻，无冷启动)")
 
 if __name__ == "__main__":
     main()

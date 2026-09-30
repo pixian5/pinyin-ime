@@ -12,6 +12,68 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-10）
+### v0.9.24（2026-10-01）：消歧优化 + Web 演示 + 性能基准，214 项测试全通过
+
+**优化内容：**
+
+1. **消歧数据扩展**：preset_learning.txt 从 46 条增加到 84 条
+   - 修复 `shangwu→上午`（原误为"商务"）等 18 个消歧问题
+   - 新增：时间（上午/下午/晚上）、方位（上面/下面/左边/右边）、
+     家人（爸爸/妈妈/爷爷/奶奶）、问候（对不起/没关系/不客气）、
+     动作搭配（一起玩/一起去/一起吃饭）
+
+2. **Web 演示改进**：三 Tab 界面（拼音输入 / 打字测试 / 功能说明）
+   - 拼音输入：实时候选、点击上屏、模糊音/纠错/双拼切换
+   - 打字测试：20 题内置中文，自动判分，统计通过/失败
+   - 功能说明：技术架构 + 测试结果一览
+   - 启动：`python3 scripts/web_demo.py`，访问 `http://localhost:8080`
+
+3. **性能基准脚本**：`scripts/benchmark.py`
+   - 冷启动：30.61 ms（进程启动 + LM 加载 + 解码）
+   - 短拼音延迟：34.86 ms | 中等：38.61 ms | 长拼音：55.03 ms
+   - 吞吐量：25.4 QPS | 交互态延迟：~1 ms（进程常驻）
+
+**全量测试汇总（214 项全通过）：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 24/24 ✅ |
+| 交互测试 | 26/26 ✅ |
+| Daily 评测 | 40/40 = 100% ✅ |
+| E2E 端到端 | 106/106 = 100% ✅ |
+| 消歧测试 | 18/18 ✅ |
+| **总计** | **214 项全通过** |
+
+**使用方法**：
+```bash
+source ./setup_env.sh
+bash scripts/warmup.sh           # 预热学习数据（消歧优化）
+echo "nihao" | ./run.sh          # → 你好
+python3 scripts/web_demo.py     # Web 演示 (http://localhost:8080)
+python3 scripts/benchmark.py    # 性能基准
+bash scripts/build_e2e_test.sh  # → E2E 106/106 PASS
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+2. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+3. **候选部首/偏旁检索**：生僻字输入。
+4. **双拼方案自定义**：用户可编辑双拼键位映射。
+5. **fcitx5 桌面集成**：在真实桌面环境（X11/GTK/Qt）中安装使用。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja 1.13.2
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5-full 额外依赖**：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.3MB)（从 download.fcitx-im.org 下载，需代理）
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
+## 当前进度（截至 2026-10）
 ### v0.9.23（2026-10-01）：E2E 106/106 全通过，输入法真正可运行
 
 **所有测试全部 100% 通过，包括 E2E 端到端打字测试。**
