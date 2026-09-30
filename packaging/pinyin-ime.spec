@@ -1,5 +1,5 @@
 Name:           pinyin-ime
-Version:        0.8.7
+Version:        0.9.3
 Release:        1
 Summary:        Linux pinyin input method based on libime
 License:        LGPL-2.1-or-later
@@ -62,7 +62,7 @@ install -Dm644 /dev/null %{buildroot}%{_sysconfdir}/pinyin-ime/config
 %config(noreplace) %{_sysconfdir}/pinyin-ime/config
 
 %changelog
-* Mon Sep 30 2026 laotongtian <laotongtian@gitcode.com> - 0.8.7-1
+* Mon Sep 30 2026 laotongtian <laotongtian@gitcode.com> - 0.9.3-1
 - v0.8.7: CLI path fix, install script, domain LM training
 - v0.8.6: full corpus training, multi-domain evaluation
 - v0.8.5: user LM training, evaluation framework
