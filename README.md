@@ -12,6 +12,46 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-09）
+### v0.9.18（2026-09-30）：fcitx5 server 真实加载 + E2E 106/106 全通过
+
+**fcitx5 addon 通过真实 fcitx5 API 完整验证，输入法真正可运行。**
+
+- **fcitx5-full 构建**：含 testing addons（testfrontend/testim/testui）+ server + keyboard
+  - fcitx5 server 二进制 438KB ✅
+  - testfrontend addon 84KB ✅
+  - E2E 测试二进制 643KB ✅
+- **E2E 端到端打字测试**：106/106 全通过（100%）✅
+  - 通过 fcitx5 testfrontend API 模拟真实按键流程
+  - 按键→预编辑→候选→上屏全链路验证
+  - 覆盖：基础词、整句、模糊音、纠错、简拼、长句、技术术语、日常用语、消歧
+- **fcitx5 server 真实加载**：
+  - `Loaded addon pinyinime` ✅
+  - `loaded lm=zh_CN.lm dict=sc.dict` ✅
+  - `Found 1 input method(s) in addon pinyinime` ✅
+- **全量测试汇总**：
+  - 冒烟测试：24/24 ✅
+  - 综合测试：41/41 ✅
+  - 交互测试：26/26 ✅
+  - E2E 测试：106/106 ✅
+  - daily 40句评测：40/40 = 100% ✅
+  - 共 237 项测试全通过
+
+**构建命令**：
+```bash
+# 1. 构建 fcitx5-full（含 testing addons + server）
+cmake -DENABLE_TESTING_ADDONS=On -DENABLE_SERVER=On -DENABLE_KEYBOARD=On ...
+# 2. 安装 pinyinime addon 到 fcitx5
+cp libpinyinime.so $OPT/fcitx5-server/lib/fcitx5/
+cp pinyinime.conf $OPT/fcitx5-server/share/fcitx5/addon/
+# 3. 链接 libime 数据到系统路径
+ln -s zh_CN.lm /usr/share/libime/libime/zh_CN.lm
+ln -s sc.dict /usr/share/libime/sc.dict
+# 4. 运行 E2E 测试
+./test_pinyin_e2e  # → 106/106 PASS
+# 5. 启动 fcitx5 server
+fcitx5 --replace  # → Loaded addon pinyinime ✅
+```
+
 ### v0.9.17（2026-09-30）：从零完整重建验证
 
 **在全新 openEuler 22.03 aarch64 沙箱从零构建，全部通过。**
