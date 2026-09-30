@@ -58,6 +58,7 @@ void runTests(EventDispatcher *dispatcher) {
         config.setValueByPath("EnableCorrect", "True");
         config.setValueByPath("EnableShuangpin", "False");
         config.setValueByPath("NBest", "9");
+        config.setValueByPath("DataDir", "/tmp/libime_data");
         config.setValueByPath("PageSize", "9");
         pinyinimeAddon->setConfig(config);
         std::cout << "[setup] pinyinime config set via setConfig API" << std::endl;
@@ -71,6 +72,11 @@ void runTests(EventDispatcher *dispatcher) {
         return;
     }
 
+    // Add pinyinime to the current input method group (required for setCurrentInputMethod)
+    auto &imManager = g_instance->inputMethodManager();
+    auto group = imManager.currentGroup();
+    group.inputMethodList().emplace_back("pinyinime");
+    imManager.setGroup(std::move(group));
     g_instance->setCurrentInputMethod(ic, "pinyinime", false);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -111,6 +117,23 @@ void runTests(EventDispatcher *dispatcher) {
         // --- Simplified pinyin ---
         {"bjdx", "北京大学", "simplified: bj→beijing, dx→daxue"},
         {"zg", "中国", "simplified: zg→zhongguo"},
+        // --- Additional common phrases ---
+        {"woaini", "我爱你", "common phrase"},
+        {"mingbai", "明白", "common phrase"},
+        {"keyi", "可以", "common phrase"},
+        {"meiyou", "没有", "common phrase"},
+        {"zhidao", "知道", "common phrase"},
+        {"xihuan", "喜欢", "common phrase"},
+        {"pengyou", "朋友", "common phrase"},
+        {"gongzuo", "工作", "common phrase"},
+        // --- Additional sentences ---
+        {"woxiangchi", "我想吃", "sentence"},
+        {"nihaoa", "你好啊", "sentence with particle"},
+        {"jintiannahenkaixin", "今天很开心", "longer sentence"},
+        {"qingwenyixia", "请问一下", "polite phrase"},
+        // --- Fuzzy additional ---
+        {"sijiao", "睡觉", "fuzzy: si→shi+ji→jue"},
+        {"zeliangge", "这两个", "fuzzy: ze→zhe"},
     };
 
     int pass = 0, fail = 0;
