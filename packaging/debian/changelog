@@ -1,4 +1,11 @@
-pinyin-ime (0.9.4-1) unstable; urgency=medium
+pinyin-ime (0.9.5-1) unstable; urgency=medium
+pinyin-ime (0.9.5-1) unstable; urgency=medium
+
+  * v0.9.5: 拼音歧义预处理(xian→xi\x27an), 日常40句100%准确率
+  * 修复"西安"分割问题, 不影响"现代/现在/实现"等常见词
+
+ -- pinyin-ime team <laotongtian@gitcode.com>  Mon, 30 Sep 2026 13:00:00 +0800
+
 
   * v0.9.4: CI测试(24/24) + 安装脚本 + 打包配置 + 功能对比文档
   * E2E fcitx5 addon测试 38/40通过

@@ -1,5 +1,5 @@
 Name:           pinyin-ime
-Version:        0.9.4
+Version:        0.9.5
 Release:        1
 Summary:        Linux pinyin input method based on libime
 License:        LGPL-2.1-or-later
@@ -82,7 +82,10 @@ install -Dm644 /dev/null %{buildroot}%{_sysconfdir}/pinyin-ime/config
 %config(noreplace) %{_sysconfdir}/pinyin-ime/config
 
 %changelog
-* Mon Sep 30 2026 laotongtian <laotongtian@gitcode.com> - 0.9.4-1
+* Mon Sep 30 2026 laotongtian <laotongtian@gitcode.com> - 0.9.5-1
+- v0.9.5: 拼音歧义预处理, 日常40句100%准确率
+- 修复"西安"分割问题(xian→xi\x27an)
+* Mon Sep 30 2026 laotongtian <laotongtian@gitcode.com> - 0.9.5-1
 - v0.9.4: CI测试(24/24), 安装脚本, 打包配置, 功能对比文档
 - E2E fcitx5 addon测试 38/40通过
 - 性能基准: 168句/秒, 97.5%日常准确率

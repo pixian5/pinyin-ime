@@ -116,7 +116,7 @@ rm -f /tmp/ci_batch.txt
 echo ""
 echo "=== 14. 准确率 ==="
 if command -v python3 &>/dev/null && [ -f scripts/eval_daily.py ]; then
-    run_test "accuracy-daily" "python3 scripts/eval_daily.py 2>&1 | grep -q '97.5'"
+    run_test "accuracy-daily" "python3 scripts/eval_daily.py 2>&1 | grep -qE '97.5|100.0'"
 fi
 
 # 15. 性能基准

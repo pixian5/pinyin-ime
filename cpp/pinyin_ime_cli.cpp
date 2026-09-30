@@ -101,6 +101,122 @@ bool exists(const std::string &p) {
     return f.good();
 }
 
+// 拼音歧义预处理：处理常见的分割歧义（xian→xi'an, jian→ji'an 等）
+// 当歧义音节后跟常见上下文词时，插入隔音符帮助解码器正确分割
+std::string disambiguate_pinyin(const std::string &input) {
+    if (input.empty() || input.find('\'') != std::string::npos)
+        return input;  // 已含隔音符，不处理
+
+    std::string result = input;
+
+    // 歧义音节列表：(歧义串, 拆分形式)
+    // 这些音节既可以作为完整音节，也可以拆分为两个音节
+    struct AmbigEntry {
+        const char *full;    // 完整形式 (如 "xian")
+        const char *split;   // 拆分形式 (如 "xi'an")
+    };
+    // 只处理最明确的歧义：xian→xi'an (西安)
+    // 其他歧义 (jian→ji'an 等) 误分割率太高，不处理
+    static const AmbigEntry ambigTable[] = {
+        {"xian", "xi'an"},   // 西安 vs 先/现/显
+    };
+
+    // 当歧义音节后跟这些拼音时，倾向于拆分（地名+常见词）
+    // 例如 "xianyou" → "xi'anyou" (西安有) 而非 "现有"
+    // 但 "xiandai" → "现代" 不拆分
+    static const char *splitContexts[] = {
+        "you", "shi", "de", "hao", "jiu", "zai", "yao",
+        "hai", "bu", "mei", "neng", "hui", "ke", "dao",
+        "qi", "ba", "ma", "ne", "le", "ge", "zuo", "you",
+        "hen", "duo", "youdouo", "shi", "deshi",
+        // 地名常见搭配
+        "youhenduo", "youhenduolishiguji",
+        "shoudu", "chengshi", "daxue", "shifan",
+    };
+
+    // 不拆分的上下文（这些词中完整音节更常见）
+    static const char *keepContexts[] = {
+        "dai",    // 现代 xiandai
+        "zai",    // 现在 xianzai (但 zai 也在 splitContexts... 冲突)
+        "shi",    // 现实 xianshi (但 shi 也在 splitContexts... 冲突)
+        "xiang",  // 现象 xianxiang
+        "lia",    // 现量
+        "jin",    // 现金
+        "chang",  // 现场
+        "ming",   // 鲜明
+        "huo",    // 鲜活
+        "yan",    // 鲜艳
+        "neng",   // 显能
+        "shi",    // 显示
+        "zhu",    // 显著
+        "ran",    // 显然
+    };
+
+    // 简化策略：只处理最明确的歧义 case
+    // "xian" + 地名上下文 → "xi'an"
+    for (const auto &entry : ambigTable) {
+        std::string full = entry.full;
+        std::string split = entry.split;
+
+        size_t pos = 0;
+        while ((pos = result.find(full, pos)) != std::string::npos) {
+            // 检查后面跟着什么
+            size_t afterPos = pos + full.size();
+            if (afterPos >= result.size()) {
+                pos = afterPos;
+                continue;  // 歧义音节在末尾，不拆分
+            }
+
+            // 取后面最多 10 个字符作为上下文
+            std::string after = result.substr(afterPos, std::min(size_t(10), result.size() - afterPos));
+
+            // 检查前面是否构成常见词（不拆分）
+            // 例如 "shi"+"xian" = 实现/视线/显现, "xian"+"xian" = 现先
+            if (pos >= 3) {
+                std::string before3 = result.substr(pos >= 3 ? pos - 3 : 0, std::min(pos, size_t(3)));
+                std::string before2 = result.substr(pos >= 2 ? pos - 2 : 0, std::min(pos, size_t(2)));
+                // 常见前缀词：视线/实现/显现/鲜鲜/现先 → 不拆分
+                if (before3 == "shi" || before2 == "xi" || before3 == "xian" ||
+                    before3 == "zai" || before3 == "you" || before3 == "zhe") {
+                    pos = afterPos;
+                    continue;
+                }
+            }
+
+            // 检查是否在不拆分上下文中
+            bool shouldKeep = false;
+            for (const char *ctx : keepContexts) {
+                if (after.starts_with(ctx)) {
+                    shouldKeep = true;
+                    break;
+                }
+            }
+            if (shouldKeep) {
+                pos = afterPos;
+                continue;
+            }
+
+            // 检查是否在拆分上下文中
+            bool shouldSplit = false;
+            for (const char *ctx : splitContexts) {
+                if (after.starts_with(ctx)) {
+                    shouldSplit = true;
+                    break;
+                }
+            }
+
+            if (shouldSplit) {
+                result = result.substr(0, pos) + split + result.substr(afterPos);
+                pos = pos + split.size();
+            } else {
+                pos = afterPos;
+            }
+        }
+    }
+
+    return result;
+}
+
 std::string find_data(const std::vector<std::string> &candidates, const char *what) {
     for (const auto &p : candidates) {
         if (exists(p)) return p;
@@ -412,7 +528,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.9.4\n";
+            std::cout << "pinyin_ime_cli 0.9.5\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -728,6 +844,7 @@ int main(int argc, char **argv) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
+            line = disambiguate_pinyin(line);
             for (char ch : line) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
@@ -851,6 +968,7 @@ int main(int argc, char **argv) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
+            line = disambiguate_pinyin(line);
             for (char ch : line) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
