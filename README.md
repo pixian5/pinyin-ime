@@ -8,6 +8,16 @@
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
 ## 当前进度（截至 2026-09）
+### v0.9.13（2026-09-30）：安装指南 + 词典管理 + 健康检查 + 性能对比
+
+**完善工具链：安装指南、用户词典管理、健康检查、性能对比。**
+
+- **安装指南**：`INSTALL.md` 完整安装步骤、使用方法、配置说明、故障排除
+- **词典管理**：`scripts/user_dict.sh` 用户词条管理（list/add/search/stats/export/clear）
+- **健康检查**：`scripts/healthcheck.sh` 6类15项检查（源码/构建/功能/用户数据/E2E/Python）
+- **性能对比**：`scripts/benchmark_compare.sh` 5种配置性能对比（默认/模糊/纠错/双拼）
+- **全量测试**：CLI 41/41, E2E 68/68, daily 40/40
+
 ### v0.9.12（2026-09-30）：消歧测试 + 演示脚本 + python路径修复
 
 **新增消歧测试用例，演示脚本，修复eval_daily.py路径。**
