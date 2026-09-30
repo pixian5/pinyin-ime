@@ -69,6 +69,18 @@ RPM spec 从 0.8.7 → 0.9.3，全部统一。
 fcitx5 配置方法、快捷键表、CLI 独立用法、故障排除。
 
 **用户词典管理工具 `scripts/user_dict.py`：** 添加/列出/搜索/导入/导出/清空
+
+**CI 测试脚本 `scripts/ci_test.sh`：** 24 项测试全绿，覆盖：自检、版本、基础拼音、
+简拼、模糊音、纠错、双拼、整句、用户学习、JSON、联想预测、引擎统计、批量模式、
+准确率、性能基准、综合测试。
+
+**一键安装脚本 `scripts/install.sh`：** 自动检测环境、构建 CLI + addon、
+配置 fcitx5、支持 --cli-only/--prefix/--uninstall 选项。
+
+**打包配置：** RPM spec 更新至 0.9.4，新增 Debian control 文件。
+
+**功能对比文档 `docs/FEATURES.md`：** 与 fcitx5-pinyin/ibus-pinyin/搜狗拼音
+的功能对比表，双拼方案支持表，性能指标，准确率统计。
 用户词条，查看引擎统计信息。
 
 ### 已完成：评测框架 + 两条基线
