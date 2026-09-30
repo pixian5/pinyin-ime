@@ -59,6 +59,7 @@ void runTests(EventDispatcher *dispatcher) {
         config.setValueByPath("EnableShuangpin", "False");
         config.setValueByPath("NBest", "9");
         config.setValueByPath("DataDir", "/tmp/libime_data");
+        config.setValueByPath("UserDataDir", "/root/.local/share/pinyin-ime");
         config.setValueByPath("PageSize", "9");
         pinyinimeAddon->setConfig(config);
         std::cout << "[setup] pinyinime config set via setConfig API" << std::endl;
