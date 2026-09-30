@@ -7,7 +7,9 @@
 已打通「打字 → 候选 → 选词上屏」，headless 沙箱即可验证「能打字」）。路线决策与技术选型详见
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
-快速入门见 [QUICKSTART.md](QUICKSTART.md)，安装指南见 [INSTALL.md](INSTALL.md)，架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+快速入门见 [QUICKSTART.md](QUICKSTART.md)，安装指南见 [INSTALL.md](INSTALL.md)，架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，故障排查见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+
+Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-09）
 ### v0.9.16（2026-09-30）：addon消歧 + Web演示
