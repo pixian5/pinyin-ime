@@ -1,0 +1,22 @@
+pinyin-ime (0.9.4-1) unstable; urgency=medium
+
+  * v0.9.4: CI测试(24/24) + 安装脚本 + 打包配置 + 功能对比文档
+  * E2E fcitx5 addon测试 38/40通过
+  * 性能基准: 168句/秒, 97.5%日常准确率
+  * 功能: 全拼/简拼/双拼(8方案)/模糊音/纠错/学习/表情/标点
+
+ -- pinyin-ime team <laotongtian@gitcode.com>  Mon, 30 Sep 2026 12:00:00 +0800
+
+pinyin-ime (0.9.3-1) unstable; urgency=medium
+
+  * v0.9.3: 常用词频提升 + 版本统一 + RPM打包
+  * 日常40句准确率从87.5%提升至97.5%
+
+ -- pinyin-ime team <laotongtian@gitcode.com>  Sun, 29 Sep 2026 18:00:00 +0800
+
+pinyin-ime (0.9.0-1) unstable; urgency=medium
+
+  * 初始版本
+  * 基于libime的拼音输入法, 支持fcitx5 addon和CLI
+
+ -- pinyin-ime team <laotongtian@gitcode.com>  Sat, 28 Sep 2026 10:00:00 +0800
