@@ -17,6 +17,11 @@
 #include <fcitx/inputmethodentry.h>
 #include "testfrontend_public.h"
 
+// 注册 keyboard 静态 addon（fcitx5 server 内置，需手动导入）
+#include <fcitx/addonfactory.h>
+FCITX_DEFINE_STATIC_ADDON_REGISTRY(getStaticAddon)
+FCITX_IMPORT_ADDON_FACTORY(getStaticAddon, keyboard);
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -157,12 +162,12 @@ int main() {
     
     char arg0[] = "fcitx5-test";
     char arg1[] = "--disable=all";
-    char arg2[] = "--enable=testfrontend,pinyinime";
+    char arg2[] = "--enable=testfrontend,pinyinime,keyboard,spell,quickphrase,notifications,clipboard,unicode";
     char *argv[] = {arg0, arg1, arg2};
     
     try {
         Instance instance(3, argv);
-        instance.addonManager().registerDefaultLoader(nullptr);
+        instance.addonManager().registerDefaultLoader(&getStaticAddon());
         g_instance = &instance;
         
         EventDispatcher dispatcher;

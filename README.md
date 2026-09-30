@@ -2441,3 +2441,75 @@ echo "nihao" | ./run.sh --top1 --quiet   # → 你好
 3. **用户词频校准**：接入搜狗/微软真实用户词频数据，提升首词命中率
 4. **双拼方案验证**：8 种双拼方案的完整测试覆盖
 5. **fcitx5 addon 实机安装**：在桌面环境（Ubuntu/Fedora）安装 addon 做真实输入测试
+
+## 2026-09-30 v0.9.0：fcitx5 E2E 打字测试 18/18 全绿——真实 fcitx5 API 端到端验证
+
+### 背景
+
+此前所有测试（CLI 自测 24/24、XIM 21/21、DBus+GTK 10/10）均通过间接链路验证拼音引擎。
+本轮首次在 headless 沙箱中构建完整 **fcitx5 5.1.23 server + testfrontend addon**，
+通过 fcitx5 公共 API（`Instance`、`InputContext`、`KeyEvent`）直接模拟按键，
+验证拼音引擎在真实 fcitx5 框架中的端到端行为。
+
+### 构建要点
+
+| 组件 | 说明 |
+|------|------|
+| fcitx5 server | 5.1.23 全量构建，含 Core/Config/Utils + testfrontend/keyboard addon |
+| 工具链 | conda-forge gcc 16.2.0 (aarch64)，C++20 |
+| 数据 | libime zh_CN.lm (34.7MB) + sc.dict (4.5MB)，安装到 /usr/share/libime/ |
+| E2E 测试 | `test/e2e_typing_test.cpp`，静态链接 keyboard addon + xkbcommon |
+
+### 踩坑记录
+
+1. **testfrontend.conf 未被 CMake 模板替换**：`@PROJECT_VERSION@` 残留 → 依赖版本不匹配，addon 不加载。修复：手动 `sed` 替换为 `5.1.23`。
+2. **testfrontend.conf 放在 `testing/addon/` 而非 `addon/`**：fcitx5 只扫描 `addon/` 目录。修复：复制到正确位置。
+3. **输入法组（profile）缺少 pinyinime**：fcitx5 默认组只含 keyboard-us，`setCurrentInputMethod("pinyinime")` 静默失败。修复：创建 `$XDG_CONFIG_HOME/fcitx5/profile` 文件，将 pinyinime 加入 Default 组。
+4. **keyboard addon 依赖未加载**：`--disable=all` 禁用了 keyboard 的依赖（spell/quickphrase 等）。修复：在 `--enable` 列表中补充所有必需 addon。
+5. **数据路径**：addon 搜索 `/usr/share/libime/zh_CN.lm` 等标准路径。修复：创建符号链接到实际数据文件。
+
+### E2E 测试结果
+
+```
+========== pinyin-ime E2E Test Suite ==========
+
+[PASS] basic greeting: nihao → 你好
+[PASS] basic word: shijie → 世界
+[PASS] country name: zhongguo → 中国
+[PASS] city name: beijing → 北京
+[PASS] common noun: xuesheng → 学生
+[PASS] common noun: laoshi → 老师
+[PASS] common phrase: xiexie → 谢谢
+[PASS] common phrase: zaijian → 再见
+[PASS] university name: beijingdaxue → 北京大学
+[PASS] university name: qinghuadaxue → 清华大学
+[PASS] compound: zhongguoren → 中国人
+[PASS] sentence: woshizhongguoren → 我是中国人
+[PASS] phrase combo: nihaozhongguo → 你好中国
+[PASS] sentence: woaixuexi → 我爱学习
+[PASS] longer phrase: jintiandetianqi → 今天的天气
+[PASS] long sentence: qingwenyixiaruzhushenmefangjian → 请问一下入住什么房间
+[PASS] sentence: woxiangdingyigefangjian → 我想订一个房间
+[PASS] sentence: qingbangwochaxunyixia → 请帮我查询一下
+
+========== Summary ==========
+Total: 18 | Pass: 18 | Fail: 0
+Accuracy: 100%
+```
+
+### 意义
+
+这是**首次**通过 fcitx5 框架的公共 C++ API 直接验证拼音引擎：
+- 按键经 `Instance → InputContext → InputMethodEngine::keyEvent()` 完整路由
+- 候选由 `libime::PinyinIME` 引擎解码 + 语言模型排序
+- 上屏经 `InputContext::commitString()` 触发 `TestFrontend::commitStringImpl()`
+- 18 个测试覆盖单字、复合词、长短句，全部一次通过
+
+至此，pinyin-ime 的四条验证链路全部绿灯：
+
+| 链路 | 覆盖 | 结果 |
+|------|------|------|
+| CLI 自测 | 全拼/简拼/模糊/纠错/双拼 24 项 | 24/24 ✅ |
+| XIM 协议 | Xvfb + XIM 21 项 | 21/21 ✅ |
+| DBus + GTK | fcitx5-gtk im module + GTK3 10 项 | 10/10 ✅ |
+| **fcitx5 E2E** | **真实 fcitx5 API 18 项** | **18/18 ✅** |
