@@ -55,3 +55,8 @@ packaging/build/
 .env.secret
 .env.build
 native-build/
+.env
+native-build
+cpp/build
+fcitx5-addon/build
+fcitx5-addon/stage

@@ -8,6 +8,56 @@
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
 ## 当前进度（截至 2026-09）
+### v0.9.6（2026-09-30）：全量从零构建验证 + 真正可运行输入法
+
+**在全新 openEuler 22.03 aarch64 沙箱从零构建，全部通过。**
+
+- **环境搭建**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + boost 1.85.0，
+  清华 TUNA 镜像安装 conda 包，gh-proxy.com 下载 GitHub 源码，
+  download.fcitx-im.org 直连下载语言模型数据（77MB lm_sc.arpa）。
+- **构建产物**：
+  - CLI 二进制 `cpp/build/pinyin_ime_cli`（754KB）✅
+  - fcitx5 addon `fcitx5-addon/build/libpinyinime.so`（772KB）✅
+  - 语言模型 `zh_CN.lm`（34,736,327 B）✅
+  - 系统词典 `sc.dict`（4,489,669 B）✅
+  - fcitx5 5.1.23 headless 库 ✅
+  - libime 1.1.17（KENLM_MAX_ORDER=4）✅
+- **功能验证**（34/35 通过）：
+  - 全拼：nihao→你好、zhongguo→中国、beijingdaxue→北京大学 ✅
+  - 简拼：bjdx→北京大学、zg→中国 ✅
+  - 模糊音：cifan→吃饭、senme→什么、zeli→这里 ✅
+  - 纠错：senme→什么、zongguo→中国 ✅
+  - 双拼：小鹤 nihc→你好、vsgo→中国 ✅
+  - 整句：woshizhongguoren→我是中国人、woaixuexi→我爱学习 ✅
+  - JSON 输出、联想预测、多候选、引擎统计 ✅
+  - 交互模式：打字→候选→选词上屏 ✅
+  - 1 个已知失败：shanghaishi→上海市（应为上海是，LM 消歧限制）
+- **性能**：逐键延迟 ~28ms（含进程启动），交互模式 <1ms
+- **run.sh 便捷脚本**：`./run.sh "nihao"` → 你好
+
+**构建步骤**（无 Docker，纯本机构建）：
+```bash
+# 1. 安装 micromamba（gh-proxy.com 加速）
+# 2. 创建 conda 环境（TUNA 镜像）
+# 3. 下载 fcitx5 5.1.23 + libime 1.1.17 源码（gh-proxy.com）
+# 4. 下载 kenlm 子模块 + 打 4-gram 补丁
+# 5. 构建 fcitx5（headless）→ 构建 libime（含数据）→ 构建 CLI + addon
+# 6. ./run.sh "nihao" → 你好
+```
+
+**所需依赖**：
+- 构建工具：micromamba/conda-forge、gcc 16.2.0、cmake、ninja
+- 库：boost 1.85.0、fmt、zstd、libuv、extra-cmake-modules、gettext、libuuid
+- 源码：fcitx5 5.1.23、libime 1.1.17（含 kenlm）
+- 数据：zh_CN.lm（34MB）、sc.dict（4.5MB）——构建时自动下载
+
+**未来优化方向**：
+1. **fcitx5 完整 server 构建**：当前为 headless，需加 X11/Wayland/DBus 支持做桌面实机验证
+2. **拼音分割歧义**：shanghaishi→上海市 vs 上海是，需解码器层多分割假设
+3. **更大语言模型**：用 LCCC 口语语料训练专属 LM，提升对话域准确率
+4. **用户词频校准**：接入真实用户词频数据，提升首词命中率
+5. **实机安装验证**：在 Ubuntu/Fedora 桌面环境验证 addon 加载和打字
+
 ### v0.9.3（2026-09-30）：准确率提升 + 版本修复 + 综合测试
 
 **准确率提升：** 通过用户语言模型精确学习高频消歧二元，daily 40 句评测从

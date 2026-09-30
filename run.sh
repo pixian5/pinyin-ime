@@ -1,7 +1,7 @@
 #!/bin/bash
 # pinyin-ime 便捷运行脚本
 # 用法:
-#   ./run.sh "nihao"           # 单次输入
+#   ./run.sh "nihao"           # 单次输入 → 你好
 #   ./run.sh --interactive      # 交互模式
 #   ./run.sh --test             # 运行测试
 #   echo "nihao" | ./run.sh    # 管道模式
@@ -14,7 +14,7 @@ LM="$PINYIN_IME_LM"
 DICT="$PINYIN_IME_DICT"
 
 if [ "$1" = "--test" ]; then
-    bash "$SCRIPT_DIR/scripts/smoke_test.sh"
+    bash "$SCRIPT_DIR/scripts/test_all.sh"
     exit 0
 fi
 
