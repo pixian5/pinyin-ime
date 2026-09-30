@@ -2348,3 +2348,96 @@ bash scripts/install_all.sh
 - `scripts/eval_daily.py` — 日常句子评测
 - `scripts/eval_engine2.py` — 新闻/百科评测（对比 baseline/correct/fuzzy）
 - `scripts/build_e2e_test.sh` — fcitx5 E2E 测试
+
+---
+
+## 构建验证（2026-09-30，openEuler 22.03 aarch64 全量复现）
+
+### 环境
+
+| 组件 | 版本 | 来源 |
+|---|---|---|
+| OS | openEuler 22.03 LTS aarch64 | — |
+| conda-forge gcc | 16.2.0 | 清华 TUNA 镜像 |
+| micromamba | 2.9.0 | gh-proxy.com 镜像 |
+| fcitx5 | 5.1.23（headless） | gh-proxy.com 镜像 |
+| libime | 1.1.17（KENLM_MAX_ORDER=4） | gh-proxy.com 镜像 |
+| boost | 1.85.0 | conda-forge |
+| zh_CN.lm | 34,736,327 B | libime 内置数据 |
+| sc.dict | 4,489,669 B | libime 内置数据 |
+
+### 构建产物
+
+| 产物 | 路径 | 状态 |
+|---|---|---|
+| CLI 二进制 | `cpp/build/pinyin_ime_cli` | ✅ 编译通过 |
+| fcitx5 addon | `fcitx5-addon/build/libpinyinime.so` | ✅ 编译通过 |
+| lmplz 训练工具 | `native-build/build/kenlm/bin/lmplz` | ✅ 编译通过 |
+| 语言模型 | `native-build/opt/libime/lib/libime/zh_CN.lm` | ✅ 34.7MB |
+| 系统词典 | `native-build/opt/libime/share/libime/sc.dict` | ✅ 4.5MB |
+
+### 冒烟测试结果：24/24 全通过
+
+```
+== 全拼 ==
+  PASS  nihao                -> 你好
+  PASS  zhongguo             -> 中国
+  PASS  woshiyige            -> 我是一个
+  PASS  beijingdaxue         -> 北京大学
+  PASS  zhongguoruanjian     -> 中国软件
+== 简拼 ==
+  PASS  bjdx                 -> 北京大学
+  PASS  zg                   -> 中国
+  PASS  js                   -> 技术
+== 模糊音 ==
+  PASS  cifan                -> 吃饭
+  PASS  senme                -> 什么
+  PASS  zeli                 -> 这里
+  PASS  lanfang              -> 南方
+== 双拼（小鹤）==
+  PASS  nihc                 -> 你好
+  PASS  vsgo                 -> 中国
+  PASS  bwjkdaxt             -> 北京大学
+  PASS  ufme                 -> 什么
+  PASS  veli                 -> 这里
+  PASS  iifj                 -> 吃饭
+  PASS  jiuu                 -> 技术
+  PASS  wouiyige             -> 我是一个
+== CLI 功能 ==
+  PASS  --version             -> pinyin_ime_cli 0.8.6
+  PASS  --stats               -> JSON OK
+  PASS  --json --quiet        -> ["你好","拟好","你毫","你号","你耗"]
+  PASS  --correct --fuzzy     -> 什么
+==== 结果：24 通过 / 0 失败 ====
+```
+
+### 一键构建
+
+```bash
+# 从零构建（约 10 分钟）
+bash scripts/full_build.sh
+
+# 快速试用
+./run.sh "nihao"        # → 你好
+./run.sh "zhongguo"     # → 中国
+./run.sh --test         # 运行冒烟测试
+
+# 管道模式
+echo "nihao" | ./run.sh --top1 --quiet   # → 你好
+```
+
+### 镜像源配置
+
+| 用途 | 镜像 | 备注 |
+|---|---|---|
+| conda-forge | `https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge` | 清华 TUNA |
+| GitHub 下载 | `https://gh-proxy.com` | gh-proxy 加速 |
+| 华为云镜像 | `https://mirrors.huaweicloud.com` | 备选 |
+
+### 后续优化方向
+
+1. **fcitx5 完整 server 构建**：当前为 headless 构建（无 X11/Wayland/DBus），E2E 打字测试需要完整 server + testfrontend addon
+2. **口语语料 LM 训练**：用 LCCC 口语语料训练专属语言模型，提升对话域准确率
+3. **用户词频校准**：接入搜狗/微软真实用户词频数据，提升首词命中率
+4. **双拼方案验证**：8 种双拼方案的完整测试覆盖
+5. **fcitx5 addon 实机安装**：在桌面环境（Ubuntu/Fedora）安装 addon 做真实输入测试

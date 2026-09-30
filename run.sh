@@ -1,32 +1,31 @@
 #!/bin/bash
-# pinyin-ime 一键运行脚本
-# 用法: ./run.sh [输入拼音]
-# 不带参数则进入交互模式
-set -euo pipefail
+# pinyin-ime 便捷运行脚本
+# 用法:
+#   ./run.sh "nihao"           # 单次输入
+#   ./run.sh --interactive      # 交互模式
+#   ./run.sh --test             # 运行测试
+#   echo "nihao" | ./run.sh    # 管道模式
 
-NB="/root/workspace/native-build"
-ENV="$NB/mamba-env"
-OPT="$NB/opt"
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/setup_env.sh" 2>/dev/null
 
-export PATH="$ENV/bin:$PATH"
-export LD_LIBRARY_PATH="$ENV/lib:$OPT/fcitx5/lib:$OPT/libime/lib"
+CLI="$PINYIN_IME_CLI"
+LM="$PINYIN_IME_LM"
+DICT="$PINYIN_IME_DICT"
 
-LM="$OPT/libime/lib/libime/zh_CN.lm"
-DICT="$OPT/libime/share/libime/sc.dict"
-CLI="$REPO_DIR/cpp/build/pinyin_ime_cli"
-
-if [ ! -f "$CLI" ]; then
-    echo "错误: CLI 未编译，请先运行构建。"
-    exit 1
+if [ "$1" = "--test" ]; then
+    bash "$SCRIPT_DIR/scripts/smoke_test.sh"
+    exit 0
 fi
 
-if [ $# -gt 0 ]; then
-    # 命令行模式
-    echo "$@" | "$CLI" "$LM" "$DICT"
+if [ "$1" = "--interactive" ]; then
+    exec "$CLI" "$LM" "$DICT"
+fi
+
+if [ -n "$1" ] && [ "$1" != "--top1" ] && [ "$1" != "--json" ] && [ "$1" != "--fuzzy" ] && [ "$1" != "--correct" ]; then
+    # 单次输入
+    echo "$1" | "$CLI" --top1 --quiet "$LM" "$DICT" 2>/dev/null
 else
-    # 交互模式
-    echo "pinyin-ime 交互模式（输入 q 退出）"
-    echo "================================"
-    "$CLI" "$LM" "$DICT"
+    # 透传参数（管道模式）
+    exec "$CLI" "$@" "$LM" "$DICT"
 fi
