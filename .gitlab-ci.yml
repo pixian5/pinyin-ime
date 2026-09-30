@@ -1,0 +1,77 @@
+# GitCode CI 配置 for pinyin-ime
+# 需要在仓库设置中启用 CI
+
+stages:
+  - build
+  - test
+  - package
+
+variables:
+  GIT_STRATEGY: fetch
+
+# 构建 CLI
+build:cli:
+  stage: build
+  image: fedora:39
+  before_script:
+    - dnf install -y gcc gcc-c++ cmake ninja-build git
+    - dnf install -y boost-devel fmt-devel json-devel || true
+    # 安装 libime (从源码或包管理器)
+    - git clone https://gitcode.com/fcitx/libime.git /tmp/libime || true
+    - if [ -d /tmp/libime ]; then
+        cd /tmp/libime &&
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release &&
+        cmake --build build &&
+        cmake --install build;
+        cd -;
+      fi
+  script:
+    - cd cpp
+    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    - cmake --build build
+    - ./build/pinyin_ime_cli --self-test
+  artifacts:
+    paths:
+      - cpp/build/pinyin_ime_cli
+    expire_in: 1 week
+
+# 运行测试
+test:cli:
+  stage: test
+  needs: [build:cli]
+  image: fedora:39
+  before_script:
+    - dnf install -y python3 bash
+  script:
+    - chmod +x scripts/ci_test.sh
+    - bash scripts/ci_test.sh
+  artifacts:
+    reports:
+      junit: test-results.xml
+    when: always
+
+# 运行准确率评测
+test:accuracy:
+  stage: test
+  needs: [build:cli]
+  image: fedora:39
+  before_script:
+    - dnf install -y python3
+  script:
+    - python3 scripts/eval_daily.py
+  allow_failure: true
+
+# 构建 RPM 包
+package:rpm:
+  stage: package
+  needs: [build:cli]
+  image: fedora:39
+  before_script:
+    - dnf install -y rpm-build
+  script:
+    - rpmbuild -ba packaging/pinyin-ime.spec
+  artifacts:
+    paths:
+      - dist/*.rpm
+    expire_in: 1 month
+  allow_failure: true
