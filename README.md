@@ -7,7 +7,18 @@
 已打通「打字 → 候选 → 选词上屏」，headless 沙箱即可验证「能打字」）。路线决策与技术选型详见
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
+快速入门见 [QUICKSTART.md](QUICKSTART.md)，安装指南见 [INSTALL.md](INSTALL.md)，架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
 ## 当前进度（截至 2026-09）
+### v0.9.15（2026-09-30）：测试报告生成器 + 快速入门
+
+**自动化测试报告和快速入门指南。**
+
+- **测试报告**：`scripts/generate_report.sh` 自动生成 Markdown 格式测试报告
+  - 包含总览、性能、功能覆盖、E2E分类、环境信息
+- **快速入门**：`QUICKSTART.md` 30秒上手 + 常用命令 + 工具一览
+- **全量测试**：CLI 41/41, E2E 100/100, daily 40/40
+
 ### v0.9.14（2026-09-30）：E2E扩展至100用例
 
 **E2E端到端测试从68扩展到100用例，覆盖单音节/复合词/日常用语/长句/技术术语。**
