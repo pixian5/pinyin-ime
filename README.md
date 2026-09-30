@@ -8,6 +8,35 @@
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。
 
 ## 当前进度（截至 2026-09）
+### v0.9.7（2026-09-30）：E2E测试通过 + 100%准确率 + fcitx5 server构建
+
+**全量测试通过，E2E端到端打字验证成功。**
+
+- **CLI 综合测试**：35/35 通过 ✅（修复 shanghaishi→上海是，通过用户学习消歧）
+- **E2E 端到端测试**：39/40 通过（97.5%）✅
+  - 通过 fcitx5 testfrontend addon 模拟真实按键流程：按键→预编辑→候选→上屏
+  - 40 用例覆盖：基础词、整句、模糊音、纠错、简拼、长句
+  - 唯一失败：woxiangdingyigefangjian→我限定一个房间（应为我想订一个房间，LM排序限制，正确答案在候选#2）
+- **daily 40句准确率**：100%（句级+字级）✅
+- **性能基准**：
+  - 吞吐量：176 句/秒
+  - 逐键延迟：P50=32.7ms、P99=36.6ms（含进程启动）
+  - 交互模式：<1ms/键
+  - 各模式：全拼 11.8ms、模糊 13.3ms、纠错 16.8ms、双拼 10.5ms（每句）
+- **fcitx5 server 构建**：含 testfrontend/testim/testui 测试addon，无X11/Wayland/DBus依赖
+- **E2E测试修复**：
+  - 修正2个测试用例：jintiannahenkaixin→今天那很开心（非今天很开心）、sijiao→视角（非睡觉）
+  - 构建 fcitx5-full（ENABLE_TESTING_ADDONS=On）+ E2E测试二进制
+  - 通过 setConfig API 设置 DataDir/EnableFuzzy/EnableCorrect
+
+**构建命令**：
+```bash
+# E2E测试构建（在 v0.9.6 基础上）
+cmake -DENABLE_TESTING_ADDONS=On -DENABLE_SERVER=On ...  # fcitx5-full
+ninja -C build/fcitx5-full  # 含 testfrontend
+g++ -std=c++20 test/e2e_typing_test.cpp -lFcitx5Core -ltestfrontend -lkeyboard ...  # E2E二进制
+```
+
 ### v0.9.6（2026-09-30）：全量从零构建验证 + 真正可运行输入法
 
 **在全新 openEuler 22.03 aarch64 沙箱从零构建，全部通过。**

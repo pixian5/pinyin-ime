@@ -129,10 +129,10 @@ void runTests(EventDispatcher *dispatcher) {
         // --- Additional sentences ---
         {"woxiangchi", "我想吃", "sentence"},
         {"nihaoa", "你好啊", "sentence with particle"},
-        {"jintiannahenkaixin", "今天很开心", "longer sentence"},
+        {"jintiannahenkaixin", "今天那很开心", "longer sentence"},
         {"qingwenyixia", "请问一下", "polite phrase"},
         // --- Fuzzy additional ---
-        {"sijiao", "睡觉", "fuzzy: si→shi+ji→jue"},
+        {"sijiao", "视角", "fuzzy: si→shi"},
         {"zeliangge", "这两个", "fuzzy: ze→zhe"},
     };
 
