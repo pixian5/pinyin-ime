@@ -68,6 +68,10 @@ std::string findData(const std::vector<std::string> &candidates,
 }
 
 // 常见「好用度」模糊音集合（与 cpp/pinyin_ime_cli.cpp 保持一致）。
+// Note: libime's fuzzyCost has been modified from log10(0.5) to log10(0.1)
+// to ensure exact pinyin matches rank higher than fuzzy matches.
+// Without this, common words like 限定 (via ian↔iang fuzzy of xiang) can
+// outrank the exact match 想订, producing wrong candidates.
 libime::PinyinFuzzyFlags commonFuzzyFlags() {
     using libime::PinyinFuzzyFlag;
     return {PinyinFuzzyFlag::C_CH,         PinyinFuzzyFlag::F_H,
