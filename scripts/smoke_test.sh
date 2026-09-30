@@ -5,7 +5,7 @@
 # 用法：bash scripts/smoke_test.sh
 set -uo pipefail
 
-NB="${NB:-/root/workspace/native-build}"
+NB="${NB:-/workspace/native-build}"
 OPT="$NB/opt"
 ENV="$NB/mamba-env"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

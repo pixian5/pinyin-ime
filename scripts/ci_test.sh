@@ -2,7 +2,7 @@
 # CI/CD test script for pinyin-ime
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-NB=${NB:-/root/workspace/native-build}
+NB=${NB:-/workspace/native-build}
 PYTHON3=/usr/local/bin/python3
 FAIL=0
 

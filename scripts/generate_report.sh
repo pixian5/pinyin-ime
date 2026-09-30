@@ -8,7 +8,7 @@ cd "$PROJECT_ROOT"
 source ./setup_env.sh 2>/dev/null
 
 OUTPUT="${1:-test_report.md}"
-NB="/root/workspace/native-build"
+NB="/workspace/native-build"
 CLI="$PINYIN_IME_CLI"
 LM="$PINYIN_IME_LM"
 DICT="$PINYIN_IME_DICT"

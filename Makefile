@@ -12,8 +12,8 @@ CLI_BIN := $(BUILD_DIR)/pinyin_ime_cli
 PREFIX ?= /usr/local
 
 # 库路径（根据实际环境调整）
-LIBIME_DIR ?= /root/workspace/native-build/opt/libime
-ENV_DIR ?= /root/workspace/native-build/mamba-env
+LIBIME_DIR ?= /workspace/native-build/opt/libime
+ENV_DIR ?= /workspace/native-build/mamba-env
 
 .PHONY: all build cli addon install test clean bench eval train help
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 用 conda-forge 工具链（gcc 15 + boost/fmt/zstd/libuv/ECM/gettext/libuuid）从源码构建 fcitx5 5.1.23 与 libime 1.1.17。
-# 系统 /usr 为只读，无法用 dnf，故全部依赖走 /root/workspace/native-build/mamba-env。
+# 系统 /usr 为只读，无法用 dnf，故全部依赖走 /workspace/native-build/mamba-env。
 set -euo pipefail
 
-NB=${NB:-/root/workspace/native-build}
+NB=${NB:-/workspace/native-build}
 ENV=$NB/mamba-env
 OPT=$NB/opt
 BUILD=$NB/build

@@ -9,7 +9,7 @@
 #     配套工具是 gtk-query-immodules-3.0-64（gtk3 包自带，-64 是 openEuler 的 multiarch 命名）。
 set -euo pipefail
 
-NB=${NB:-/root/workspace/native-build}
+NB=${NB:-/workspace/native-build}
 SRC="$NB/src"
 PROXY="${PROXY:-http://127.0.0.1:7890}"
 FCITX5_GTK_VER=5.1.7

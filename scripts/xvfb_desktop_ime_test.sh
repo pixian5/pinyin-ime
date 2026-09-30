@@ -9,7 +9,7 @@
 # 用法：bash scripts/xvfb_desktop_ime_test.sh
 # 环境：NB，需已构建 fcitx5-x11（Dbus=On）+ fcitx5-gtk im module（含 immodules.cache）+ addon。
 set -uo pipefail
-NB="${NB:-/root/workspace/native-build}"
+NB="${NB:-/workspace/native-build}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 FCITX_BIN="$NB/opt/fcitx5-x11/bin/fcitx5"

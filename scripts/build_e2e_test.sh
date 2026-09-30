@@ -3,7 +3,7 @@
 # This tests pinyinime through the real fcitx5 API: key press → preedit → candidate → commit
 
 set -e
-NB=${NB:-/root/workspace/native-build}
+NB=${NB:-/workspace/native-build}
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 FCITX5_SRC="$NB/src/fcitx5-5.1.23"

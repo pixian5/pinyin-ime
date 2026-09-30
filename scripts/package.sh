@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJ_DIR="$(dirname "$SCRIPT_DIR")"
 VERSION=$(cat "$PROJ_DIR/VERSION")
-NB="${NB:-/root/workspace/native-build}"
+NB="${NB:-/workspace/native-build}"
 OPT="$NB/opt"
 ENV_DIR="$NB/mamba-env"
 

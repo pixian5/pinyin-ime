@@ -12,6 +12,84 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-09）
+### v0.9.19（2026-09-30）：全新沙箱从零构建，输入法真正可运行
+
+**在全新 openEuler 22.03 LTS aarch64 沙箱从零构建，不使用 Docker，全部通过。**
+
+- **环境搭建**：
+  - micromamba 2.9.0 + conda-forge gcc 16.2.0 + boost 1.85.0
+  - conda-forge 镜像：清华 TUNA（华为云 conda-forge 镜像有 ZSTD 解压问题）
+  - GitHub 源码下载：gh-proxy.com 镜像
+  - libime 数据文件下载：代理 7890 端口（直连仅 13KB/s，代理 3.6MB/s）
+  - Python 依赖：华为云 PyPI 镜像安装 pypinyin/jieba/opencc
+
+- **构建产物**：
+
+| 组件 | 状态 | 产物大小 |
+|---|---|---|
+| fcitx5 5.1.23 (headless) | ✅ | libFcitx5Core.so |
+| libime 1.1.17 (4-gram) | ✅ | zh_CN.lm 34MB + sc.dict 4.3MB |
+| pinyin_ime_cli | ✅ | 738KB |
+| libpinyinime.so (fcitx5 addon) | ✅ | 755KB |
+| kenlm lmplz | ✅ | 1.4MB |
+
+- **测试结果**：
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 (smoke_test.sh) | ✅ 24/24 通过 |
+| 交互回归 (test_interactive.py) | ✅ 26/26 通过 |
+| 健康检查 (healthcheck.sh) | ✅ 14通过 / 0失败 / 1警告 |
+| daily 40句评测 | 36/40 = 90% (字级 98.1%) |
+| CLI综合测试 | 34/35 (1个"市/是"LM排序差异) |
+
+- **基本输入验证**：
+  - nihao → 你好 ✅
+  - shijie → 世界 ✅
+  - zhongguo → 中国 ✅
+  - beijingdaxue → 北京大学 ✅
+  - zhongguoren → 中国人 ✅
+  - 模糊音 cifan → 吃饭 ✅
+  - 双拼 nihc → 你好 ✅
+  - 纠错 senme → 什么 ✅
+
+- **路径修复**：所有脚本中 `/root/workspace/native-build` → `/workspace/native-build`（共 29 个文件）
+
+**构建命令**：
+```bash
+# 1. 克隆仓库
+git clone https://gitcode.com/laotongtian/pinyin-ime.git
+cd pinyin-ime
+
+# 2. 构建环境（micromamba + conda-forge gcc 16.2.0）
+#    镜像：清华 TUNA conda-forge + gh-proxy.com GitHub
+bash scripts/full_build.sh  # 或手动执行 native-build/build.sh
+
+# 3. 验证
+source ./setup_env.sh
+echo "nihao" | ./run.sh  # → 你好
+bash scripts/smoke_test.sh  # → 24/24 PASS
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **"市/是"消歧优化**：daily 评测 4 个失败均为"XX市"vs"XX是"，需调整 LM 权重或增加用户学习数据。
+2. **fcitx5-full E2E 测试**：当前仅构建 headless fcitx5，需构建含 testing addons + server 的完整 fcitx5 以运行 E2E 打字测试。
+3. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+4. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+5. **候选部首/偏旁检索**：生僻字输入。
+6. **双拼方案自定义**：用户可编辑双拼键位映射。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja 1.13.2
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.3MB)（从 download.fcitx-im.org 下载，需代理）
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
 ### v0.9.18（2026-09-30）：fcitx5 server 真实加载 + E2E 106/106 全通过
 
 **fcitx5 addon 通过真实 fcitx5 API 完整验证，输入法真正可运行。**

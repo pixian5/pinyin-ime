@@ -2,7 +2,7 @@
 # 一步式 XIM 实测：起 fcitx5（若未起）→ 用 xim_test_client 发脚本 → 打印客户端与 fcitx5 日志
 # 用法: bash scripts/xvfb_smoke.sh '<按键脚本>' [附加 nihao/zhongguo 断言]
 set -uo pipefail
-NB="${NB:-/root/workspace/native-build}"
+NB="${NB:-/workspace/native-build}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 bash scripts/xvfb_test_env.sh start > /tmp/xvfb-env.out 2>&1

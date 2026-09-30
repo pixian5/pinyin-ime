@@ -11,7 +11,7 @@ import tempfile
 import statistics
 
 CLI = os.path.join(os.path.dirname(__file__), '..', 'cpp', 'build', 'pinyin_ime_cli')
-LD = "/root/workspace/native-build/mamba-env/lib:/root/workspace/native-build/opt/fcitx5/lib:/root/workspace/native-build/opt/libime/lib"
+LD = "/workspace/native-build/mamba-env/lib:/workspace/native-build/opt/fcitx5/lib:/workspace/native-build/opt/libime/lib"
 
 os.environ['LD_LIBRARY_PATH'] = LD + ':' + os.environ.get('LD_LIBRARY_PATH', '')
 

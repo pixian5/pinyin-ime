@@ -7,7 +7,7 @@ CORPUS="${1:-bench/corpus/news.txt}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJ_DIR="$(dirname "$SCRIPT_DIR")"
 
-NB="/root/workspace/native-build"
+NB="/workspace/native-build"
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 export LD_LIBRARY_PATH="$ENV/lib:$OPT/libime/lib:$OPT/fcitx5/lib"

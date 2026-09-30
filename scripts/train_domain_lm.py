@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 
-NB = os.environ.get("NB", "/root/workspace/native-build")
+NB = os.environ.get("NB", "/workspace/native-build")
 LMPLZ = f"{NB}/build/kenlm/bin/lmplz"
 SLM_BUILD = f"{NB}/opt/libime/bin/libime_slm_build_binary"
 DICT = f"{NB}/opt/libime/share/libime/sc.dict"

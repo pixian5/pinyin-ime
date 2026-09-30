@@ -14,7 +14,7 @@
 
 set -e
 
-NB=/root/workspace/native-build
+NB=/workspace/native-build
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 FCITX5_SRC="$NB/src/fcitx5-5.1.23"
