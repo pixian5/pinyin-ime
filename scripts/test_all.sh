@@ -155,7 +155,7 @@ check_contains "统计含词典路径" "$STATS" "dict_path"
 echo ""
 echo "--- 12. 准确率 (daily 40句) ---"
 if [ -f "$PROJ_DIR/scripts/eval_daily.py" ]; then
-    EVAL=$(timeout 30 python3 "$PROJ_DIR/scripts/eval_daily.py" 2>&1)
+    EVAL=$(timeout 30 /usr/local/bin/python3 "$PROJ_DIR/scripts/eval_daily.py" 2>&1)
     ACC=$(echo "$EVAL" | grep "Sentence accuracy" | grep -oP '\d+/\d+ = \d+\.\d+%')
     echo "  句级准确率: $ACC"
     if echo "$ACC" | grep -qP '9[0-9]\.\d+%|100\.0%'; then
@@ -166,6 +166,15 @@ if [ -f "$PROJ_DIR/scripts/eval_daily.py" ]; then
 else
     echo "  ⏭️ eval_daily.py 不存在"; SKIP=$((SKIP+1))
 fi
+
+# --- 13. 拼音消歧 ---
+echo ""
+echo "--- 13. 拼音消歧 ---"
+check "xianbeijing→西安北京" "$(run xianbeijing)" "西安北京"
+check "xianyou→西安有" "$(run xianyou)" "西安有"
+check "xianshi→显示" "$(run xianshi)" "显示"
+check "xiandaishishiyong→现代史使用" "$(run xiandaishishiyong)" "现代史使用"
+check "xian→先" "$(run xian)" "先"
 
 # --- 汇总 ---
 echo ""
