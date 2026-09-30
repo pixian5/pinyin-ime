@@ -166,6 +166,43 @@ void runTests(EventDispatcher *dispatcher) {
         {"sengri", "生日", "correct: sengri→shengri"},
         {"zaoan", "早安", "greeting"},
         {"wanan", "晚安", "greeting"},
+        // --- Edge cases: single syllables ---
+        {"a", "啊", "single vowel"},
+        {"o", "哦", "single vowel"},
+        {"e", "恶", "single vowel"},
+        {"ai", "爱", "single diphthong"},
+        {"yi", "一", "single syllable"},
+        {"wu", "无", "single syllable"},
+        {"yu", "与", "single syllable"},
+        {"yue", "月", "single syllable"},
+        {"yuan", "元", "single syllable"},
+        {"ying", "应", "single syllable"},
+        {"yong", "用", "single syllable"},
+        // --- Compound words ---
+        {"aimei", "爱美", "compound"},
+        {"aixin", "爱心", "compound"},
+        {"wenhou", "问候", "compound"},
+        {"wenhua", "文化", "compound"},
+        {"kexue", "科学", "compound"},
+        {"jiaoyu", "教育", "compound"},
+        {"yiliao", "医疗", "compound"},
+        {"zhengzhi", "政治", "compound"},
+        // --- Common daily phrases ---
+        {"shangban", "上班", "daily"},
+        {"xiaban", "下班", "daily"},
+        {"shuijiao", "睡觉", "daily"},
+        {"xiuxi", "休息", "daily"},
+        {"gouwu", "购物", "daily"},
+        {"yundong", "运动", "daily"},
+        // --- Longer sentences ---
+        {"woxiangqubeijinglvyou", "我想去北京旅游", "long sentence"},
+        {"mingtianyaoqichuang", "明天要起床", "sentence"},
+        {"jintiantianqihenhao", "今天天气很好", "sentence"},
+        // --- Tech terms extended ---
+        {"yunjisuan", "云计算", "tech term"},
+        {"dashuju", "大数据", "tech term"},
+        {"wulianwang", "物联网", "tech term"},
+        {"qukuailian", "区块链", "tech term"},
     };
 
     int pass = 0, fail = 0;
