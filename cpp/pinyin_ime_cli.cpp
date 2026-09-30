@@ -125,20 +125,26 @@ std::string disambiguate_pinyin(const std::string &input) {
     // 例如 "xianyou" → "xi'anyou" (西安有) 而非 "现有"
     // 但 "xiandai" → "现代" 不拆分
     static const char *splitContexts[] = {
-        "you", "shi", "de", "hao", "jiu", "zai", "yao",
-        "hai", "bu", "mei", "neng", "hui", "ke", "dao",
-        "qi", "ba", "ma", "ne", "le", "ge", "zuo", "you",
-        "hen", "duo", "youdouo", "shi", "deshi",
+        "you", "de", "hao", "jiu", "yao",
+        "hai", "bu", "mei", "hui", "ke", "dao",
+        "qi", "ba", "ma", "ne", "le", "ge", "zuo",
+        "hen", "duo",
         // 地名常见搭配
-        "youhenduo", "youhenduolishiguji",
         "shoudu", "chengshi", "daxue", "shifan",
+        "beijing", "nanjing", "shanghai", "guangzhou",
+        "shenzhen", "chengdu", "hangzhou", "tianjin",
+        "wuhan", "chongqing", "kunming", "lashi",
+        "lvyou", "youji", "youke", "meijing",
+        // 常见句式
+        "youhenduo", "shidou", "doushi", "youshi",
+        "yeshi", "jiushi", "haishi", "bushi",
     };
 
     // 不拆分的上下文（这些词中完整音节更常见）
     static const char *keepContexts[] = {
         "dai",    // 现代 xiandai
-        "zai",    // 现在 xianzai (但 zai 也在 splitContexts... 冲突)
-        "shi",    // 现实 xianshi (但 shi 也在 splitContexts... 冲突)
+        "zai",    // 现在 xianzai
+        "shi",    // 现实/显示 xianshi
         "xiang",  // 现象 xianxiang
         "lia",    // 现量
         "jin",    // 现金
@@ -146,10 +152,10 @@ std::string disambiguate_pinyin(const std::string &input) {
         "ming",   // 鲜明
         "huo",    // 鲜活
         "yan",    // 鲜艳
-        "neng",   // 显能
-        "shi",    // 显示
         "zhu",    // 显著
         "ran",    // 显然
+        "guang",  // 先光/现光
+        "hua",    // 先化/现化
     };
 
     // 简化策略：只处理最明确的歧义 case
@@ -163,8 +169,10 @@ std::string disambiguate_pinyin(const std::string &input) {
             // 检查后面跟着什么
             size_t afterPos = pos + full.size();
             if (afterPos >= result.size()) {
+                // 歧义音节在末尾：不拆分（先/现/显 比 西安 更常见）
+                // 用户如需西安，可显式输入 xi'an
                 pos = afterPos;
-                continue;  // 歧义音节在末尾，不拆分
+                continue;
             }
 
             // 取后面最多 10 个字符作为上下文
@@ -528,7 +536,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.9.10\n";
+            std::cout << "pinyin_ime_cli 0.9.11\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -728,7 +736,7 @@ int main(int argc, char **argv) {
     // --self-test：健康检查
     if (selfTest) {
         std::cout << "pinyin-ime 自检\n";
-        std::cout << "  版本: 0.9.10\n";
+        std::cout << "  版本: 0.9.11\n";
         std::cout << "  LM: " << lmPath << " (" << (std::ifstream(lmPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  词典: " << dictPath << " (" << (std::ifstream(dictPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  模糊音: " << (fuzzy ? "开" : "关") << "\n";
