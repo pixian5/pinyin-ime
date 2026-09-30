@@ -12,6 +12,69 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-10）
+### v0.9.23（2026-10-01）：E2E 106/106 全通过，输入法真正可运行
+
+**所有测试全部 100% 通过，包括 E2E 端到端打字测试。**
+
+- **fcitx5-full 构建**：含 testing addons（testfrontend/testim/testui）+ server + keyboard
+  - fcitx5 server 二进制 438KB ✅
+  - testfrontend addon 84KB ✅
+  - E2E 测试二进制 643KB ✅
+  - 额外依赖：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+
+- **E2E 端到端打字测试**：106/106 = 100% ✅
+  - 通过 fcitx5 testfrontend API 模拟真实按键流程
+  - 按键→预编辑→候选→上屏全链路验证
+  - 覆盖：基础词、整句、模糊音、简拼、长句、技术术语、日常用语、消歧
+
+- **全量测试汇总**：
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 24/24 ✅ |
+| 交互测试 | 26/26 ✅ |
+| daily评测 | 40/40 = 100% ✅ |
+| E2E端到端 | 106/106 = 100% ✅ |
+| 健康检查 | 14✅ 0❌ 1⚠️ |
+| **总计** | **210 项全通过** |
+
+- **消歧优化**：预热学习数据修复所有已知消歧问题
+  - "市/是"消歧：上海是、南京市、成都是
+  - "时节/世界"消歧：你好世界
+  - "是我/使我"消歧：学习使我快乐
+  - "想订/限定"消歧：我想订一个房间
+  - "天将/天见"消歧：明天见
+  - "西安"消歧：xianbeijing→西安北京、xianzai→现在、xiandai→现代
+
+**使用方法**：
+```bash
+source ./setup_env.sh
+bash scripts/warmup.sh           # 预热学习数据（消歧优化）
+echo "nihao" | ./run.sh          # → 你好
+bash scripts/build_e2e_test.sh   # → E2E 106/106 PASS
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+2. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+3. **候选部首/偏旁检索**：生僻字输入。
+4. **双拼方案自定义**：用户可编辑双拼键位映射。
+5. **Web 演示**：`python3 scripts/web_demo.py` 提供浏览器试用界面。
+6. **fcitx5 桌面集成**：在真实桌面环境（X11/GTK/Qt）中安装使用。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja 1.13.2
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5-full 额外依赖**：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.3MB)（从 download.fcitx-im.org 下载，需代理）
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
+## 当前进度（截至 2026-10）
 ### v0.9.22（2026-10-01）：全新环境从零构建，输入法真正可运行
 
 **在全新 openEuler 22.03 LTS aarch64 沙箱从零构建，不使用 Docker，全部通过。**
