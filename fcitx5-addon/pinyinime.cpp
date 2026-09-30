@@ -509,10 +509,17 @@ void PinyinIMEEngine::saveUserData() {
 
 void PinyinIMEEngine::reloadConfig() {
     readAsIni(config_, kConfFile);
-    ensureDataLoaded();
+    // 注意：不在此处调用 ensureDataLoaded()，让引擎延迟到首次按键时创建，
+    // 确保 setConfig 设置的 EnableFuzzy/EnableCorrect 在引擎创建时已生效。
     if (ime_) {
         ime_->setNBest(
             static_cast<size_t>(std::max(1, config().nbest.value())));
+        // 模糊音热更新（配置变更后即时生效）
+        if (config().enableFuzzy.value()) {
+            ime_->setFuzzyFlags(commonFuzzyFlags());
+        } else {
+            ime_->setFuzzyFlags(libime::PinyinFuzzyFlags());
+        }
         // 双拼 profile 热更新（配置变更后即时生效）
         if (config().enableShuangpin.value()) {
             auto sp = shuangpinProfileFrom(config().shuangpinScheme.value());
