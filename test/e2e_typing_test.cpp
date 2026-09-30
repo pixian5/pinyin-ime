@@ -203,6 +203,14 @@ void runTests(EventDispatcher *dispatcher) {
         {"dashuju", "大数据", "tech term"},
         {"wulianwang", "物联网", "tech term"},
         {"qukuailian", "区块链", "tech term"},
+        // --- Disambiguation (xian→xi'an) ---
+        {"xianbeijing", "西安北京", "disambiguation"},
+        {"xianyou", "西安有", "disambiguation"},
+        {"xianchengshi", "西安城市", "disambiguation"},
+        // --- Disambiguation: should NOT split ---
+        {"xiandai", "现代", "no-split"},
+        {"xianshi", "显示", "no-split"},
+        {"xianzai", "现在", "no-split"},
     };
 
     int pass = 0, fail = 0;

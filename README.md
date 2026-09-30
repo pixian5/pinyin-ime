@@ -10,6 +10,17 @@
 快速入门见 [QUICKSTART.md](QUICKSTART.md)，安装指南见 [INSTALL.md](INSTALL.md)，架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 当前进度（截至 2026-09）
+### v0.9.16（2026-09-30）：addon消歧 + Web演示
+
+**fcitx5 addon 拼音消歧功能 + Web演示服务器。**
+
+- **addon消歧**：fcitx5 addon 现在支持 `xian→xi'an` 拼音消歧
+  - 逐字输入时自动检测歧义音节并拆分
+  - 新增6个E2E消歧测试用例（3个拆分 + 3个不拆分）
+  - E2E从100→106用例，全部通过
+- **Web演示**：`scripts/web_demo.py` 浏览器界面展示输入法
+  - 实时候选、模糊音/纠错/双拼切换、性能统计
+
 ### v0.9.15（2026-09-30）：测试报告生成器 + 快速入门
 
 **自动化测试报告和快速入门指南。**
