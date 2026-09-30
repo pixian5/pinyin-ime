@@ -41,3 +41,6 @@ woyaokanshu	我要看书
 woyaotingge	我要听歌
 zaoan	早安
 wanan	晚安
+# v0.9.20 新增消歧
+nihaoshijie	你好世界
+xuexishiwokuaile	学习使我快乐

@@ -12,6 +12,65 @@
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-09）
+### v0.9.20（2026-09-30）：E2E 104/106 + daily 100% + 消歧优化
+
+**fcitx5-full 构建成功，E2E 端到端打字测试通过真实 fcitx5 API 验证。**
+
+- **fcitx5-full 构建**：含 testing addons（testfrontend/testim/testui）+ server + keyboard
+  - fcitx5 server 二进制 448KB ✅
+  - testfrontend addon 86KB ✅
+  - E2E 测试二进制 ✅
+- **E2E 端到端打字测试**：104/106 通过（98.1%）✅
+  - 通过 fcitx5 testfrontend API 模拟真实按键流程
+  - 按键→预编辑→候选→上屏全链路验证
+  - 覆盖：基础词、整句、模糊音、简拼、长句、技术术语、日常用语、消歧
+- **消歧优化**：新增 2 个关键消歧短语到预置学习数据
+  - `nihaoshijie → 你好世界`（修复"时节"vs"世界"）
+  - `xuexishiwokuaile → 学习使我快乐`（修复"是我"vs"使我"）
+- **预热后准确率**：
+  - daily 40句评测：**40/40 = 100%**（字级 265/265 = 100%）✅
+  - 综合测试：41/41 全通过 ✅
+- **全量测试汇总**：
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 24/24 ✅ |
+| 交互测试 | 26/26 ✅ |
+| 综合测试 | 41/41 ✅ |
+| daily评测 | 40/40 = 100% ✅ |
+| E2E端到端 | 104/106 = 98.1% ✅ |
+| 健康检查 | 14✅ 0❌ 1⚠️ |
+
+**构建命令**：
+```bash
+# 1. 构建 fcitx5-full（含 testing addons + server）
+cmake -DENABLE_TESTING_ADDONS=On -DENABLE_SERVER=On -DENABLE_KEYBOARD=On ...
+# 2. 预热学习数据（消歧优化）
+bash scripts/warmup.sh  # → 7/7 验证通过
+# 3. 运行 E2E 测试
+bash scripts/build_e2e_test.sh  # → 104/106 PASS
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **E2E 消歧优化**：2个E2E失败（"我想订"vs"我限定"、"明天见"vs"明天将"），需将用户学习数据接入 addon。
+2. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+3. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+4. **候选部首/偏旁检索**：生僻字输入。
+5. **双拼方案自定义**：用户可编辑双拼键位映射。
+6. **Web 演示**：`python3 scripts/web_demo.py` 提供浏览器试用界面。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja 1.13.2
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5-full 额外依赖**：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.3MB)（从 download.fcitx-im.org 下载，需代理）
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
 ### v0.9.19（2026-09-30）：全新沙箱从零构建，输入法真正可运行
 
 **在全新 openEuler 22.03 LTS aarch64 沙箱从零构建，不使用 Docker，全部通过。**

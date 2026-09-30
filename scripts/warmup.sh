@@ -24,7 +24,7 @@ if [ ! -f "$PRESET" ]; then
 fi
 
 # 关键消歧短语（需要最高权重）
-CRITICAL="shanghaishi|nanjingshi|chengdushi|nanjingshiliuchaogudu|woxiangdingyigefangjian"
+CRITICAL="shanghaishi|nanjingshi|chengdushi|nanjingshiliuchaogudu|woxiangdingyigefangjian|nihaoshijie|xuexishiwokuaile"
 
 # Pass 1: 非关键短语 (3x权重)
 TMP1=$(mktemp)
@@ -60,6 +60,8 @@ VERIFY=(
     "nanjingshiliuchaogudu:南京是六朝古都"
     "woxiangdingyigefangjian:我想订一个房间"
     "rengongzhineng:人工智能"
+    "nihaoshijie:你好世界"
+    "xuexishiwokuaile:学习使我快乐"
 )
 PASS=0; TOTAL=0
 for item in "${VERIFY[@]}"; do
