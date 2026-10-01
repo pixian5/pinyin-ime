@@ -10,8 +10,8 @@ set -eu
 cd "$(dirname "$0")/.."
 PY=bench/.venv/bin/python
 DATA=correction/data/bigram_costs.json
-POOL=/workspace/native-build/corpus/lccc_raw.txt
-WORK=/workspace/native-build/ladder
+POOL=/root/workspace/native-build/corpus/lccc_raw.txt
+WORK=/root/workspace/native-build/ladder
 OUT=$WORK/logs
 D=bench/corpus
 

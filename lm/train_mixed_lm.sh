@@ -12,7 +12,7 @@
 # 用法：DIALOG_LINES=2000000 WIKI_LINES=4000000 bash lm/train_mixed_lm.sh
 set -euo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 DIALOG_LINES="${DIALOG_LINES:-2000000}"

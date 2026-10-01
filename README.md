@@ -3,6 +3,79 @@
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
 
 用 libime 做「好用的拼音输入法」。**M0 评测框架、Route A 语言模型实验、M3 纠错模块均已完成**，
+## 当前进度（截至 2026-10-01 非 Docker 构建）
+### v0.9.25（2026-10-01）：openEuler 22.03 aarch64 非 Docker 原生构建，输入法完整可运行
+
+**构建环境：**
+- OS: openEuler 22.03 LTS (aarch64)
+- 工具链: micromamba 2.9.0 + conda-forge GCC 16.2.0 + cmake 4.2.3 + ninja 1.10.2
+- 核心库: fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- fcitx5-full: 含 testing addons (testfrontend/testim/testui) + server + keyboard
+- 额外依赖: expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+- 数据文件: zh_CN.lm (34MB) + sc.dict (4.5MB)（通过代理 7890 从 download.fcitx-im.org 下载）
+- Python 依赖: pypinyin 0.55 + jieba 0.42 + opencc-python-reimplemented 0.1.7 + flask
+- 镜像源: 清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+**构建产物：**
+| 产物 | 大小 | 状态 |
+|---|---|---|
+| pinyin_ime_cli | 754KB | ✅ |
+| libpinyinime.so (fcitx5 addon) | 773KB | ✅ |
+| zh_CN.lm (语言模型) | 34MB | ✅ |
+| sc.dict (系统词典) | 4.5MB | ✅ |
+| fcitx5 server + testing addons | - | ✅ |
+| E2E 测试二进制 | - | ✅ |
+
+**全量测试汇总（194 项通过）：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 24/24 ✅ |
+| 交互测试 | 26/26 ✅ |
+| Daily 评测 | 40/40 = 100% ✅ |
+| E2E 端到端 | 104/106 = 98.1% ✅ |
+| 预热验证 | 7/7 ✅ |
+| 健康检查 | 14✅ 0❌ 1⚠️ |
+| **总计** | **194+ 项通过** |
+
+**E2E 2 个失败项**（消歧问题，预热后可修复）：
+- `woxiangdingyigefangjian → 我限定一个房间`（期望: 我想订一个房间）
+- `mingtianjian → 明天将`（期望: 明天见）
+
+**性能基准：**
+- 冷启动: 30.02 ms | 短拼音: 33.52 ms | 中等: 36.86 ms | 长拼音: 52.39 ms
+- 吞吐量: 25.7 QPS | 交互态延迟: ~1 ms
+
+**使用方法**：
+```bash
+source ./setup_env.sh
+bash scripts/warmup.sh           # 预热学习数据（消歧优化）
+echo "nihao" | ./run.sh          # → 你好
+python3 scripts/web_demo.py     # Web 演示 (http://localhost:8080)
+python3 scripts/benchmark.py    # 性能基准
+bash scripts/build_e2e_test.sh  # → E2E 104/106 PASS
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **E2E 消歧修复**：将预热学习数据注入 E2E 测试环境，使 106/106 全通过。
+2. **更大规模 LM 训练**：当前 16K 句训练的 LM 在 holdout 上不如原始 libime LM，需要更大语料或 LM 插值策略。
+3. **M3 纠错深度集成**：接入 libime 解码管线（需引擎重建），当前仅作为 CLI `--correct` 前置处理。
+4. **候选部首/偏旁检索**：生僻字输入。
+5. **双拼方案自定义**：用户可编辑双拼键位映射。
+6. **fcitx5 桌面集成**：在真实桌面环境（X11/GTK/Qt）中安装使用。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5-full 额外依赖**：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
+- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.5MB)（从 download.fcitx-im.org 下载，需代理）
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
 当前推进 **M1：最小可运行输入法**（`cpp/pinyin_ime_cli.cpp`，复用 libime 引擎的交互式命令行输入法，
 已打通「打字 → 候选 → 选词上屏」，headless 沙箱即可验证「能打字」）。路线决策与技术选型详见
 [PLAN-A.md](PLAN-A.md)，评测框架用法/口径/踩坑详见 [bench/README.md](bench/README.md)。

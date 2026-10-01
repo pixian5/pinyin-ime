@@ -9,10 +9,10 @@
 #   bash scripts/xvfb_test_env.sh stop    # 停止 fcitx5（保留 Xvfb/dbus）
 #   bash scripts/xvfb_test_env.sh status
 #
-# 依赖环境变量：NB（native-build 根，默认 /workspace/native-build）
+# 依赖环境变量：NB（native-build 根，默认 /root/workspace/native-build）
 set -uo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 FCITX_BIN="$NB/opt/fcitx5-x11/bin/fcitx5"
 LOG=/tmp/fcitx5-x11.log
 PIDF=/tmp/fcitx5-x11.pid

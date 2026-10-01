@@ -6,7 +6,7 @@ echo "=========================================="
 echo ""
 
 echo "--- 1. fcitx5 端到端打字测试 ---"
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 OPT="$NB/opt"
 export PATH="$NB/mamba-env/bin:$PATH"
 export LD_LIBRARY_PATH="$NB/mamba-env/lib:$OPT/fcitx5-server/lib:$OPT/fcitx5-server/lib/fcitx5:$OPT/libime/lib"

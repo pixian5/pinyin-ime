@@ -20,7 +20,7 @@
 #      需先跑 scripts/setup_x11_deps.sh 打 librsvg 兼容补丁。
 set -euo pipefail
 
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 BUILD="$NB/build"

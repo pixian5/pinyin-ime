@@ -8,7 +8,7 @@
 #   - openEuler librsvg 2.50 移除 rsvg_handle_get_intrinsic_size_in_pixels，需本地补丁。
 set -euo pipefail
 
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 ENV="$NB/mamba-env"
 SRC="$NB/src"
 OPT="$NB/opt"

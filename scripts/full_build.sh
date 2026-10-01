@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 BUILD="$NB/build"

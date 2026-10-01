@@ -74,7 +74,7 @@ echo ""
 
 # 5. Check E2E test binary
 echo "【5】E2E测试"
-NB="/workspace/native-build"
+NB="/root/workspace/native-build"
 if [ -f "$NB/test_pinyin_e2e" ]; then
     ok "E2E测试二进制"
 else
