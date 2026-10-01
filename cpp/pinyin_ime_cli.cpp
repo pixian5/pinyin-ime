@@ -536,7 +536,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.9.26\n";
+            std::cout << "pinyin_ime_cli 0.9.27\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -736,7 +736,7 @@ int main(int argc, char **argv) {
     // --self-test：健康检查
     if (selfTest) {
         std::cout << "pinyin-ime 自检\n";
-        std::cout << "  版本: 0.9.26\n";
+        std::cout << "  版本: 0.9.27\n";
         std::cout << "  LM: " << lmPath << " (" << (std::ifstream(lmPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  词典: " << dictPath << " (" << (std::ifstream(dictPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  模糊音: " << (fuzzy ? "开" : "关") << "\n";
