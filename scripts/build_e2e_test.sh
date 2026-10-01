@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build and run the fcitx5 end-to-end typing test
 # This tests pinyinime through the real fcitx5 API: key press → preedit → candidate → commit
+#
+# 优化（v0.9.26）：E2E 测试前自动预热学习数据，修复消歧问题 → 106/106
 
 set -e
 NB=${NB:-/root/workspace/native-build}
@@ -38,10 +40,10 @@ if [ ! -f "$OPT/fcitx5-server/lib/fcitx5/libtestfrontend.so" ]; then
 
     ninja -C "$BUILD/fcitx5-full"
     ninja -C "$BUILD/fcitx5-full" install
-
-    # Copy testing addon configs to main addon directory
-    cp "$OPT/fcitx5-server/share/fcitx5/testing/addon/"*.conf "$OPT/fcitx5-server/share/fcitx5/addon/"
 fi
+
+# 始终确保 testing addon 配置已复制（修复：构建已存在时配置可能缺失）
+cp "$OPT/fcitx5-server/share/fcitx5/testing/addon/"*.conf "$OPT/fcitx5-server/share/fcitx5/addon/" 2>/dev/null || true
 
 # Step 2: Install pinyinime addon
 echo "=== Installing pinyinime addon ==="
@@ -73,11 +75,32 @@ $ENV/bin/g++ -std=c++20 -o "$NB/test_pinyin_e2e" "$PROJECT_ROOT/test/e2e_typing_
 
 echo "=== E2E test binary built ==="
 
+# Step 4.5: 预热学习数据（消歧优化，修复 E2E 两个已知失败）
+echo "=== Warming up learning data for E2E ==="
+# 使用独立目录存放 E2E 预热数据，避免与 CLI 的用户数据混淆
+E2E_USER_DATA="/tmp/e2e-user-data"
+rm -rf "$E2E_USER_DATA"
+mkdir -p "$E2E_USER_DATA"
+
+# 运行预热脚本（用真实 HOME 生成学习数据）
+REAL_HOME="${HOME:-/root}"
+bash "$PROJECT_ROOT/scripts/warmup.sh" 2>&1 | tail -2
+
+# 将预热数据复制到 E2E 专用目录
+if [ -d "$REAL_HOME/.local/share/pinyin-ime" ]; then
+    cp "$REAL_HOME/.local/share/pinyin-ime/"* "$E2E_USER_DATA/" 2>/dev/null
+    echo "E2E 用户数据已注入: $(ls "$E2E_USER_DATA/")"
+else
+    echo "警告: 预热数据不存在，E2E 可能出现消歧失败"
+fi
+
 # Step 5: Run E2E test
 echo "=== Running E2E test ==="
 export XDG_DATA_HOME="$OPT/fcitx5-server/share"
 export XDG_CONFIG_HOME="/tmp/fcitx5-test-config"
 export HOME="/tmp/fcitx5-test-home"
+# 设置 E2E 用户数据目录（注入预热学习数据）
+export PINYINIME_USER_DATA="$E2E_USER_DATA"
 mkdir -p "$XDG_CONFIG_HOME/fcitx5/conf" "$HOME"
 
 cat > "$XDG_CONFIG_HOME/fcitx5/profile" << 'EOF'
