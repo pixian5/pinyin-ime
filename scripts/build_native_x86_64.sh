@@ -31,7 +31,7 @@
 #   6. 内存仅 3.7GB 无 swap：lmplz 训大 LM 会 OOM，需 -S 限制排序内存或加 swap
 set -euo pipefail
 
-NB=/workspace/native-build
+NB=/root/workspace/native-build
 ENV=$NB/mamba-env
 OPT=$NB/opt
 BUILD=$NB/build

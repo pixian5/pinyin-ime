@@ -6,7 +6,7 @@
 # 用法：bash scripts/xvfb_ime_test.sh
 # 环境：NB（native-build 根），需要已构建 fcitx5-x11 + pinyinime addon + tools/xim_test_client。
 set -uo pipefail
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # 用户配置：指向编译产物数据路径，并开启 M3 纠错（实测代理 eng 态下验证）。

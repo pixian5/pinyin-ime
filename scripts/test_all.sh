@@ -12,7 +12,7 @@ PROJ_DIR="$(dirname "$SCRIPT_DIR")"
 CLI="$PROJ_DIR/cpp/build/pinyin_ime_cli"
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
-LD_LIBRARY_PATH="/workspace/native-build/mamba-env/lib:/workspace/native-build/opt/fcitx5/lib:/workspace/native-build/opt/libime/lib:$LD_LIBRARY_PATH"
+LD_LIBRARY_PATH="/root/workspace/native-build/mamba-env/lib:/root/workspace/native-build/opt/fcitx5/lib:/root/workspace/native-build/opt/libime/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH
 
 if [ ! -f "$CLI" ]; then

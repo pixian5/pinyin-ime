@@ -10,7 +10,7 @@ set -eu
 cd "$(dirname "$0")/.."
 PY=bench/.venv/bin/python
 DATA=correction/data/bigram_costs.json
-OUT=${OUT:-/workspace/native-build/logs}
+OUT=${OUT:-/root/workspace/native-build/logs}
 DOMAINS="${DOMAINS:-dialogue news}"
 
 # 关键：中断/超时也必须把在库产物还原，否则会留下未提交变体污染工作区

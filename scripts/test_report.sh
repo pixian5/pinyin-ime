@@ -5,7 +5,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-NB=${NB:-/workspace/native-build}
+NB=${NB:-/root/workspace/native-build}
 
 echo "================================================"
 echo "  pinyin-ime 综合测试报告"

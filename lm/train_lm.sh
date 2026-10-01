@@ -12,7 +12,7 @@
 # 产物：$OUT/zh_CN_news.{arpa,lm,lm.predict}
 set -euo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 LM="$OPT/libime/bin"                  # libime_slm_build_binary / libime_prediction

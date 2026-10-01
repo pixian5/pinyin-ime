@@ -3,7 +3,7 @@
 # 在 Xvfb 虚拟显示下启动 fcitx5 server，验证 pinyinime addon 加载
 set -uo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 

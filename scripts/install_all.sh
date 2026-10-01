@@ -4,7 +4,7 @@
 # 用法: sudo bash scripts/install_all.sh
 set -euo pipefail
 
-NB="${NB:-/workspace/native-build}"
+NB="${NB:-/root/workspace/native-build}"
 ENV="$NB/mamba-env"
 OPT="$NB/opt"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
