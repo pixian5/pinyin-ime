@@ -59,7 +59,7 @@ void runTests(EventDispatcher *dispatcher) {
         config.setValueByPath("EnableShuangpin", "False");
         config.setValueByPath("NBest", "9");
         config.setValueByPath("DataDir", "/tmp/libime_data");
-        config.setValueByPath("UserDataDir", getenv("PINYINIME_USER_DATA") ? getenv("PINYINIME_USER_DATA") : "/workspace/.local/share/pinyin-ime");
+        config.setValueByPath("UserDataDir", getenv("PINYINIME_USER_DATA") ? getenv("PINYINIME_USER_DATA") : "/root/.local/share/pinyin-ime");
         config.setValueByPath("PageSize", "9");
         pinyinimeAddon->setConfig(config);
         std::cout << "[setup] pinyinime config set via setConfig API" << std::endl;
@@ -204,6 +204,44 @@ void runTests(EventDispatcher *dispatcher) {
         {"wulianwang", "物联网", "tech term"},
         {"qukuailian", "区块链", "tech term"},
         // --- Disambiguation (xian→xi'an) ---
+        // --- v0.9.26 扩展：城市名 ---
+        {"shanghai", "上海", "city name"},
+        {"guangzhou", "广州", "city name"},
+        {"shenzhen", "深圳", "city name"},
+        {"hangzhou", "杭州", "city name"},
+        {"chengdu", "成都", "city name"},
+        {"tianjin", "天津", "city name"},
+        {"chongqing", "重庆", "city name"},
+        {"wuhan", "武汉", "city name"},
+        {"nanjing", "南京", "city name"},
+        // --- v0.9.26 扩展：文化/体育 ---
+        {"yinyue", "音乐", "culture"},
+        {"dianying", "电影", "culture"},
+        {"youxi", "游戏", "culture"},
+        {"tiyu", "体育", "culture"},
+        {"xinwen", "新闻", "culture"},
+        // --- v0.9.26 扩展：科技/经济 ---
+        {"keji", "科技", "tech term"},
+        {"chuangxin", "创新", "tech term"},
+        {"fazhan", "发展", "tech term"},
+        {"jinrong", "金融", "economy"},
+        {"shangye", "商业", "economy"},
+        {"nongye", "农业", "economy"},
+        {"gongye", "工业", "economy"},
+        // --- v0.9.26 扩展：地标/文化 ---
+        {"taishan", "泰山", "landmark"},
+        {"changcheng", "长城", "landmark"},
+        {"gugong", "故宫", "landmark"},
+        {"zhonghua", "中华", "culture"},
+        {"renmin", "人民", "common noun"},
+        // --- v0.9.26 扩展：更多句子 ---
+        {"woxiangqulvyou", "我想去旅游", "sentence"},
+        {"woshixuesheng", "我是学生", "sentence"},
+        {"zhongguorenmin", "中国人民", "phrase"},
+        {"shurufashijian", "输入法时间", "phrase"},
+        {"mubiao", "目标", "common noun"},
+        {"hexin", "核心", "common noun"},
+
         {"xianbeijing", "西安北京", "disambiguation"},
         {"xianyou", "西安有", "disambiguation"},
         {"xianchengshi", "西安城市", "disambiguation"},
