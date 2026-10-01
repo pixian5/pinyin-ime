@@ -79,6 +79,30 @@ bash scripts/build_e2e_test.sh  # → E2E 138/138 PASS
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
 
 ## 当前进度（截至 2026-10）
+### v0.9.27（2026-10-01）：纠错改进 + Web 演示增强 + 测试报告，235 项全通过
+
+**优化内容：**
+
+1. **纠错模块改进**：添加韵母音近混淆规则
+   - 新增 `ou↔ao`、`uo↔o`、`ui↔uei`、`iu↔iou` 四组混淆
+   - 修复 `nihou→你好`（原误为"里后"）
+   - 纠错能力：`senme→什么`、`zongguo→中国`、`sengri→生日`、`nihou→你好`
+
+2. **Web 演示增强**：
+   - 新增输入历史功能（最近 20 条查询，可点击重查）
+   - 新增复制按钮（一键复制已输入文本）
+   - 更新测试数据和版本信息
+   - 打字测试 42 题（v0.9.26 扩展）
+
+3. **测试报告生成器**：`scripts/generate_report.sh`
+   - 自动运行全部测试并生成 Markdown 报告
+   - 包含：冒烟/交互/Daily/E2E/性能/纠错/模糊音 8 个维度
+   - 输出到 `docs/TEST_REPORT.md`
+
+4. **健康检查全绿**：15✅ 0❌ 0⚠️
+
+**测试结果：** 235 项全通过（冒烟 24 + 交互 26 + Daily 40 + E2E 138 + 预热 7）
+
 ### v0.9.26（2026-10-01）：E2E 消歧修复 + 测试覆盖扩展，235 项全通过
 
 **优化内容：**

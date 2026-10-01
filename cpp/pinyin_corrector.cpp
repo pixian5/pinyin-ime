@@ -204,6 +204,20 @@ std::vector<std::string> confusion_siblings(const std::string &syl) {
             out.push_back(syl.substr(0, syl.size() - std::char_traits<char>::length(shortf)) + longf);
         }
     }
+    // v0.9.27: 韵母音近混淆（ou↔ao, uo↔o, ui↔uei）
+    const std::pair<const char *, const char *> vowelConf[] = {
+        {"ou", "ao"}, {"uo", "o"}, {"ui", "uei"}, {"iu", "iou"}};
+    for (const auto &[v1, v2] : vowelConf) {
+        auto ends = [&](const char *sf) {
+            size_t l = std::char_traits<char>::length(sf);
+            return syl.size() >= l && syl.compare(syl.size() - l, l, sf) == 0;
+        };
+        if (ends(v1)) {
+            out.push_back(syl.substr(0, syl.size() - std::char_traits<char>::length(v1)) + v2);
+        } else if (ends(v2)) {
+            out.push_back(syl.substr(0, syl.size() - std::char_traits<char>::length(v2)) + v1);
+        }
+    }
     return out;
 }
 
