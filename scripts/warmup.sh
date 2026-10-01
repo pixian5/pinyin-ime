@@ -55,7 +55,7 @@ echo ""
 # 验证关键短语
 echo "=== 验证关键短语 ==="
 VERIFY=(
-    "shanghaishi:上海是"
+    "shanghaishi:上海市"
     "xianbeijing:西安北京"
     "nanjingshiliuchaogudu:南京是六朝古都"
     "woxiangdingyigefangjian:我想订一个房间"

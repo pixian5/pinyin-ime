@@ -249,6 +249,39 @@ void runTests(EventDispatcher *dispatcher) {
         {"xiandai", "现代", "no-split"},
         {"xianshi", "显示", "no-split"},
         {"xianzai", "现在", "no-split"},
+
+        // --- v0.9.28: Extended test cases ---
+        // Common daily phrases
+        {"chifanlema", "吃饭了吗", "daily"},
+        {"xiexieni", "谢谢你", "daily"},
+        {"duibuqi", "对不起", "daily"},
+        {"meiguanxi", "没关系", "daily"},
+        {"bukeqi", "不客气", "daily"},
+        {"zaoshanghao", "早上好", "daily"},
+        {"zenmeyang", "怎么样", "daily"},
+        // Work/study
+        {"kaishigongzuo", "开始工作", "work"},
+        {"wanchengrenwu", "完成任务", "work"},
+        {"gongzuobaogao", "工作报告", "work"},
+        {"xuexijihua", "学习计划", "study"},
+        {"xuexijindu", "学习进度", "study"},
+        {"kaoshichengji", "考试成绩", "study"},
+        // Tech terms
+        {"ruanjiankaifa", "软件开发", "tech"},
+        {"chengxusheji", "程序设计", "tech"},
+        {"wangluoanquan", "网络安全", "tech"},
+        {"shujukujishu", "数据库技术", "tech"},
+        // Cities
+        {"shanghaishi", "上海市", "city"},
+        {"guangzhoushi", "广州市", "city"},
+        {"shenzhenshi", "深圳市", "city"},
+        // Sentences
+        {"jintiantianqihenhao", "今天天气很好", "sentence"},
+        {"woxiangqubeijinglvyou", "我想去北京旅游", "sentence"},
+        // Disambiguation
+        {"xiangqu", "想去", "disambiguation"},
+        {"xiangchi", "想吃", "disambiguation"},
+        {"xiangshuo", "想说", "disambiguation"},
     };
 
     int pass = 0, fail = 0;
