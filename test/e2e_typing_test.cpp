@@ -282,6 +282,76 @@ void runTests(EventDispatcher *dispatcher) {
         {"xiangqu", "想去", "disambiguation"},
         {"xiangchi", "想吃", "disambiguation"},
         {"xiangshuo", "想说", "disambiguation"},
+
+        // --- v0.9.30: Expanded learning data tests ---
+        // Idioms
+        {"yixinyiyi", "一心一意", "idiom"},
+        {"quanliyifu", "全力以赴", "idiom"},
+        {"shishiqiushi", "实事求是", "idiom"},
+        {"shunqiziran", "顺其自然", "idiom"},
+        {"xunxujianjin", "循序渐进", "idiom"},
+        // Questions
+        {"shenmeshihou", "什么时候", "question"},
+        {"weishenme", "为什么", "question"},
+        {"zainali", "在哪里", "question"},
+        {"shide", "是的", "affirm"},
+        {"haode", "好的", "affirm"},
+        // Time
+        {"jintian", "今天", "time"},
+        {"mingtian", "明天", "time"},
+        {"zuotian", "昨天", "time"},
+        {"xianzai", "现在", "time"},
+        {"meitian", "每天", "time"},
+        // Weather
+        {"tianqiyubao", "天气预报", "weather"},
+        {"xiayu", "下雨", "weather"},
+        {"qingtian", "晴天", "weather"},
+        {"yintian", "阴天", "weather"},
+        // Food
+        {"huoguo", "火锅", "food"},
+        {"shaokao", "烧烤", "food"},
+        {"miantiao", "面条", "food"},
+        {"jiaozi", "饺子", "food"},
+        {"waimai", "外卖", "food"},
+        // Transport
+        {"gongjiaoche", "公交车", "transport"},
+        {"ditie", "地铁", "transport"},
+        {"gaotie", "高铁", "transport"},
+        {"feiji", "飞机", "transport"},
+        // Emotions
+        {"kaixin", "开心", "emotion"},
+        {"nanguo", "难过", "emotion"},
+        {"shengqi", "生气", "emotion"},
+        {"xihuan", "喜欢", "emotion"},
+        // Sentences
+        {"woxiangshuo", "我想说", "sentence"},
+        {"wojuede", "我觉得", "sentence"},
+        {"woxiwang", "我希望", "sentence"},
+        {"woxihuan", "我喜欢", "sentence"},
+        {"wozhidao", "我知道", "sentence"},
+        {"wobuzhidao", "我不知道", "sentence"},
+        // Tech
+        {"jiqixuexi", "机器学习", "tech"},
+        {"shenduxuexi", "深度学习", "tech"},
+        {"dashuju", "大数据", "tech"},
+        {"qukuailian", "区块链", "tech"},
+        {"qianduan", "前端", "tech"},
+        {"houduan", "后端", "tech"},
+        // Shopping
+        {"maidongxi", "买东西", "shopping"},
+        {"wanggou", "网购", "shopping"},
+        {"kuaidi", "快递", "shopping"},
+        // Health
+        {"yiyuan", "医院", "health"},
+        {"yisheng", "医生", "health"},
+        // Education
+        {"xuexiao", "学校", "education"},
+        {"kaoshi", "考试", "education"},
+        {"biye", "毕业", "education"},
+        // Finance
+        {"yinhang", "银行", "finance"},
+        {"zhifu", "支付", "finance"},
+        {"zhuanzhang", "转账", "finance"},
     };
 
     int pass = 0, fail = 0;
