@@ -1,5 +1,5 @@
 #!/bin/bash
-# pinyin-ime environment setup (adapted for non-Docker build)
+# pinyin-ime environment setup (non-Docker build)
 export NB="${NB:-/root/workspace/native-build}"
 export ENV="$NB/mamba-env"
 export OPT="$NB/opt"

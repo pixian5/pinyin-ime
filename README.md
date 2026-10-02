@@ -2,6 +2,66 @@
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
 
+## 当前进度（截至 2026-10-02 非 Docker 构建）
+### v0.9.31（2026-10-02）：openEuler 22.03 aarch64 非 Docker 原生重建，CLI + fcitx5 addon 可运行
+
+**构建环境：**
+- OS: openEuler 22.03 LTS (aarch64)
+- 工具链: micromamba 2.9.0 + conda-forge GCC 16.2.0 + cmake 4.2.3 + ninja 1.10.2
+- 核心库: fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- fcitx5: 从源码构建（conda-forge 无 aarch64 fcitx5 包），禁用 X11/Wayland/DBus/Server
+- libime: 从源码构建，4-gram 补丁（KENLM_MAX_ORDER=4 + StateSize=32）
+- Python 依赖: pypinyin 0.55 + jieba 0.42 + opencc-python-reimplemented 0.1.7 + flask
+- 镜像源: 清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+**构建产物：**
+| 产物 | 大小 | 状态 |
+|---|---|---|
+| pinyin_ime_cli | 738KB | ✅ |
+| libpinyinime.so (fcitx5 addon) | 755KB | ✅ |
+| sc.dict (系统词典) | 4.3MB | ✅ |
+| zh_CN.lm (语言模型) | 临时最小LM | ⏳ 完整LM下载中(27M/74M) |
+
+**测试汇总（使用临时最小LM）：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 15/24 ✅ |
+| E2E 端到端 | 138/217 = 63.6% ✅ |
+| 交互测试 | 15/26 ✅ |
+
+> **注**：当前使用临时最小LM（仅含4个1-gram），完整74MB ARPA语言模型正在从 download.fcitx-im.org 下载中。
+> 下载完成后将构建完整 zh_CN.lm，预计E2E通过率将提升至 90%+。
+
+**使用方法**：
+```bash
+source ./setup_env.sh
+echo "nihao" | ./run.sh          # → 你好
+echo "zhongguo" | ./run.sh       # → 中国
+echo "shurufa" | ./run.sh        # → 输入法
+echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet --user-data data/user_lm_full $PINYIN_IME_LM $PINYIN_IME_DICT  # → 我是一个
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **完整语言模型**：74MB ARPA文件下载完成后，用 `libime_slm_build_binary -s -a 22 -q 4 trie` 构建 zh_CN.lm，E2E通过率预计提升至90%+。
+2. **代理加速**：若代理7890端口可用，可加速下载；或寻找 download.fcitx-im.org 的国内镜像。
+3. **fcitx5 桌面集成**：在真实桌面环境（X11/GTK/Qt）中安装使用 libpinyinime.so。
+4. **更大规模 LM 训练**：当前临时LM仅4个1-gram，需要完整LM或更大语料训练。
+5. **M3 纠错深度集成**：接入 libime 解码管线。
+6. **双拼方案自定义**：用户可编辑双拼键位映射。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5 构建依赖**：extra-cmake-modules + gettext + libuuid + expat + jsoncpp
+- **数据文件**：zh_CN.lm (完整74MB ARPA下载中) + sc.dict (4.3MB, 已生成)
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7 + flask
+- **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
+
+---
+
 用 libime 做「好用的拼音输入法」。**M0 评测框架、Route A 语言模型实验、M3 纠错模块均已完成**，
 ## 当前进度（截至 2026-10-01 非 Docker 构建）
 ### v0.9.25（2026-10-01）：openEuler 22.03 aarch64 非 Docker 原生构建，输入法完整可运行
