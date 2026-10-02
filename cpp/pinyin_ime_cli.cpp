@@ -252,6 +252,8 @@ void usage(const char *prog) {
         << "  --dump-user     导出用户学习历史（人类可读）后退出\n"
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
+        << "  --top-k N       输出前 N 个候选（Tab 分隔）\n"
+        << "  --benchmark     内置基准测试：测量启动/查询/吞吐/准确率\n"
         << "  --predict       联想预测：输入中文文本，输出可能的下一个词\n"
         << "  --train-text F  从中文文本训练用户语言模型（每行一句中文）\n"
         << "  --history-weight F  用户语言模型权重（默认 1.0，越大越偏向用户历史）\n"
@@ -512,6 +514,8 @@ int main(int argc, char **argv) {
     // --batch：从文件批量处理
     bool dumpUser = false;       // --dump-user：导出用户学习历史
     bool top1Only = false;       // --top1：只输出首选候选
+    int topK = 0;               // --top-k N：输出前N个候选
+    bool benchmarkMode = false; // --benchmark：内置基准测试
     bool predictMode = false;    // --predict：联想预测
     std::string trainText;       // --train-text：从中文文本训练用户 LM
     float historyWeight = -1.0f; // --history-weight：用户 LM 权重
@@ -562,6 +566,14 @@ int main(int argc, char **argv) {
             predictMode = true;
         } else if (a == "--top1") {
             top1Only = true;
+        } else if (a == "--top-k") {
+            if (i + 1 >= argc) {
+                std::cerr << "--top-k 缺少参数\n";
+                return 2;
+            }
+            topK = std::atoi(argv[++i]);
+        } else if (a == "--benchmark") {
+            benchmarkMode = true;
         } else if (a == "--dump-user") {
             dumpUser = true;
         } else if (a == "--learn-file") {
@@ -859,6 +871,12 @@ int main(int argc, char **argv) {
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0];
+            } else if (topK > 0) {
+                size_t limit = std::min(static_cast<size_t>(topK), cands.size());
+                for (size_t i = 0; i < limit; ++i) {
+                    if (i) std::cout << '\t';
+                    std::cout << cands[i];
+                }
                 std::cout << '\n';
             } else if (jsonOutput) {
                 std::cout << '[';
@@ -967,6 +985,48 @@ int main(int argc, char **argv) {
 
     RawTerm raw;
     if (!raw.enable()) {
+        // ---- --benchmark：内置基准测试 ----
+        if (benchmarkMode) {
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+            double t0 = tv.tv_sec + tv.tv_usec / 1e6;
+            // 常用查询
+            const char *queries[] = {
+                "nihao", "zhongguo", "beijing", "shanghai", "xiexie",
+                "zaijian", "woaini", "mingbai", "kexue", "jishu",
+                "shijian", "kongzhi", "yinyue", "dianying", "youxi",
+                "xuexi", "gongzuo", "shenghuo", "shijieshang", "zhonghuarenmin"
+            };
+            const char *expected[] = {
+                "你好", "中国", "北京", "上海", "谢谢",
+                "再见", "我爱你", "明白", "科学", "技术",
+                "时间", "控制", "音乐", "电影", "游戏",
+                "学习", "工作", "生活", "世界上", "中国人民"
+            };
+            int nq = sizeof(queries) / sizeof(queries[0]);
+            int correct = 0;
+            for (int i = 0; i < nq; ++i) {
+                ctx.clear();
+                std::string q = disambiguate_pinyin(queries[i]);
+                for (char ch : q) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                auto cands = collect_candidates(ctx, 1);
+                std::string result = cands.empty() ? "" : cands[0];
+                if (result == expected[i]) ++correct;
+            }
+            gettimeofday(&tv, nullptr);
+            double t1 = tv.tv_sec + tv.tv_usec / 1e6;
+            double elapsed = (t1 - t0) * 1000.0;
+            std::cout << "{\"queries\": " << nq
+                      << ", \"correct\": " << correct
+                      << ", \"accuracy\": " << (correct * 100.0 / nq)
+                      << ", \"total_ms\": " << elapsed
+                      << ", \"avg_ms\": " << (elapsed / nq)
+                      << ", \"qps\": " << (nq / (t1 - t0))
+                      << "}\n";
+            save_user_data();
+            return 0;
+        }
+
         // ---- 行模式：每行一段全拼/简拼 → 候选列表 ----
         std::string line;
         while (std::getline(std::cin, line)) {
@@ -983,6 +1043,12 @@ int main(int argc, char **argv) {
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0];
+            } else if (topK > 0) {
+                size_t limit = std::min(static_cast<size_t>(topK), cands.size());
+                for (size_t i = 0; i < limit; ++i) {
+                    if (i) std::cout << '\t';
+                    std::cout << cands[i];
+                }
             } else if (jsonOutput) {
                 // JSON 数组输出：["候选1","候选2",...]
                 std::cout << '[';

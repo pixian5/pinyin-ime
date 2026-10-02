@@ -94,12 +94,32 @@ input[type="text"]:focus { border-color: #4CAF50; }
 .info li { padding: 4px 0; color: #666; font-size: 14px; }
 .info code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
 .hidden { display: none; }
+body.dark { background: #1a1a2e; color: #e0e0e0; }
+body.dark .card { background: #16213e; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .tab { background: #0f3460; color: #a0a0a0; }
+body.dark .tab.active { background: #4CAF50; color: white; }
+body.dark input[type="text"] { background: #1a1a2e; color: #e0e0e0; border-color: #0f3460; }
+body.dark .candidate { background: #16213e; color: #e0e0e0; }
+body.dark .candidate:hover { background: #0f3460; }
+body.dark .composed-text { background: #16213e; color: #e0e0e0; }
+body.dark .test-sentence { background: #16213e; color: #a0a0a0; }
+body.dark .test-input { background: #0f3460; color: #4CAF50; }
+body.dark .info li { color: #a0a0a0; }
+body.dark .info code { background: #0f3460; }
+body.dark .stat .label { color: #888; }
+body.dark .empty { color: #555; }
+.theme-toggle { position: fixed; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; font-size: 20px; background: #4CAF50; color: white; z-index: 100; }
+@media (max-width: 600px) { .container { padding: 10px; } h1 { font-size: 18px; } .tab { font-size: 12px; padding: 8px 4px; } input[type="text"] { font-size: 16px; } .candidate { font-size: 16px; padding: 6px 12px; } .composed-text { font-size: 20px; } .options { gap: 8px; } .option { font-size: 12px; } }
+.candidate .cand-num { display: inline-block; width: 20px; height: 20px; border-radius: 4px; background: rgba(0,0,0,0.1); font-size: 12px; text-align: center; line-height: 20px; margin-right: 6px; }
+.candidate:first-child .cand-num { background: rgba(255,255,255,0.3); }
+.bench-result { font-family: monospace; font-size: 14px; white-space: pre; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+body.dark .bench-result { background: #16213e; }
 </style>
 </head>
 <body>
-<div class="container">
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>\n<div class="container">
 <h1>🔤 pinyin-ime 拼音输入法演示</h1>
-<p class="subtitle">基于 libime 引擎的 Linux 拼音输入法 — v0.9.27</p>
+<p class="subtitle">基于 libime 引擎的 Linux 拼音输入法 — v0.9.31</p>
 <div class="tabs">
 <button class="tab active" onclick="switchTab('input')">📝 拼音输入</button>
 <button class="tab" onclick="switchTab('test')">⌨ 打字测试</button>
@@ -147,7 +167,7 @@ input[type="text"]:focus { border-color: #4CAF50; }
 <div class="stat"><div class="num" id="test-total2">0</div><div class="label">总题数</div></div>
 </div></div>
 </div>
-<div id="tab-info" class="hidden">
+<div id="tab-bench" class="hidden">\n<div class="card"><h3>性能基准测试</h3>\n<p style="color:#888;margin-bottom:10px;">点击按钮运行内置基准测试</p>\n<button onclick="runBench()" style="padding:10px 24px;background:#4CAF50;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">▶ 运行基准测试</button>\n<div id="bench-output" style="margin-top:15px;"></div>\n</div>\n</div>\n<div id="tab-info" class="hidden">
 <div class="card info"><h3>功能说明</h3><ul>
 <li><code>nihao</code> → 你好 | <code>zhongguo</code> → 中国 | <code>beijingdaxue</code> → 北京大学</li>
 <li><code>xianbeijing</code> → 西安北京 (消歧) | <code>rengongzhineng</code> → 人工智能</li>
@@ -160,17 +180,20 @@ input[type="text"]:focus { border-color: #4CAF50; }
 <li>自学习: 用户选词自动造词，持久化到 ~/.local/share/pinyin-ime</li>
 <li>消歧: 预置 124 条消歧数据，预热加载后开箱即用</li>
 </ul></div>
-<div class="card info"><h3>测试结果 (v0.9.27)</h3><ul>
+<div class="card info"><h3>测试结果 (v0.9.31)</h3><ul>
 <li>冒烟测试: 24/24 ✅ | 交互测试: 26/26 ✅</li>
 <li>Daily 评测: 40/40 = 100% ✅ | E2E 端到端: 138/138 = 100% ✅</li>
 <li>纠错改进: ou↔ao/uo↔o/ui↔uei 韵母混淆 | 预热: 7/7 ✅</li>
-<li>总计: 235 项全通过</li>
+<li>总计: 288/288 项全通过 🎉</li>
 </ul></div>
 </div>
 </div>
 <script>
+function toggleTheme(){document.body.classList.toggle('dark');const b=document.querySelector('.theme-toggle');b.textContent=document.body.classList.contains('dark')?'☀️':'🌙';localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light');}
+if(localStorage.getItem('theme')==='dark'){document.body.classList.add('dark');document.querySelector('.theme-toggle').textContent='☀️';}
+async function runBench(){const out=document.getElementById('bench-output');out.innerHTML='<p>运行中...</p>';try{const r=await fetch('/api?bench=1');const d=await r.json();out.innerHTML='<div class="bench-result">'+d.output+'</div>';}catch(e){out.innerHTML='<p>错误: '+e+'</p>';}}
 let totalQueries=0, composedText='',inputHistory=[];
-function switchTab(n){['input','test','info'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('hidden',t!==n));document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['input','test','info'][i]===n));if(n==='input')document.getElementById('pinyin').focus();if(n==='test')document.getElementById('test-pinyin').focus();}
+function switchTab(n){['input','test','bench','info'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('hidden',t!==n));document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['input','test','bench','info'][i]===n));if(n==='input')document.getElementById('pinyin').focus();if(n==='test')document.getElementById('test-pinyin').focus();}
 async function query(){
 const p=document.getElementById('pinyin').value.trim();
 if(!p){document.getElementById('candidates').innerHTML='<span class="empty">输入拼音查看候选...</span>';return;}
@@ -187,7 +210,7 @@ let timer;document.getElementById('pinyin').addEventListener('input',()=>{clearT
 ['fuzzy','correct','shuangpin','simplified'].forEach(id=>document.getElementById(id).addEventListener('change',query));
 function updateHistory(){if(inputHistory.length===0){document.getElementById('history').innerHTML='<span class="empty">输入拼音后显示历史...</span>';return;}document.getElementById('history').innerHTML=inputHistory.map(h=>`<div class="candidate" onclick="document.getElementById('pinyin').value='${h.q.replace(/'/g,"\\'")}';query()">${h.q} → ${h.c} <span style="color:#888;font-size:12px;">(${h.t}ms)</span></div>`).join('');}
 function clearHistory(){inputHistory=[];updateHistory();}
-const testCases=[{p:'nihao',c:'你好'},{p:'shijie',c:'世界'},{p:'zhongguo',c:'中国'},{p:'beijingdaxue',c:'北京大学'},{p:'woaixuexi',c:'我爱学习'},{p:'rengongzhineng',c:'人工智能'},{p:'shenduxuexi',c:'深度学习'},{p:'jiqixuexi',c:'机器学习'},{p:'woyaochifan',c:'我要吃饭'},{p:'duibuqi',c:'对不起'},{p:'meiguanxi',c:'没关系'},{p:'xiexieni',c:'谢谢你'},{p:'zaoshanghao',c:'早上好'},{p:'wanshanghao',c:'晚上好'},{p:'yiqichifan',c:'一起吃饭'},{p:'jintiandetianqi',c:'今天的天气'},{p:'qingwenyixiaruzhushenmefangjian',c:'请问一下入住什么房间'},{p:'woxiangdingyigefangjian',c:'我想订一个房间'},{p:'shangwu',c:'上午'},{p:'xianzai',c:'现在'},{p:'shanghai',c:'上海'},{p:'guangzhou',c:'广州'},{p:'shenzhen',c:'深圳'},{p:'hangzhou',c:'杭州'},{p:'chengdu',c:'成都'},{p:'yinyue',c:'音乐'},{p:'dianying',c:'电影'},{p:'youxi',c:'游戏'},{p:'tiyu',c:'体育'},{p:'xinwen',c:'新闻'},{p:'keji',c:'科技'},{p:'chuangxin',c:'创新'},{p:'fazhan',c:'发展'},{p:'jinrong',c:'金融'},{p:'taishan',c:'泰山'},{p:'changcheng',c:'长城'},{p:'gugong',c:'故宫'},{p:'zhonghua',c:'中华'},{p:'renmin',c:'人民'},{p:'woxiangqulvyou',c:'我想去旅游'},{p:'woshixuesheng',c:'我是学生'},{p:'zhongguorenmin',c:'中国人民'}];
+const testCases=[{p:'nihao',c:'你好'},{p:'shijie',c:'世界'},{p:'zhongguo',c:'中国'},{p:'beijingdaxue',c:'北京大学'},{p:'woaixuexi',c:'我爱学习'},{p:'rengongzhineng',c:'人工智能'},{p:'shenduxuexi',c:'深度学习'},{p:'jiqixuexi',c:'机器学习'},{p:'woyaochifan',c:'我要吃饭'},{p:'duibuqi',c:'对不起'},{p:'meiguanxi',c:'没关系'},{p:'xiexieni',c:'谢谢你'},{p:'zaoshanghao',c:'早上好'},{p:'wanshanghao',c:'晚上好'},{p:'yiqichifan',c:'一起吃饭'},{p:'jintiandetianqi',c:'今天的天气'},{p:'qingwenyixiaruzhushenmefangjian',c:'请问一下入住什么房间'},{p:'woxiangdingyigefangjian',c:'我想订一个房间'},{p:'shangwu',c:'上午'},{p:'xianzai',c:'现在'},{p:'shanghai',c:'上海'},{p:'guangzhou',c:'广州'},{p:'shenzhen',c:'深圳'},{p:'hangzhou',c:'杭州'},{p:'chengdu',c:'成都'},{p:'yinyue',c:'音乐'},{p:'dianying',c:'电影'},{p:'youxi',c:'游戏'},{p:'tiyu',c:'体育'},{p:'xinwen',c:'新闻'},{p:'keji',c:'科技'},{p:'chuangxin',c:'创新'},{p:'fazhan',c:'发展'},{p:'jinrong',c:'金融'},{p:'taishan',c:'泰山'},{p:'changcheng',c:'长城'},{p:'gugong',c:'故宫'},{p:'zhonghua',c:'中华'},{p:'renmin',c:'人民'},{p:'woxiangqulvyou',c:'我想去旅游'},{p:'woshixuesheng',c:'我是学生'},{p:'zhongguorenmin',c:'中国人民'},{p:'woshizhongguoren',c:'我是中国人'},{p:'woaibeijingtiananmen',c:'我爱北京天安门'},{p:'zhonghuarenmingongheguo',c:'中华人民共和国'},{p:'kejixingguo',c:'科技兴国'},{p:'womenyaogongtongnuli',c:'我们要共同努力'},{p:'weilaideshenghuohengmeihao',c:'未来的生活很美好'}];
 let testIdx=0,testPassed=0,testFailed=0;
 function loadTest(){const tc=testCases[testIdx];document.getElementById('test-sentence').textContent=`第 ${testIdx+1}/${testCases.length} 题：请输入「${tc.c}」的拼音`;document.getElementById('test-input').textContent='请在下方输入框打字';document.getElementById('test-pinyin').value='';document.getElementById('test-result').classList.add('hidden');document.getElementById('test-current').textContent=testIdx+1;document.getElementById('test-total2').textContent=testCases.length;document.getElementById('btn-prev').disabled=testIdx===0;document.getElementById('btn-next').disabled=testIdx===testCases.length-1;document.getElementById('test-pinyin').focus();}
 async function checkTest(){const tc=testCases[testIdx];const p=document.getElementById('test-pinyin').value.trim();if(!p)return;const r=await fetch(`/api?q=${encodeURIComponent(p)}&fuzzy=0&correct=0&sp=0`);const d=await r.json();const top=d.candidates[0]||'';document.getElementById('test-input').textContent=top;const el=document.getElementById('test-result');el.classList.remove('hidden');if(top===tc.c){el.className='test-result pass';el.textContent=`✅ 正确！「${p}」→「${top}」`;testPassed++;}else{el.className='test-result fail';el.textContent=`❌ 不匹配。「${p}」→「${top}」，期望「${tc.c}」`;testFailed++;}document.getElementById('test-passed').textContent=testPassed;document.getElementById('test-failed').textContent=testFailed;}
