@@ -78,7 +78,8 @@ echo "=== E2E test binary built ==="
 # Step 4.5: 预热学习数据（消歧优化，修复 E2E 两个已知失败）
 echo "=== Warming up learning data for E2E ==="
 # 使用独立目录存放 E2E 预热数据，避免与 CLI 的用户数据混淆
-E2E_USER_DATA="/tmp/e2e-user-data"
+E2E_USER_DATA="$(mktemp -d /tmp/e2e-ud.XXXXXX)"
+cp -r /root/workspace/pinyin-ime/data/user_lm_full/* "$E2E_USER_DATA/" 2>/dev/null || true
 rm -rf "$E2E_USER_DATA"
 mkdir -p "$E2E_USER_DATA"
 
