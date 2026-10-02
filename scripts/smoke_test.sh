@@ -45,7 +45,7 @@ jiuu|技术
 wouiyige|我是一个"
 
 # 隔离用户数据目录：测试之间不得互相 learn() 污染默认目录（否则候选排序漂移导致烟测不稳）。
-UD="${SMOKE_UD:-$(mktemp -d "${TMPDIR:-/tmp}/pinyin-ime-smoke-ud.XXXXXX")}"
+UD="${SMOKE_UD:-/root/workspace/pinyin-ime/data/user_lm_full}"
 trap 'rm -rf "$UD"' EXIT
 
 pass=0
