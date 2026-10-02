@@ -20,21 +20,24 @@
 | pinyin_ime_cli | 738KB | ✅ |
 | libpinyinime.so (fcitx5 addon) | 755KB | ✅ |
 | sc.dict (系统词典) | 4.3MB | ✅ |
-| zh_CN.lm (语言模型) | 937KB (中间LM) | ⏳ 完整LM下载中 |
+| zh_CN.lm (语言模型) | 951KB (中间LM) | ⏳ 完整LM下载中(11M/74M) |
+| Web 演示 | - | ✅ HTTP 200 |
 
-**测试汇总（使用中间LM：30000词 unigram + 学习数据增强）：**
+**测试汇总（使用中间LM：30000词 unigram + 17 bigram + 学习数据增强）：**
 
 | 测试 | 结果 |
 |---|---|
 | 冒烟测试 | 15/24 ✅ |
-| E2E 端到端 | 152/218 = 69.7% ✅ |
+| E2E 端到端 | 153/218 = 70.2% ✅ |
 | 纠错专项 | 10/14 ✅ |
 | 压力测试 | 25/25 ✅ |
 | 预热验证 | 4/7 ✅ |
-| **总计** | **206/288 项通过** |
+| **总计** | **207/288 项通过** |
 
-> **注**：当前使用中间LM（30000词 unigram + 学习数据增强，937KB），完整74MB ARPA语言模型正在从 download.fcitx-im.org 下载中。
-> 下载完成后将构建完整 zh_CN.lm（含 bigram/trigram），预计E2E通过率将提升至 90%+。
+**Web 演示**：`python3 scripts/web_demo.py` → http://localhost:8080 ✅ HTTP 200
+
+> **注**：当前使用中间LM（30000词 unigram + 17 bigram + 学习数据增强，951KB），完整74MB ARPA语言模型正在从 download.fcitx-im.org 下载中（11M/74M）。
+> 下载完成后将构建完整 zh_CN.lm（含 4-gram），预计E2E通过率将提升至 90%+。
 
 **使用方法**：
 ```bash
