@@ -35,6 +35,26 @@
 | **总计** | **288/288 = 100% 全部通过** 🎉 |
 
 **Web 演示**：`python3 scripts/web_demo.py` → http://localhost:8080 ✅ HTTP 200
+  - 深色模式切换 🌙/☀️
+  - 性能基准测试 tab 📊
+  - 候选词编号快捷键 (1-9)
+  - 移动端响应式适配
+  - 40+ 打字测试句
+
+**边界测试**：`bash scripts/test_edge_cases.sh` → 39/39 = 100% ✅
+  - 超长输入(200字符)、空输入、单字符、简拼/全拼混合
+  - 模糊音、连续相同拼音、数字混合、专业术语
+
+**性能基准**：`bash scripts/benchmark_full.sh` 或 `echo "" | pinyin_ime_cli --benchmark`
+  - 平均启动时间: 65ms
+  - 平均查询延迟: 68ms
+  - 吞吐量: 265 qps
+  - 峰值内存: 51MB (RSS)
+  - 模糊音延迟: 74ms
+
+**CLI 新增选项**：
+  - `--top-k N`：输出前 N 个候选（Tab 分隔）
+  - `--benchmark`：内置基准测试，输出 JSON 格式结果
 
 > 完整官方语言模型 lm_sc.arpa（188MB ARPA → 34MB 二进制 trie LM）已通过代理并行下载并构建完成。
 > 模型包含完整 unigram + bigram + trigram + 4-gram，覆盖中文全量词汇。
