@@ -481,3 +481,9 @@ pull	pull
 merge	合并
 branch	分支
 release	发布
+
+# nihaoshijie 高权重（克服 LM 对 时节 的偏好）
+nihaoshijie	你好世界
+nihaoshijie	你好世界
+nihaoshijie	你好世界
+nihaoshijie	你好世界

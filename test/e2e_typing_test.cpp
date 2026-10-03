@@ -146,7 +146,7 @@ void runTests(EventDispatcher *dispatcher) {
         {"xitong", "系统", "common noun"},
         {"anquan", "安全", "common noun"},
         {"mima", "密码", "common noun"},
-        {"denglu", "登陆", "common phrase"},
+        {"denglu", "登录", "common phrase"},
         {"zhuce", "注册", "common phrase"},
         {"shoujihao", "手机号", "common phrase"},
         {"dianziyoujian", "电子邮件", "technical term"},
