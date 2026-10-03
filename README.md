@@ -2,6 +2,76 @@
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
 
+## 当前进度（截至 2026-10-03 非 Docker 构建）
+### v0.9.32（2026-10-03）：华为云沙箱原生重建，CLI + fcitx5 addon + Web 演示全部可运行
+
+**构建环境：**
+- OS: openEuler 22.03 LTS (aarch64)
+- 工具链: micromamba 2.9.0 + conda-forge GCC + cmake + ninja
+- 核心库: fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- fcitx5: 从源码构建（conda-forge 无 aarch64 fcitx5 包），禁用 X11/Wayland/DBus/Server
+- libime: 从源码构建，4-gram 补丁（KENLM_MAX_ORDER=4 + StateSize=32）
+- Python 依赖: pypinyin 0.55 + jieba 0.42 + opencc-python-reimplemented 0.1.7 + flask
+- 镜像源: TUNA conda-forge + 华为云 PyPI + GitHub 直连
+- GitCode 连接器: 华为云 devspace-connector-proxy (Git Smart HTTP, 端口 9800)
+
+**构建产物：**
+| 产物 | 大小 | 状态 |
+|---|---|---|
+| pinyin_ime_cli | 738KB | ✅ |
+| libpinyinime.so (fcitx5 addon) | 755KB | ✅ |
+| sc.dict (系统词典) | 4.3MB | ✅ |
+| zh_CN.lm (语言模型) | 33.1MB (完整官方LM) | ✅ 4-gram 完整模型 |
+| zh_CN.lm.predict (预测模型) | 2.5MB | ✅ |
+| Web 演示 | - | ✅ HTTP 200 |
+
+**测试汇总：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟测试 | 24/24 = 100% ✅ |
+| 边界测试 | 38/39 = 97.4% (1简拼失败: sz→甚至非深圳) |
+| 压力测试 | 25/25 = 100% ✅ |
+| 预热验证 | 7/7 = 100% ✅ |
+| 性能基准 | 95%准确率, 6.74ms延迟, 148 QPS |
+
+**Web 演示**：`python3 scripts/web_demo.py` → http://localhost:8080 ✅ HTTP 200
+
+**性能基准**：`echo "" | pinyin_ime_cli --benchmark`
+  - 准确率: 95% (19/20)
+  - 平均查询延迟: 6.74ms
+  - 吞吐量: 148 qps
+
+**使用方法**：
+```bash
+source ./setup_env.sh
+echo "nihao" | ./run.sh          # → 你好
+echo "zhongguo" | ./run.sh       # → 中国
+echo "shurufa" | ./run.sh        # → 输入法
+echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet $PINYIN_IME_LM $PINYIN_IME_DICT  # → 我是一个
+```
+
+### 未来优化方向（下一轮按优先级聚焦）
+
+1. **简拼优化**：修复 zg→中国、js→技术、sz→深圳 等简拼缩写问题，提升简拼准确率。
+2. **E2E 准确率提升**：当前句级准确率 0/40（测试数据/corpus 对齐问题），需排查 test corpus 格式。
+3. **fcitx5 桌面集成**：在真实桌面环境（X11/GTK/Qt）中安装使用 libpinyinime.so。
+4. **代理加速**：若代理7890端口可用，可加速下载外部资源。
+5. **双拼方案自定义**：用户可编辑双拼键位映射。
+6. **更大规模 LM 训练**：当前完整官方LM已构建，可进一步用领域语料训练。
+
+### 所需依赖
+
+- **构建工具链**：micromamba 2.9.0 + conda-forge gcc + cmake + ninja
+- **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
+- **fcitx5 构建依赖**：extra-cmake-modules + gettext + libuuid + expat + jsoncpp
+- **数据文件**：zh_CN.lm (33.1MB 完整官方LM) + sc.dict (4.3MB) + zh_CN.lm.predict (2.5MB)
+- **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7 + flask
+- **镜像源**：TUNA conda-forge + 华为云 PyPI + GitHub 直连
+- **GitCode 连接**：华为云 devspace-connector-proxy (Git Smart HTTP, 端口 9800)
+
+---
+
 ## 当前进度（截至 2026-10-02 非 Docker 构建）
 ### v0.9.31（2026-10-02）：openEuler 22.03 aarch64 非 Docker 原生重建，CLI + fcitx5 addon 可运行
 
