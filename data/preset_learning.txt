@@ -487,3 +487,7 @@ nihaoshijie	你好世界
 nihaoshijie	你好世界
 nihaoshijie	你好世界
 nihaoshijie	你好世界
+
+# v0.9.35: 常见短语排序修正
+yiqiehaoma	一切好吗
+dongle	懂了
