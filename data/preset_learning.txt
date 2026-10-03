@@ -491,3 +491,46 @@ nihaoshijie	你好世界
 # v0.9.35: 常见短语排序修正
 yiqiehaoma	一切好吗
 dongle	懂了
+
+# v0.9.37: 常见词排序修复
+shide	是的
+chucha	出差
+chuchalvyou	出差旅游
+shoujihao	手机号
+chifan	吃饭
+hecha	喝茶
+hejiu	喝酒
+shangban	上班
+xiaban	下班
+dakai	打开
+guanbi	关闭
+baocun	保存
+sousuo	搜索
+shuaxin	刷新
+xiazai	下载
+shangchuan	上传
+dayin	打印
+queren	确认
+quxiao	取消
+fuzhi	复制
+zhantie	粘贴
+dianzan	点赞
+shoucang	收藏
+zhuanfa	转发
+pinglun	评论
+guanzhu	关注
+yulan	预览
+# v0.9.37: 长句组合
+zhongguoshi	中国是
+yigeweidade	一个伟大的
+weidadeguojia	伟大的国家
+jintiantianqi	今天天气
+tianqizhenhao	天气真好
+chulaisanbu	出来散步
+chulaisanbuba	出来散步吧
+woxiangchiyidun	我想吃一顿
+haochide	好吃的
+haochidefan	好吃的饭
+yidunfan	一顿饭
+womingtianqu	我明天去
+beijingchucha	北京出差
