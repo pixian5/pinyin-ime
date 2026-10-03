@@ -79,6 +79,8 @@ public:
     KeyList selectionKeys_;
     // 候选焦点（页内 0..pageSize-1）：Ctrl+←/→ 移动，空格上屏焦点候选（默认 0=首选）。
     size_t candFocus_ = 0;
+    // 简拼 boost：候选 boostSwap_ 与 0 交换显示（0=不交换），与 CLI 行为一致
+    size_t boostSwap_ = 0;
 
     // 中英切换（Tab）/ 中文标点（双/单引号智能配对）会话状态。
     bool englishMode_ = false;
