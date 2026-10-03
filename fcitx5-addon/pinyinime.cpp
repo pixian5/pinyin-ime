@@ -26,6 +26,7 @@
 
 #include "emoji_list.h"
 #include "pinyin_corrector.h"
+#include "abbr_presets.h"
 
 namespace fcitx {
 
@@ -316,6 +317,7 @@ void PinyinIMEState::commitText(const std::string &text) {
 void PinyinIMEState::reset() {
     context_.clear();
     page_ = 0;
+    boostSwap_ = 0;
     maxPage_ = 0;
     candFocus_ = 0;
     englishMode_ = false;
@@ -386,14 +388,54 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     const size_t begin = page_ * ps;
     const size_t end = std::min<size_t>(cands.size(), begin + ps);
 
+    // ── 简拼 boost（与 CLI 一致）──────────────────────────────
+    // 若 preedit 匹配简拼预设（如 zg→中国），把预设词移到首位显示。
+    // boostSwap_ 记录实际候选索引，selectCandidate 做索引映射。
+    boostSwap_ = 0;
+    if (page_ == 0 && end > begin + 1) {
+        std::string preeditStr = context_.preedit();
+        // 去掉隔音符和空格
+        std::string compact;
+        for (char c : preeditStr) {
+            if (c != '\'' && c != ' ') compact.push_back(c);
+        }
+        if (pinyin_ime::is_abbreviated_pinyin(compact)) {
+            std::string pword = pinyin_ime::lookup_abbr(compact);
+            if (!pword.empty()) {
+                // 在当前页候选中查找预设词
+                for (size_t i = begin + 1; i < end; ++i) {
+                    if (cands[i].toString() == pword) {
+                        boostSwap_ = i;
+                        break;
+                    }
+                }
+                // 预设词不在当前页候选中：尝试在全局候选中查找
+                if (boostSwap_ == 0) {
+                    for (size_t i = 1; i < cands.size(); ++i) {
+                        if (cands[i].toString() == pword) {
+                            boostSwap_ = i;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     inputContext_->inputPanel().reset();
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();
         for (size_t i = begin; i < end; ++i) {
+            size_t displayIdx = i;
+            // 简拼 boost：交换候选 0 和 boostSwap_ 的显示位置
+            if (boostSwap_ > 0 && page_ == 0) {
+                if (i == begin) displayIdx = boostSwap_;
+                else if (i == boostSwap_) displayIdx = begin;
+            }
             // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
             candidateList->append<DisplayOnlyCandidateWord>(
-                Text(cands[i].toString()));
+                Text(cands[displayIdx].toString()));
         }
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
@@ -423,6 +465,11 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
     const auto &cands = context_.candidatesToCursor();
     if (context_.empty() || idx >= cands.size()) {
         return;
+    }
+    // 简拼 boost 索引映射：显示位置 0↔boostSwap_ 交换
+    if (boostSwap_ > 0 && page_ == 0) {
+        if (idx == page_ * pageSize()) idx = boostSwap_;
+        else if (idx == boostSwap_) idx = page_ * pageSize();
     }
     // 误上屏撤回：先收集恢复拼音（必须在此刻——selectCandidatesToCursor 之后
     // preedit() 会变化/清空，撤回时才能把拼音放回候选态）。

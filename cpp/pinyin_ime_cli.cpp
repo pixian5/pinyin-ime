@@ -63,6 +63,7 @@
 #include <libime/pinyin/shuangpinprofile.h>
 
 #include "emoji_list.h"
+#include "abbr_presets.h"
 #include "pinyin_corrector.h"
 
 #ifdef __unix__
@@ -284,180 +285,9 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
 }
 
 
-// ── 简拼预设表 ──────────────────────────────────────────────
-// libime 的语言模型按词频排序，日常用语（"这个"/"即使"/"随着"）频率高于
-// "中国"/"技术"/"深圳"，导致简拼 zg/js/sz 首选不是用户期望的词。
-// 本表对高频简拼缩写做 boost：若预设词已在候选列表中，移到首位；否则插入。
-// 商业输入法（搜狗/百度/微信）均有类似内置缩写表。
-//
-// 设计原则：
-//   1) 只收录「无歧义或用户期望明确」的简拼（zg→中国 而非 这个）
-//   2) 不覆盖已有正确行为的简拼（bj→北京 已正确，不加预设）
-//   3) 预设词必须在候选列表中存在（不凭空造词）
-//   4) 用户自学习数据优先级高于预设（learn() 后 user.history 会覆盖）
-// 简拼预设表：返回静态 unordered_map，O(1) 查找
-static const std::unordered_map<std::string, std::string>& abbr_preset_map() {
-    static const std::unordered_map<std::string, std::string> map = {
-        // 国家/政治
-        {"zg",   "中国"},       // 这个→中国
-        {"zgr",  "中国人"},
-        {"zgh",  "中华人民共和国"},
-        {"zgrm", "中国人民"},
-        // 技术（js→即使 需 boost）
-        {"js",   "技术"},
-        {"rj",   "软件"},
-        {"kj",   "科技"},
-        {"wl",   "网络"},
-        {"sd",   "算法"},
-        {"dm",   "代码"},
-        {"gj",   "工具"},
-        {"jk",   "接口"},
-        {"cs",   "测试"},
-        {"sc",   "生产"},
-        {"bb",   "版本"},
-        {"az",   "安装"},
-        // 城市（sz→随着 需 boost；bj/sh/gz/hz 已正确，不加）
-        {"sz",   "深圳"},
-        {"cd",   "成都"},
-        {"wh",   "武汉"},
-        {"cq",   "重庆"},
-        {"xa",   "西安"},
-        {"nj",   "南京"},
-        {"tj",   "天津"},
-        // 常见搭配
-        {"zl",   "资料"},
-        {"jl",   "记录"},
-        {"xw",   "新闻"},
-        {"bm",   "部门"},
-        {"dw",   "单位"},
-        {"gr",   "个人"},
-        {"qg",   "全国"},
-        {"yx",   "邮箱"},
-        {"sy",   "使用"},
-        {"gn",   "功能"},
-        {"xt",   "系统"},
-        {"aq",   "安全"},
-        {"mm",   "密码"},
-        {"zc",   "注册"},
-        {"dl",   "登录"},
-        {"tc",   "退出"},
-        {"xg",   "修改"},
-        {"cx",   "查询"},
-        {"fx",   "分析"},
-        {"bg",   "报告"},
-        {"jh",   "计划"},
-        {"rw",   "任务"},
-        {"jd",   "进度"},
-        {"zt",   "状态"},
-        {"lx",   "联系"},
-        {"dh",   "电话"},
-        {"yy",   "应用"},
-        {"fw",   "服务"},
-        {"zy",   "资源"},
-        {"pj",   "配置"},
-        {"yh",   "用户"},
-        {"qy",   "企业"},
-        {"cp",   "产品"},
-        {"xq",   "需求"},
-        // 简拼扩展（3-4字母）
-        {"bjdx", "北京大学"},
-        {"qhdx", "清华大学"},
-        // v0.9.35: 更多常见简拼
-        {"wn",   "我们"},       // 温暖→我们
-        {"wx",   "微信"},       // 文学→微信
-        {"tt",   "通过"},       // 疼痛→通过
-        {"ee",   "而且"},       // 峨峨→而且
-        // 重复字母（家人称呼）
-        {"mmm",  "妈妈"},
-        {"bbb",  "爸爸"},
-        {"ggg",  "哥哥"},
-        {"jjj",  "姐姐"},
-        {"nnn",  "奶奶"},
-    };
-    return map;
-}
+// 简拼预设表与 boost 逻辑见 abbr_presets.h
+using namespace pinyin_ime;
 
-// 用户自定义简拼文件路径（可通过 --abbr-file 覆盖）
-static std::string g_abbr_file;
-
-// 加载用户自定义简拼文件（~/.config/pinyin-ime/abbr.txt 或 --abbr-file 指定路径）
-// 格式：每行 "abbr=word"，# 开头为注释。返回空 map 若文件不存在。
-static const std::unordered_map<std::string, std::string>& user_abbr_map() {
-    static std::unordered_map<std::string, std::string> umap;
-    static bool loaded = false;
-    if (!loaded) {
-        loaded = true;
-        std::string path = g_abbr_file;
-        if (path.empty()) {
-            // 默认路径：~/.config/pinyin-ime/abbr.txt
-            const char *home = getenv("HOME");
-            if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
-        }
-        if (!path.empty()) {
-            std::ifstream f(path);
-            if (f) {
-                std::string line;
-                while (std::getline(f, line)) {
-                    // 跳过注释和空行
-                    if (line.empty() || line[0] == '#') continue;
-                    auto pos = line.find('=');
-                    if (pos == std::string::npos || pos == 0 || pos == line.size() - 1) continue;
-                    umap[line.substr(0, pos)] = line.substr(pos + 1);
-                }
-            }
-        }
-    }
-    return umap;
-}
-
-// 判断输入是否为简拼（全小写字母，长度 2-6，无隔音符）
-bool is_abbreviated_pinyin(const std::string &input) {
-    if (input.size() < 2 || input.size() > 6) return false;
-    for (char c : input) {
-        if (c < 'a' || c > 'z') return false;
-    }
-    return true;
-}
-
-// 对简拼候选做 boost：若输入匹配预设表，将预设词移到首位
-void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
-    if (!is_abbreviated_pinyin(input)) return;
-
-    // O(1) 查找：用户自定义优先，然后内置预设
-    const auto& umap = user_abbr_map();
-    auto uit = umap.find(input);
-    if (uit != umap.end()) {
-        // 用户自定义简拼
-    } else {
-        const auto& map = abbr_preset_map();
-        auto it = map.find(input);
-        if (it == map.end()) return;
-        // 使用内置预设
-        const std::string& preset_word = it->second;
-
-        // 在候选列表中查找预设词
-        for (size_t i = 1; i < cands.size(); ++i) {
-            if (cands[i] == preset_word) {
-                cands.erase(cands.begin() + i);
-                cands.insert(cands.begin(), preset_word);
-                return;
-            }
-        }
-        cands.insert(cands.begin(), preset_word);
-        return;
-    }
-
-    // 用户自定义简拼
-    const std::string& preset_word = uit->second;
-    for (size_t i = 1; i < cands.size(); ++i) {
-        if (cands[i] == preset_word) {
-            cands.erase(cands.begin() + i);
-            cands.insert(cands.begin(), preset_word);
-            return;
-        }
-    }
-    cands.insert(cands.begin(), preset_word);
-}
 // 选中候选并（若已完全上屏）提交：打印、写入自学习上下文、清空。
 // 返回是否发生了一次提交。
 bool select_and_commit(PinyinContext &ctx, size_t idx) {
@@ -775,7 +605,7 @@ int main(int argc, char **argv) {
                 std::cerr << "--abbr-file 缺少文件参数\n";
                 return 2;
             }
-            g_abbr_file = argv[++i];
+            abbr_file_path() = argv[++i];
         } else if (a == "--user-data") {
             if (i + 1 >= argc) {
                 std::cerr << "--user-data 缺少目录参数\n";
