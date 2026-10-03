@@ -281,6 +281,129 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
     return cands;
 }
 
+
+// ── 简拼预设表 ──────────────────────────────────────────────
+// libime 的语言模型按词频排序，日常用语（"这个"/"即使"/"随着"）频率高于
+// "中国"/"技术"/"深圳"，导致简拼 zg/js/sz 首选不是用户期望的词。
+// 本表对高频简拼缩写做 boost：若预设词已在候选列表中，移到首位；否则插入。
+// 商业输入法（搜狗/百度/微信）均有类似内置缩写表。
+//
+// 设计原则：
+//   1) 只收录「无歧义或用户期望明确」的简拼（zg→中国 而非 这个）
+//   2) 不覆盖已有正确行为的简拼（bj→北京 已正确，不加预设）
+//   3) 预设词必须在候选列表中存在（不凭空造词）
+//   4) 用户自学习数据优先级高于预设（learn() 后 user.history 会覆盖）
+struct AbbrPreset {
+    const char *abbr;
+    const char *word;
+};
+
+static const AbbrPreset abbr_presets[] = {
+    // 国家/政治
+    {"zg",   "中国"},       // 这个→中国
+    {"zgr",  "中国人"},
+    {"zgh",  "中华人民共和国"},
+    {"zgrm", "中国人民"},
+    // 技术（js→即使 需 boost）
+    {"js",   "技术"},
+    {"rj",   "软件"},
+    {"kj",   "科技"},
+    {"wl",   "网络"},
+    {"sd",   "算法"},
+    {"dm",   "代码"},
+    {"gj",   "工具"},
+    {"jk",   "接口"},
+    {"cs",   "测试"},
+    {"sc",   "生产"},
+    {"bb",   "版本"},
+    {"az",   "安装"},
+    // 城市（sz→随着 需 boost；bj/sh/gz/hz 已正确，不加）
+    {"sz",   "深圳"},
+    {"cd",   "成都"},
+    {"wh",   "武汉"},
+    {"cq",   "重庆"},
+    {"xa",   "西安"},
+    {"nj",   "南京"},
+    {"tj",   "天津"},
+    // 常见搭配
+    {"zl",   "资料"},
+    {"jl",   "记录"},
+    {"xw",   "新闻"},
+    {"bm",   "部门"},
+    {"dw",   "单位"},
+    {"gr",   "个人"},
+    {"qg",   "全国"},
+    {"yx",   "邮箱"},
+    {"sy",   "使用"},
+    {"gn",   "功能"},
+    {"xt",   "系统"},
+    {"aq",   "安全"},
+    {"mm",   "密码"},
+    {"zc",   "注册"},
+    {"dl",   "登录"},
+    {"tc",   "退出"},
+    {"xg",   "修改"},
+    {"cx",   "查询"},
+    {"fx",   "分析"},
+    {"bg",   "报告"},
+    {"jh",   "计划"},
+    {"rw",   "任务"},
+    {"jd",   "进度"},
+    {"zt",   "状态"},
+    {"lx",   "联系"},
+    {"dh",   "电话"},
+    {"yy",   "应用"},
+    {"fw",   "服务"},
+    {"zy",   "资源"},
+    {"pj",   "配置"},
+    {"yh",   "用户"},
+    {"qy",   "企业"},
+    {"cp",   "产品"},
+    {"xq",   "需求"},
+    // 简拼扩展（3-4字母）
+    {"bjdx", "北京大学"},
+    {"qhdx", "清华大学"},
+};
+
+static constexpr size_t abbr_presets_count = sizeof(abbr_presets) / sizeof(abbr_presets[0]);
+
+// 判断输入是否为简拼（全小写字母，长度 2-6，无隔音符）
+bool is_abbreviated_pinyin(const std::string &input) {
+    if (input.size() < 2 || input.size() > 6) return false;
+    for (char c : input) {
+        if (c < 'a' || c > 'z') return false;
+    }
+    return true;
+}
+
+// 对简拼候选做 boost：若输入匹配预设表，将预设词移到首位
+void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
+    if (!is_abbreviated_pinyin(input)) return;
+
+    // 查找预设
+    std::string preset_word;
+    for (size_t i = 0; i < abbr_presets_count; ++i) {
+        if (input == abbr_presets[i].abbr) {
+            preset_word = abbr_presets[i].word;
+            break;
+        }
+    }
+    if (preset_word.empty()) return;
+
+    // 在候选列表中查找预设词
+    for (size_t i = 1; i < cands.size(); ++i) {  // 从 1 开始，跳过当前首选
+        if (cands[i] == preset_word) {
+            // 移到首位
+            cands.erase(cands.begin() + i);
+            cands.insert(cands.begin(), preset_word);
+            return;
+        }
+    }
+
+    // 预设词不在候选列表中：插入首位（简拼预设表是人工策展的，可安全添加）
+
+    cands.insert(cands.begin(), preset_word);
+}
 // 选中候选并（若已完全上屏）提交：打印、写入自学习上下文、清空。
 // 返回是否发生了一次提交。
 bool select_and_commit(PinyinContext &ctx, size_t idx) {
@@ -869,6 +992,7 @@ int main(int argc, char **argv) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+            boost_abbreviation(line, cands);
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0];
             } else if (topK > 0) {
@@ -1010,6 +1134,7 @@ int main(int argc, char **argv) {
                 std::string q = disambiguate_pinyin(queries[i]);
                 for (char ch : q) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                 auto cands = collect_candidates(ctx, 1);
+                boost_abbreviation(queries[i], cands);
                 std::string result = cands.empty() ? "" : cands[0];
                 if (result == expected[i]) ++correct;
             }
@@ -1041,6 +1166,7 @@ int main(int argc, char **argv) {
                 if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
             }
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+            boost_abbreviation(line, cands);
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0];
             } else if (topK > 0) {
