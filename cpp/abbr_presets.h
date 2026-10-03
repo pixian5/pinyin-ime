@@ -153,22 +153,88 @@ inline bool is_abbreviated_pinyin(const std::string &input) {
     return true;
 }
 
+// ── 全拼音 boost 预设表 ──────────────────────────────────────
+// 对特定全拼音做硬排序覆盖（学习数据权重不够时使用）
+// 这些是系统 LM 排序不当的常见词
+inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_map() {
+    static const std::unordered_map<std::string, std::string> map = {
+        {"chucha",   "出差"},       // 初查→出差
+        {"chengdu",  "成都"},       // 程度→成都
+        {"xian",     "西安"},       // 先→西安（城市名优先）
+        {"nihaoshijie", "你好世界"}, // 你好时节→你好世界
+        {"shide",    "是的"},       // 使得→是的
+        {"tuichu",   "退出"},       // 推出→退出
+        {"renwu",    "任务"},       // 人物→任务
+        {"denglu",   "登录"},       // 登陆→登录
+        {"shoujihao", "手机号"},    // 手机好→手机号
+        {"lvyou",    "旅游"},       // 驴友→旅游
+        {"chifan",   "吃饭"},       // 迟反→吃饭
+        {"hecha",    "喝茶"},       //
+        {"hejiu",    "喝酒"},       //
+        {"shangban", "上班"},       //
+        {"xiaban",   "下班"},       //
+        {"dakai",    "打开"},       //
+        {"guanbi",   "关闭"},       //
+        {"baocun",   "保存"},       //
+        {"sousuo",   "搜索"},       //
+        {"shuaxin",  "刷新"},       //
+        {"xiazai",   "下载"},       //
+        {"shangchuan", "上传"},     //
+        {"dayin",    "打印"},       //
+        {"queren",   "确认"},       //
+        {"quxiao",   "取消"},       //
+        {"fuzhi",    "复制"},       //
+        {"zhantie",  "粘贴"},       //
+        {"dianzan",  "点赞"},       //
+        {"shoucang", "收藏"},       //
+        {"zhuanfa",  "转发"},       //
+        {"pinglun",  "评论"},       //
+        {"guanzhu",  "关注"},       //
+        {"yulan",    "预览"},       //
+    };
+    return map;
+}
+
 // 查找简拼预设词：用户自定义优先，然后内置预设。返回空 string 若无匹配。
 inline std::string lookup_abbr(const std::string &input) {
+    // 用户自定义优先
     const auto& umap = user_abbr_map();
     auto uit = umap.find(input);
     if (uit != umap.end()) return uit->second;
+    // 简拼预设
     const auto& map = abbr_preset_map();
     auto it = map.find(input);
     if (it != map.end()) return it->second;
+    // 全拼音 boost 预设
+    const auto& fmap = full_pinyin_preset_map();
+    auto fit = fmap.find(input);
+    if (fit != fmap.end()) return fit->second;
+    return "";
+}
+
+// 查找 boost 预设词（不限制简拼）：用于全拼音 boost
+inline std::string lookup_pinyin_boost(const std::string &input) {
+    // 用户自定义优先
+    const auto& umap = user_abbr_map();
+    auto uit = umap.find(input);
+    if (uit != umap.end()) return uit->second;
+    // 全拼音 boost 预设
+    const auto& fmap = full_pinyin_preset_map();
+    auto fit = fmap.find(input);
+    if (fit != fmap.end()) return fit->second;
+    // 简拼预设（仅对简拼输入生效）
+    if (is_abbreviated_pinyin(input)) {
+        const auto& map = abbr_preset_map();
+        auto it = map.find(input);
+        if (it != map.end()) return it->second;
+    }
     return "";
 }
 
 // 对简拼候选做 boost：若输入匹配预设表，将预设词移到首位
 inline void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
-    if (!is_abbreviated_pinyin(input)) return;
-
-    std::string preset_word = lookup_abbr(input);
+    // 同时支持简拼 boost 和全拼音 boost
+    std::string preset_word = lookup_pinyin_boost(input);
     if (preset_word.empty()) return;
 
     // 在候选列表中查找预设词
@@ -187,8 +253,8 @@ inline void boost_abbreviation(const std::string &input, std::vector<std::string
 // 计算 boostSwap：返回预设词在候选列表中的位置（0 表示无需交换）
 // 用于交互模式：显示时交换 cands[0] 和 cands[boostSwap]
 inline size_t compute_boost_swap(const std::string &preedit, size_t total) {
-    if (total <= 1 || !is_abbreviated_pinyin(preedit)) return 0;
-    std::string pword = lookup_abbr(preedit);
+    if (total <= 1) return 0;
+    std::string pword = lookup_pinyin_boost(preedit);
     if (pword.empty()) return 0;
     return 1;  // caller needs to find the actual index by comparing strings
 }

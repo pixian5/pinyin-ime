@@ -399,23 +399,21 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         for (char c : preeditStr) {
             if (c != '\'' && c != ' ') compact.push_back(c);
         }
-        if (pinyin_ime::is_abbreviated_pinyin(compact)) {
-            std::string pword = pinyin_ime::lookup_abbr(compact);
-            if (!pword.empty()) {
-                // 在当前页候选中查找预设词
-                for (size_t i = begin + 1; i < end; ++i) {
+        std::string pword = pinyin_ime::lookup_pinyin_boost(compact);
+        if (!pword.empty()) {
+            // 在当前页候选中查找预设词
+            for (size_t i = begin + 1; i < end; ++i) {
+                if (cands[i].toString() == pword) {
+                    boostSwap_ = i;
+                    break;
+                }
+            }
+            // 预设词不在当前页候选中：尝试在全局候选中查找
+            if (boostSwap_ == 0) {
+                for (size_t i = 1; i < cands.size(); ++i) {
                     if (cands[i].toString() == pword) {
                         boostSwap_ = i;
                         break;
-                    }
-                }
-                // 预设词不在当前页候选中：尝试在全局候选中查找
-                if (boostSwap_ == 0) {
-                    for (size_t i = 1; i < cands.size(); ++i) {
-                        if (cands[i].toString() == pword) {
-                            boostSwap_ = i;
-                            break;
-                        }
                     }
                 }
             }
