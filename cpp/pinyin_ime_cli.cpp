@@ -1148,21 +1148,12 @@ int main(int argc, char **argv) {
         boostSwap = 0;
         if (total > 1) {
             std::string preeditStr = preedit_compact(ctx);
-            if (is_abbreviated_pinyin(preeditStr)) {
-                // 用户自定义优先，然后内置预设
-                const auto& uamap = user_abbr_map();
-                auto uait = uamap.find(preeditStr);
-                const auto& amap = abbr_preset_map();
-                auto ait = amap.find(preeditStr);
-                std::string pword;
-                if (uait != uamap.end()) pword = uait->second;
-                else if (ait != amap.end()) pword = ait->second;
-                if (!pword.empty()) {
-                    for (size_t ci = 1; ci < total; ++ci) {
-                        if (cands[ci].toString() == pword) {
-                            boostSwap = ci;
-                            break;
-                        }
+            std::string pword = lookup_pinyin_boost(preeditStr);
+            if (!pword.empty()) {
+                for (size_t ci = 1; ci < total; ++ci) {
+                    if (cands[ci].toString() == pword) {
+                        boostSwap = ci;
+                        break;
                     }
                 }
             }

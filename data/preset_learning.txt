@@ -534,3 +534,8 @@ haochidefan	好吃的饭
 yidunfan	一顿饭
 womingtianqu	我明天去
 beijingchucha	北京出差
+
+# v0.9.37 fix: 高权重长句组合
+chuchalvyou	出差旅游
+beijingchucha	北京出差
+womingtianqubeijingchuchalvyou	我明天去北京出差旅游

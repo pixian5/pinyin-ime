@@ -21,6 +21,9 @@
 | woxiangchiyidunhaochidefan | 我想吃一顿好吃的饭 | ✅ |
 | zhonghuarenmingongheguowansui | 中华人民共和国万岁 | ✅ |
 
+**全拼音 boost 预设表：** 对系统 LM 排序不当的常见词做硬排序覆盖（学习数据权重不够时使用）：
+chucha→出差, chengdu→成都, xian→西安, nihaoshijie→你好世界, shide→是的, tuichu→退出, renwu→任务, denglu→登录 等 30+ 词
+
 **技术思路：** 不使用复杂的自动分段算法，而是通过学习数据让 libime 的用户语言模型学会短语组合。模型学会"出差旅游"作为一个整体后，自然能在长句中找到正确的分词边界。这比手动插入隔音符更优雅，且具有泛化能力。
 
 **测试汇总：**
