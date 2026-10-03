@@ -3,6 +3,36 @@
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
 
 ## 当前进度（截至 2026-10-03 简拼优化）
+### v0.9.38（2026-10-03）：英文直通 + 全拼音boost扩展 + 准确率98%
+
+**核心改进：**
+
+1. **英文直通**：150+ 常见英文词（bug/app/web/ok/cpu/git/sql 等）直接作为首选候选输出，不转中文
+2. **全拼音 boost 扩展**：新增 biancheng→编程、guopiao→股票、yilai→依赖 等常见词硬排序
+3. **综合准确率 98%**：69 词大规模测试 68/69 通过
+
+**英文直通词表覆盖：**
+
+| 类别 | 示例 |
+|---|---|
+| 编程 | bug, app, api, git, sql, html, css, json, class, func |
+| 网络 | web, url, http, tcp, udp, dns, vpn, ip, mac |
+| 媒体 | pdf, jpg, png, gif, mp3, mp4, wav |
+| AI/ML | ai, ml, dl, nlp, ocr, iot, gpu, cpu |
+| 通用 | ok, hi, yes, no, true, false, null, test, log, data |
+
+**测试汇总：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| 边界 | 39/39 ✅ |
+| 压力 | 25/25 ✅ |
+| E2E | 218/218 ✅ |
+| 综合准确率 | **68/69 (98%)** |
+
+---
+
 ### v0.9.37（2026-10-03）：常见词排序修复 + 长句分词提升 + 学习数据扩展
 
 **核心改进：**

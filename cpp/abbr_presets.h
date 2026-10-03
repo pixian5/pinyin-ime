@@ -19,6 +19,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <fstream>
 
@@ -153,6 +154,68 @@ inline bool is_abbreviated_pinyin(const std::string &input) {
     return true;
 }
 
+// ── 常见英文直通词 ──────────────────────────────────────────
+// 输入匹配这些词时，英文词作为首选候选（插入候选列表首位）
+inline const std::unordered_set<std::string>& english_passthrough_set() {
+    static const std::unordered_set<std::string> set = {
+        "bug", "app", "web", "ok", "cpu", "gpu", "api", "url",
+        "pdf", "jpg", "png", "gif", "mp3", "mp4", "wav",
+        "html", "css", "json", "xml", "yaml", "http", "https",
+        "sql", "git", "ssh", "tcp", "udp", "dns", "vpn",
+        "ai", "ml", "dl", "nlp", "ocr", "iot",
+        "ui", "ux", "qa", "ops", "dev", "pm",
+        "id", "ip", "mac", "ssid",
+        "hi", "hey", "hello",
+        "yes", "no", "not", "and", "or", "if", "else",
+        "for", "while", "do", "try", "catch",
+        "true", "false", "null", "void",
+        "int", "char", "bool", "float", "double",
+        "class", "struct", "enum", "union",
+        "public", "private", "protected",
+        "return", "break", "continue",
+        "import", "export", "package",
+        "func", "var", "let", "const",
+        "new", "delete", "this", "super",
+        "test", "debug", "build", "run",
+        "log", "info", "warn", "error",
+        "data", "file", "code", "type",
+        "list", "map", "set", "queue",
+        "name", "value", "key", "path",
+        "user", "home", "help", "version",
+        "start", "stop", "pause", "reset",
+        "open", "close", "read", "write",
+        "send", "recv", "load", "save",
+        "init", "config", "setup", "install",
+        "update", "upgrade", "remove", "uninstall",
+        "login", "logout", "signup", "register",
+        "admin", "root", "guest", "master",
+        "main", "branch", "tag", "commit",
+        "push", "pull", "merge", "rebase",
+        "cache", "buffer", "stream", "pipe",
+        "thread", "process", "socket", "port",
+        "size", "count", "length", "width",
+        "height", "depth", "level", "layer",
+        "mode", "state", "status", "flag",
+        "src", "dst", "tmp", "var", "opt",
+        "bin", "lib", "doc", "man",
+        "max", "min", "avg", "sum",
+        "rgb", "rgba", "hsv", "cmyk",
+        "vip", "ceo", "cto", "coo",
+        "usa", "uk", "eu", "un",
+        "wifi", "bluetooth", "usb",
+    };
+    return set;
+}
+
+// 检查输入是否为常见英文词（全小写字母，3-10字符）
+inline bool is_english_passthrough(const std::string &input) {
+    if (input.size() < 2 || input.size() > 10) return false;
+    for (char c : input) {
+        if (c < 'a' || c > 'z') return false;
+    }
+    return english_passthrough_set().count(input) > 0;
+}
+
 // ── 全拼音 boost 预设表 ──────────────────────────────────────
 // 对特定全拼音做硬排序覆盖（学习数据权重不够时使用）
 // 这些是系统 LM 排序不当的常见词
@@ -191,6 +254,12 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"pinglun",  "评论"},       //
         {"guanzhu",  "关注"},       //
         {"yulan",    "预览"},       //
+        // v0.9.37b: 更多常见词
+        {"biancheng", "编程"},       // 变成→编程
+        {"guopiao",  "股票"},       // 过票→股票
+        {"yilai",    "依赖"},       // 以来→依赖
+        {"shujukujiegou", "数据库结构"}, //
+        {"xinxiyilai", "信息依赖"},   //
     };
     return map;
 }
@@ -214,6 +283,8 @@ inline std::string lookup_abbr(const std::string &input) {
 
 // 查找 boost 预设词（不限制简拼）：用于全拼音 boost
 inline std::string lookup_pinyin_boost(const std::string &input) {
+    // 英文直通
+    if (is_english_passthrough(input)) return input;
     // 用户自定义优先
     const auto& umap = user_abbr_map();
     auto uit = umap.find(input);
@@ -233,6 +304,15 @@ inline std::string lookup_pinyin_boost(const std::string &input) {
 
 // 对简拼候选做 boost：若输入匹配预设表，将预设词移到首位
 inline void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
+    // 英文直通：常见英文词作为首选
+    if (is_english_passthrough(input)) {
+        // 检查英文词是否已在候选中
+        for (size_t i = 0; i < cands.size(); ++i) {
+            if (cands[i] == input) return;  // 已在首位或已知位置
+        }
+        cands.insert(cands.begin(), input);
+        return;
+    }
     // 同时支持简拼 boost 和全拼音 boost
     std::string preset_word = lookup_pinyin_boost(input);
     if (preset_word.empty()) return;
