@@ -26,6 +26,7 @@
 //   -f, --fuzzy     启用模糊音（平翘舌 z/zh、c/ch、s/sh，前后鼻音 an/ang、en/eng、
 //                   in/ing、ian/iang、uan/uang，n/l、f/h、l/r，及键盘邻近纠错）
 //   --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）
+//   --abbr-file F  自定义简拼映射文件（默认 ~/.config/pinyin-ime/abbr.txt，格式：abbr=word）
 //   -h, --help      显示本帮助
 //
 // 已实现（M1 范围）：逐键输入、候选列表、选词上屏、整句首选、简拼（默认）、
@@ -361,8 +362,52 @@ static const std::unordered_map<std::string, std::string>& abbr_preset_map() {
         // 简拼扩展（3-4字母）
         {"bjdx", "北京大学"},
         {"qhdx", "清华大学"},
+        // v0.9.35: 更多常见简拼
+        {"wn",   "我们"},       // 温暖→我们
+        {"wx",   "微信"},       // 文学→微信
+        {"tt",   "通过"},       // 疼痛→通过
+        {"ee",   "而且"},       // 峨峨→而且
+        // 重复字母（家人称呼）
+        {"mmm",  "妈妈"},
+        {"bbb",  "爸爸"},
+        {"ggg",  "哥哥"},
+        {"jjj",  "姐姐"},
+        {"nnn",  "奶奶"},
     };
     return map;
+}
+
+// 用户自定义简拼文件路径（可通过 --abbr-file 覆盖）
+static std::string g_abbr_file;
+
+// 加载用户自定义简拼文件（~/.config/pinyin-ime/abbr.txt 或 --abbr-file 指定路径）
+// 格式：每行 "abbr=word"，# 开头为注释。返回空 map 若文件不存在。
+static const std::unordered_map<std::string, std::string>& user_abbr_map() {
+    static std::unordered_map<std::string, std::string> umap;
+    static bool loaded = false;
+    if (!loaded) {
+        loaded = true;
+        std::string path = g_abbr_file;
+        if (path.empty()) {
+            // 默认路径：~/.config/pinyin-ime/abbr.txt
+            const char *home = getenv("HOME");
+            if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
+        }
+        if (!path.empty()) {
+            std::ifstream f(path);
+            if (f) {
+                std::string line;
+                while (std::getline(f, line)) {
+                    // 跳过注释和空行
+                    if (line.empty() || line[0] == '#') continue;
+                    auto pos = line.find('=');
+                    if (pos == std::string::npos || pos == 0 || pos == line.size() - 1) continue;
+                    umap[line.substr(0, pos)] = line.substr(pos + 1);
+                }
+            }
+        }
+    }
+    return umap;
 }
 
 // 判断输入是否为简拼（全小写字母，长度 2-6，无隔音符）
@@ -378,24 +423,39 @@ bool is_abbreviated_pinyin(const std::string &input) {
 void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
     if (!is_abbreviated_pinyin(input)) return;
 
-    // O(1) 查找预设
-    const auto& map = abbr_preset_map();
-    auto it = map.find(input);
-    if (it == map.end()) return;
-    const std::string& preset_word = it->second;
+    // O(1) 查找：用户自定义优先，然后内置预设
+    const auto& umap = user_abbr_map();
+    auto uit = umap.find(input);
+    if (uit != umap.end()) {
+        // 用户自定义简拼
+    } else {
+        const auto& map = abbr_preset_map();
+        auto it = map.find(input);
+        if (it == map.end()) return;
+        // 使用内置预设
+        const std::string& preset_word = it->second;
 
-    // 在候选列表中查找预设词
-    for (size_t i = 1; i < cands.size(); ++i) {  // 从 1 开始，跳过当前首选
+        // 在候选列表中查找预设词
+        for (size_t i = 1; i < cands.size(); ++i) {
+            if (cands[i] == preset_word) {
+                cands.erase(cands.begin() + i);
+                cands.insert(cands.begin(), preset_word);
+                return;
+            }
+        }
+        cands.insert(cands.begin(), preset_word);
+        return;
+    }
+
+    // 用户自定义简拼
+    const std::string& preset_word = uit->second;
+    for (size_t i = 1; i < cands.size(); ++i) {
         if (cands[i] == preset_word) {
-            // 移到首位
             cands.erase(cands.begin() + i);
             cands.insert(cands.begin(), preset_word);
             return;
         }
     }
-
-    // 预设词不在候选列表中：插入首位（简拼预设表是人工策展的，可安全添加）
-
     cands.insert(cands.begin(), preset_word);
 }
 // 选中候选并（若已完全上屏）提交：打印、写入自学习上下文、清空。
@@ -710,6 +770,12 @@ int main(int argc, char **argv) {
         } else if (a == "--help" || a == "-h") {
             usage(argv[0]);
             return 0;
+        } else if (a == "--abbr-file") {
+            if (i + 1 >= argc) {
+                std::cerr << "--abbr-file 缺少文件参数\n";
+                return 2;
+            }
+            g_abbr_file = argv[++i];
         } else if (a == "--user-data") {
             if (i + 1 >= argc) {
                 std::cerr << "--user-data 缺少目录参数\n";
@@ -1253,10 +1319,15 @@ int main(int argc, char **argv) {
         if (total > 1) {
             std::string preeditStr = preedit_compact(ctx);
             if (is_abbreviated_pinyin(preeditStr)) {
+                // 用户自定义优先，然后内置预设
+                const auto& uamap = user_abbr_map();
+                auto uait = uamap.find(preeditStr);
                 const auto& amap = abbr_preset_map();
                 auto ait = amap.find(preeditStr);
-                if (ait != amap.end()) {
-                    const std::string& pword = ait->second;
+                std::string pword;
+                if (uait != uamap.end()) pword = uait->second;
+                else if (ait != amap.end()) pword = ait->second;
+                if (!pword.empty()) {
                     for (size_t ci = 1; ci < total; ++ci) {
                         if (cands[ci].toString() == pword) {
                             boostSwap = ci;
