@@ -260,6 +260,13 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"yilai",    "依赖"},       // 以来→依赖
         {"shujukujiegou", "数据库结构"}, //
         {"xinxiyilai", "信息依赖"},   //
+        // v0.9.38b: 更多常见词
+        {"shangwu",  "上午"},       // 商务→上午
+        {"bianyi",   "编译"},       // 变异→编译
+        {"duotai",   "多态"},       // 堕胎→多态
+        {"shipin",   "视频"},       // 食品→视频
+        {"yinpian",  "音频"},       // 饮片→音频
+        {"jicheng",  "继承"},       // 集成→继承
     };
     return map;
 }
