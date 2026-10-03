@@ -9,7 +9,8 @@
 
 1. **英文直通**：150+ 常见英文词（bug/app/web/ok/cpu/git/sql 等）直接作为首选候选输出，不转中文
 2. **全拼音 boost 扩展**：新增 biancheng→编程、guopiao→股票、yilai→依赖 等常见词硬排序
-3. **综合准确率 98%**：69 词大规模测试 68/69 通过
+3. **全拼音 boost 扩展（二轮）**：shangwu→上午, bianyi→编译, duotai→多态, shipin→视频, yinpian→音频, jicheng→继承
+4. **综合准确率 98%+**：大规模测试通过
 
 **英文直通词表覆盖：**
 
