@@ -9,6 +9,11 @@ CLI="${PINYIN_IME_CLI:-/root/workspace/pinyin-ime/cpp/build/pinyin_ime_cli}"
 LM="${PINYIN_IME_LM:-/root/workspace/native-build/opt/libime/lib/libime/zh_CN.lm}"
 DICT="${PINYIN_IME_DICT:-/root/workspace/native-build/opt/libime/share/libime/sc.dict}"
 
+# 边界测试使用干净的用户数据目录（避免 warmup 学习数据干扰原始行为验证）
+EDGE_UD=$(mktemp -d)
+trap 'rm -rf "$EDGE_UD"' EXIT
+UDFLAG="--user-data $EDGE_UD"
+
 PASS=0
 FAIL=0
 TOTAL=0
@@ -19,7 +24,7 @@ check() {
     local expect="$3"
     TOTAL=$((TOTAL + 1))
     local result
-    result=$(echo "$input" | $CLI --top1 --quiet "$LM" "$DICT" 2>/dev/null)
+    result=$(echo "$input" | $CLI --top1 --quiet $UDFLAG "$LM" "$DICT" 2>/dev/null)
     if [ "$result" = "$expect" ]; then
         PASS=$((PASS + 1))
         # echo "  ✅ $desc"

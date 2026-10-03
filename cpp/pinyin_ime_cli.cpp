@@ -51,6 +51,7 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include <libime/core/userlanguagemodel.h>
 #include <libime/pinyin/pinyincontext.h>
@@ -293,79 +294,76 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
 //   2) 不覆盖已有正确行为的简拼（bj→北京 已正确，不加预设）
 //   3) 预设词必须在候选列表中存在（不凭空造词）
 //   4) 用户自学习数据优先级高于预设（learn() 后 user.history 会覆盖）
-struct AbbrPreset {
-    const char *abbr;
-    const char *word;
-};
-
-static const AbbrPreset abbr_presets[] = {
-    // 国家/政治
-    {"zg",   "中国"},       // 这个→中国
-    {"zgr",  "中国人"},
-    {"zgh",  "中华人民共和国"},
-    {"zgrm", "中国人民"},
-    // 技术（js→即使 需 boost）
-    {"js",   "技术"},
-    {"rj",   "软件"},
-    {"kj",   "科技"},
-    {"wl",   "网络"},
-    {"sd",   "算法"},
-    {"dm",   "代码"},
-    {"gj",   "工具"},
-    {"jk",   "接口"},
-    {"cs",   "测试"},
-    {"sc",   "生产"},
-    {"bb",   "版本"},
-    {"az",   "安装"},
-    // 城市（sz→随着 需 boost；bj/sh/gz/hz 已正确，不加）
-    {"sz",   "深圳"},
-    {"cd",   "成都"},
-    {"wh",   "武汉"},
-    {"cq",   "重庆"},
-    {"xa",   "西安"},
-    {"nj",   "南京"},
-    {"tj",   "天津"},
-    // 常见搭配
-    {"zl",   "资料"},
-    {"jl",   "记录"},
-    {"xw",   "新闻"},
-    {"bm",   "部门"},
-    {"dw",   "单位"},
-    {"gr",   "个人"},
-    {"qg",   "全国"},
-    {"yx",   "邮箱"},
-    {"sy",   "使用"},
-    {"gn",   "功能"},
-    {"xt",   "系统"},
-    {"aq",   "安全"},
-    {"mm",   "密码"},
-    {"zc",   "注册"},
-    {"dl",   "登录"},
-    {"tc",   "退出"},
-    {"xg",   "修改"},
-    {"cx",   "查询"},
-    {"fx",   "分析"},
-    {"bg",   "报告"},
-    {"jh",   "计划"},
-    {"rw",   "任务"},
-    {"jd",   "进度"},
-    {"zt",   "状态"},
-    {"lx",   "联系"},
-    {"dh",   "电话"},
-    {"yy",   "应用"},
-    {"fw",   "服务"},
-    {"zy",   "资源"},
-    {"pj",   "配置"},
-    {"yh",   "用户"},
-    {"qy",   "企业"},
-    {"cp",   "产品"},
-    {"xq",   "需求"},
-    // 简拼扩展（3-4字母）
-    {"bjdx", "北京大学"},
-    {"qhdx", "清华大学"},
-};
-
-static constexpr size_t abbr_presets_count = sizeof(abbr_presets) / sizeof(abbr_presets[0]);
+// 简拼预设表：返回静态 unordered_map，O(1) 查找
+static const std::unordered_map<std::string, std::string>& abbr_preset_map() {
+    static const std::unordered_map<std::string, std::string> map = {
+        // 国家/政治
+        {"zg",   "中国"},       // 这个→中国
+        {"zgr",  "中国人"},
+        {"zgh",  "中华人民共和国"},
+        {"zgrm", "中国人民"},
+        // 技术（js→即使 需 boost）
+        {"js",   "技术"},
+        {"rj",   "软件"},
+        {"kj",   "科技"},
+        {"wl",   "网络"},
+        {"sd",   "算法"},
+        {"dm",   "代码"},
+        {"gj",   "工具"},
+        {"jk",   "接口"},
+        {"cs",   "测试"},
+        {"sc",   "生产"},
+        {"bb",   "版本"},
+        {"az",   "安装"},
+        // 城市（sz→随着 需 boost；bj/sh/gz/hz 已正确，不加）
+        {"sz",   "深圳"},
+        {"cd",   "成都"},
+        {"wh",   "武汉"},
+        {"cq",   "重庆"},
+        {"xa",   "西安"},
+        {"nj",   "南京"},
+        {"tj",   "天津"},
+        // 常见搭配
+        {"zl",   "资料"},
+        {"jl",   "记录"},
+        {"xw",   "新闻"},
+        {"bm",   "部门"},
+        {"dw",   "单位"},
+        {"gr",   "个人"},
+        {"qg",   "全国"},
+        {"yx",   "邮箱"},
+        {"sy",   "使用"},
+        {"gn",   "功能"},
+        {"xt",   "系统"},
+        {"aq",   "安全"},
+        {"mm",   "密码"},
+        {"zc",   "注册"},
+        {"dl",   "登录"},
+        {"tc",   "退出"},
+        {"xg",   "修改"},
+        {"cx",   "查询"},
+        {"fx",   "分析"},
+        {"bg",   "报告"},
+        {"jh",   "计划"},
+        {"rw",   "任务"},
+        {"jd",   "进度"},
+        {"zt",   "状态"},
+        {"lx",   "联系"},
+        {"dh",   "电话"},
+        {"yy",   "应用"},
+        {"fw",   "服务"},
+        {"zy",   "资源"},
+        {"pj",   "配置"},
+        {"yh",   "用户"},
+        {"qy",   "企业"},
+        {"cp",   "产品"},
+        {"xq",   "需求"},
+        // 简拼扩展（3-4字母）
+        {"bjdx", "北京大学"},
+        {"qhdx", "清华大学"},
+    };
+    return map;
+}
 
 // 判断输入是否为简拼（全小写字母，长度 2-6，无隔音符）
 bool is_abbreviated_pinyin(const std::string &input) {
@@ -380,15 +378,11 @@ bool is_abbreviated_pinyin(const std::string &input) {
 void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
     if (!is_abbreviated_pinyin(input)) return;
 
-    // 查找预设
-    std::string preset_word;
-    for (size_t i = 0; i < abbr_presets_count; ++i) {
-        if (input == abbr_presets[i].abbr) {
-            preset_word = abbr_presets[i].word;
-            break;
-        }
-    }
-    if (preset_word.empty()) return;
+    // O(1) 查找预设
+    const auto& map = abbr_preset_map();
+    auto it = map.find(input);
+    if (it == map.end()) return;
+    const std::string& preset_word = it->second;
 
     // 在候选列表中查找预设词
     for (size_t i = 1; i < cands.size(); ++i) {  // 从 1 开始，跳过当前首选
@@ -1091,11 +1085,17 @@ int main(int argc, char **argv) {
     std::vector<std::pair<std::string, std::string>> undoStack;
     // 撤回后的提示语（显示在状态行末尾，下一次按键即清除）。
     std::string undoNotice;
+    size_t boostSwap = 0;       // 简拼 boost：候选 boostSwap 与 0 交换显示（0=不交换）
 
     // 上屏即落盘：崩溃/被 kill 时最多丢「最后一次上屏」的增量（防丢措施，与 addon 对齐）。
     // 成功上屏时把 (文本, 拼音) 压入撤回栈，供 Ctrl-Z 撤回后恢复拼音重新编辑。
     auto commit = [&](size_t idx) {
         if (ctx.empty()) return;
+        // 简拼 boost：交换选词索引
+        if (boostSwap > 0) {
+            if (idx == 0) idx = boostSwap;
+            else if (idx == boostSwap) idx = 0;
+        }
         const std::string preText = ctx.sentence();         // 上屏文本（撤回提示/删行用）
         const std::string prePinyin = preedit_compact(ctx); // 恢复拼音（撤回后重新打字用）
         if (select_and_commit(ctx, idx)) {
@@ -1248,16 +1248,39 @@ int main(int argc, char **argv) {
         std::cout << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
         const size_t total = cands.size();
+        // 简拼 boost：检查 preedit 是否匹配预设，若匹配则交换候选显示顺序
+        boostSwap = 0;
+        if (total > 1) {
+            std::string preeditStr = preedit_compact(ctx);
+            if (is_abbreviated_pinyin(preeditStr)) {
+                const auto& amap = abbr_preset_map();
+                auto ait = amap.find(preeditStr);
+                if (ait != amap.end()) {
+                    const std::string& pword = ait->second;
+                    for (size_t ci = 1; ci < total; ++ci) {
+                        if (cands[ci].toString() == pword) {
+                            boostSwap = ci;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         const size_t maxPage = total == 0 ? 0 : (total - 1) / kPageSize;
         if (page > maxPage) page = maxPage;
         const size_t begin = page * kPageSize;
         const size_t end = std::min<size_t>(total, begin + kPageSize);
         for (size_t i = begin; i < end; ++i) {
+            size_t dispIdx = i;
+            if (boostSwap > 0 && i < total) {
+                if (i == 0) dispIdx = boostSwap;
+                else if (i == boostSwap) dispIdx = 0;
+            }
             if (i - begin == candFocus) {
                 // 焦点候选：* 前缀标记（状态行可读；回归按 "\*2\." 等断言）
-                std::cout << "*" << (i - begin + 1) << "." << cands[i].toString() << "  ";
+                std::cout << "*" << (i - begin + 1) << "." << cands[dispIdx].toString() << "  ";
             } else {
-                std::cout << (i - begin + 1) << "." << cands[i].toString() << "  ";
+                std::cout << (i - begin + 1) << "." << cands[dispIdx].toString() << "  ";
             }
         }
         if (total > kPageSize) {
