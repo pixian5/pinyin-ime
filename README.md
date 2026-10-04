@@ -48,6 +48,11 @@
 - libime 1.1.17 源码 + kenlm 子模块
 - LM 数据 lm_sc.arpa-20260629.tar.zst（74MB，8连接并行下载）
 
+**fcitx5 addon 编译：**
+- libpinyinime.so (826KB) 编译通过 ✅
+- 符号导出验证通过（pinyin_ime 命名空间 + pinyin_corrector）✅
+- CLI + addon 双前端完整可用
+
 **未来优化方向：**
 1. fcitx5 addon 编译 + 实机加载验证
 2. E2E 218 测试全量运行
