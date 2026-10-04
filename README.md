@@ -1,5 +1,64 @@
 # pinyin-ime
 
+> **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
+
+## 当前进度（截至 2026-10-04 原生构建验证）
+
+### v0.9.39（2026-10-04）：openEuler 22.03 aarch64 原生构建全通过
+
+**核心成果：在 openEuler 22.03 LTS aarch64 上从源码完整构建并验证通过**
+
+**构建环境：**
+- OS: openEuler 22.03 LTS aarch64
+- 工具链: conda-forge gcc 16.2.0（系统 gcc 10.3.1 不够新，走 conda-forge）
+- fcitx5: 5.1.23 从源码编译（禁用 X11/Wayland/DBus/Server，仅核心库）
+- libime: 1.1.17 从源码编译（4-gram, KENLM_MAX_ORDER=4）
+- 数据: zh_CN.lm 34MB + sc.dict 4.3MB
+- 不使用 Docker，全部原生编译
+
+**构建步骤：**
+1. micromamba + conda-forge 工具链（gcc/boost/fmt/zstd/libuv/ECM/...）
+2. fcitx5 5.1.23 源码编译（114 targets，仅核心库）
+3. libime 1.1.17 源码编译（含 kenlm + zh_CN.lm + sc.dict 生成）
+4. CLI pinyin_ime_cli 编译（8 targets）
+5. 预热学习数据（457 短语 + 18 消歧短语）
+
+**测试结果：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| 边界 | 39/39 ✅ |
+| 压力 | 25/25 ✅ |
+| E2E | 34/35 ✅ (shanghaishi→上海市 vs 期望上海是，小差异) |
+| 预热验证 | 6/7 ✅ |
+
+**CLI 功能验证：**
+- 全拼: nihao→你好, zhongguo→中国, beijingdaxue→北京大学 ✅
+- 简拼: zg→中国, js→技术, bjdx→北京大学 ✅
+- 模糊音: cifan→吃饭 (ci→chi) ✅
+- 纠错: senme→什么 (senme→shenme) ✅
+- 双拼: nihc→你好 (小鹤方案) ✅
+- 英文直通: bug→bug ✅
+- JSON: ["你好","拟好","你毫","你号","你耗"] ✅
+
+**构建依赖：**
+- micromamba 2.9.0（conda-forge 工具链）
+- fcitx5 5.1.23 源码（GitHub archive via gh-proxy.com）
+- libime 1.1.17 源码 + kenlm 子模块
+- LM 数据 lm_sc.arpa-20260629.tar.zst（74MB，8连接并行下载）
+
+**未来优化方向：**
+1. fcitx5 addon 编译 + 实机加载验证
+2. E2E 218 测试全量运行
+3. 准确率评测（news.txt 100 句）
+4. shanghaishi 消歧修复
+5. 更大规模 LM 训练
+
+---
+
+## 历史进度
+
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
 
 ## 当前进度（截至 2026-10-03 简拼优化）
