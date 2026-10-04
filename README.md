@@ -1,6 +1,79 @@
 # pinyin-ime
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
+## 当前进度（截至 2026-10-05 原生构建重建验证）
+
+### v0.9.40（2026-10-05）：openEuler 22.03 aarch64 完整重建 + 全测试通过
+
+**核心成果：在 openEuler 22.03 LTS aarch64 上从源码完整重建并全测试通过**
+
+**构建环境：**
+- OS: openEuler 22.03 LTS aarch64
+- 工具链: conda-forge gcc 16.2.0（系统 gcc 10.3.1 不够新，走 conda-forge）
+- conda镜像: BFSU (mirrors.bfsu.edu.cn) — 华为云/TUNA镜像repodata有ZSTD解压问题
+- fcitx5: 5.1.23 从源码编译（禁用 X11/Wayland/DBus/Server，仅核心库，114 targets）
+- libime: 1.1.17 从源码编译（4-gram, KENLM_MAX_ORDER=4，106 targets）
+- 数据: zh_CN.lm 34MB + sc.dict 4.3MB
+- 不使用 Docker，全部原生编译
+
+**构建步骤：**
+1. micromamba 2.9.0 + conda-forge 工具链（gcc 16.2.0 / boost 1.85.0 / fmt 12.2.0 / zstd 1.5.7 / libuv / ECM 6.12.0）
+2. fcitx5 5.1.23 源码编译（114 targets，仅核心库）
+3. libime 1.1.17 源码编译（含 kenlm + zh_CN.lm + sc.dict 生成）
+4. CLI pinyin_ime_cli 编译（8 targets，746KB）
+5. fcitx5 addon 编译（libpinyinime.so 826KB）
+6. 预热学习数据（1272 短语 + 180 消歧短语）
+
+**测试结果：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| 边界 | 39/39 ✅ |
+| 压力 | 25/25 ✅ |
+| 纠错 | 14/14 ✅ |
+| 预热验证 | 6/7 ✅ |
+| 手动准确率(20句) | 15/21 (71%) |
+
+**CLI 功能验证：**
+- 全拼: nihao→你好, zhongguo→中国, beijingdaxue→北京大学 ✅
+- 简拼: zg→中国, bjdx→北京大学 ✅
+- 模糊音: cifan→吃饭 (ci→chi) ✅
+- 纠错: senme→什么 (senme→shenme) ✅
+- 双拼: nihc→你好 (小鹤方案) ✅
+- 英文直通: bug→bug ✅
+- JSON: ["你好","拟好","你毫","你号","你耗"] ✅
+- 整句: nihaoshijie→你好世界 ✅
+- 长句: zhonghuarenmingongheguo→中华人民共和国 ✅
+
+**构建产物：**
+- `cpp/build/pinyin_ime_cli` (746KB) — CLI 前端 ✅
+- `fcitx5-addon/build/libpinyinime.so` (826KB) — fcitx5 addon ✅
+- `$OPT/libime/lib/libime/zh_CN.lm` (34MB) — 语言模型 ✅
+- `$OPT/libime/share/libime/sc.dict` (4.3MB) — 系统词典 ✅
+
+**构建依赖：**
+- micromamba 2.9.0（conda-forge 工具链，BFSU镜像）
+- fcitx5 5.1.23 源码（GitHub archive via gh-proxy.com）
+- libime 1.1.17 源码 + kenlm 子模块
+- LM 数据 lm_sc.arpa（自动下载，libime CMake内置）
+
+**镜像源使用：**
+- conda-forge: `https://mirrors.bfsu.edu.cn/anaconda/cloud/conda-forge`（BFSU，稳定可用）
+- GitHub: `https://gh-proxy.com`（gh-proxy.com代理）
+- 华为云/TUNA镜像 conda repodata 有 ZSTD 解压问题，不可用
+
+**未来优化方向：**
+1. E2E 218 测试全量运行（当前test_all.sh在准确率评测部分较慢）
+2. 准确率提升（当前71%，主要失败在长句消歧和语言模型覆盖）
+3. shanghaishi/nanjingshi 消歧修复（南京市 vs 南京是）
+4. tianqihenbao→天气很好（薄 vs 好，需boost权重调整）
+5. 更大规模 LM 训练
+6. fcitx5 addon 实机加载验证（需桌面环境）
+7. 代理 7890 端口已就绪，可用于下载无镜像的外国资源
+
+---
+
 
 ## 当前进度（截至 2026-10-04 原生构建验证）
 
