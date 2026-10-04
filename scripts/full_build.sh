@@ -20,7 +20,7 @@ OPT="$NB/opt"
 BUILD="$NB/build"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-CONDA_MIRROR="https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge"
+CONDA_MIRROR="https://mirrors.bfsu.edu.cn/anaconda/cloud/conda-forge"
 GH_MIRROR="https://gh-proxy.com"
 FCITX_VER=5.1.23
 LIBIME_TAG=1.1.17
@@ -30,7 +30,7 @@ KENLM_COMMIT="4cb443e60b7bf2c0ddf3c745378f76cb59e254e5"
 log() { echo -e "\033[32m[build]\033[0m $*"; }
 err() { echo -e "\033[31m[error]\033[0m $*" >&2; }
 
-if [ "$1" = "--test" ]; then
+if [ "${1:-}" = "--test" ]; then
     source "$PROJECT_ROOT/setup_env.sh" 2>/dev/null
     bash "$PROJECT_ROOT/scripts/smoke_test.sh"
     exit 0
