@@ -1,5 +1,66 @@
 # pinyin-ime 安装指南
 
+## 快速安装（从 S3 下载预构建产物）
+
+> 适用于 openEuler 22.03 aarch64，已预构建好的二进制可直接下载使用。
+
+### 1. 安装 rclone
+
+```bash
+curl -O https://downloads.rclone.org/rclone-current-linux-arm64.zip
+unzip rclone-current-linux-arm64.zip
+cp rclone-*-linux-arm64/rclone /usr/local/bin/
+```
+
+### 2. 配置 S3
+
+```bash
+mkdir -p ~/.config/rclone
+cat > ~/.config/rclone/rclone.conf << 'CONF'
+[cst]
+type = s3
+endpoint = https://s3.cstcloud.cn
+access_key_id = <your-access-key-id>
+secret_access_key = <your-secret-access-key>
+force_path_style = true
+acl = private
+provider = Other
+CONF
+```
+
+### 3. 下载构建产物
+
+```bash
+rclone copy cst:xbz/pinyin-ime/v0.9.49/ ./pinyin-ime/ \
+    --user-agent "rclone/1.75.1 pinyin-ime"
+```
+
+### 4. 运行
+
+```bash
+cd pinyin-ime
+# 需要 libime 和 fcitx5 的运行时库
+# 如从源码构建，见下方"从源码构建"章节
+export LD_LIBRARY_PATH=/path/to/libime/lib:/path/to/fcitx5/lib
+echo "nihao" | bin/pinyin_ime_cli data/zh_CN.lm data/sc.dict
+# 输出: 你好
+```
+
+### 产物清单
+
+| 文件 | 大小 | 说明 |
+|------|------|------|
+| bin/pinyin_ime_cli | 765KB | CLI 前端 |
+| addon/libpinyinime.so | 848KB | fcitx5 输入法模块 |
+| data/zh_CN.lm | 33MB | 4-gram 语言模型 |
+| data/sc.dict | 4.3MB | 拼音词典 |
+| data/extb.dict | 152KB | 扩展词典 |
+
+---
+
+## 从源码构建
+
+
 ## 环境要求
 
 - Linux (x86_64 / aarch64)
