@@ -377,6 +377,12 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"woyijingdenglule", "我已经登录了"},   //
         {"wofuwuqianquan", "我服务器安全"},     //
         {"tamenfuwuqianquan", "他们服务器安全"}, //
+        {"wohenbao", "我很饱"},             // 薄→饱
+        {"wohenanshang", "我很哀伤"},       // 河南上→很哀伤
+        {"anshang", "哀伤"},                // 岸上→哀伤
+        {"kaifa", "开发"},                  // 卡发→开发
+        {"bianchengkaifa", "编程开发"},      //
+        {"xuexibianchengkaifa", "学习编程开发"}, //
     };
     return map;
 }
