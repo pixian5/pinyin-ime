@@ -583,3 +583,24 @@ tuichu	退出
 shezhi	设置
 gengxin	更新
 banben	版本
+# v0.9.41: 更多消歧学习数据
+nanjingshiliuchaogudu	南京是六朝古都
+buzhidao	不知道
+weishenme	为什么
+meiyouwenti	没有问题
+meiyouyisi	没有意思
+youyisi	有意思
+shenmeshihou	什么时候
+shenmedifang	什么地方
+woyouyigewenti	我有一个问题
+woyouyigexiangfa	我有一个想法
+qingwenyixia	请问一下
+xianzaijidianle	现在几点了
+zaochenjidianle	早晨几点了
+woyebuzhidao	我也不知道
+meixiangdao	没想到
+woyouyige	我有一个
+zheshiyige	这是一个
+naliyou	哪里有
+youyidian	有一点
+meiyouguanxi	没有关系

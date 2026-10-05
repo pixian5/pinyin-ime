@@ -316,6 +316,45 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"chongzhimima", "重置密码"},   //
         {"wangzhandizhi", "网站地址"},  //
         {"wangzhanmingcheng", "网站名称"}, //
+        // v0.9.41b: 长句消歧
+        {"nanjingshiliuchaogudu", "南京是六朝古都"}, // 南京市→南京是
+        {"beijingshishoudu", "北京是首都"},   //
+        {"shanghaishichengshi", "上海是城市"}, //
+        {"wojuedede", "我觉得的"},           //
+        {"woxiangjuede", "我想觉得"},         //
+        {"woxianzaijiuxiangyao", "我现在就想要"}, //
+        {"qingwenyixia", "请问一下"},         //
+        {"qingwenyixiashi", "请问一下是"},     //
+        {"zaochenjidianle", "早晨几点了"},     //
+        {"xianzaijidianle", "现在几点了"},     //
+        {"buzhidao", "不知道"},              //
+        {"buzhidaoe", "不知道的"},            //
+        {"woyebuzhidao", "我也不知道"},       //
+        {"meixiangdao", "没想到"},            //
+        {"womeixiangdao", "我没想到"},         //
+        {"zenmehuishi", "怎么会是"},          //
+        {"zenmekeyi", "怎么可以"},            //
+        {"zenmenenggou", "怎么能够"},          //
+        {"weishenme", "为什么"},              //
+        {"weishenmeyao", "为什么要"},          //
+        {"weishenmebuxing", "为什么不行"},      //
+        {"meiyouguanxi", "没有关系"},          //
+        {"meiyouwenti", "没有问题"},           //
+        {"meiyouyisi", "没有意思"},            //
+        {"youyisi", "有意思"},               //
+        {"youyidian", "有一点"},              //
+        {"youyidianr", "有一点儿"},            //
+        {"youyidianyisi", "有一点意思"},        //
+        {"woyouyige", "我有一个"},             //
+        {"woyouyigewenti", "我有一个问题"},      //
+        {"woyouyigexiangfa", "我有一个想法"},    //
+        {"zheshiyige", "这是一个"},            //
+        {"nashiyige", "那是一个"},             //
+        {"zheliyou", "这里有"},               //
+        {"naliyou", "哪里有"},                //
+        {"shenmedifang", "什么地方"},          //
+        {"shenmeshihou", "什么时候"},          //
+        {"shenmeyangzi", "什么样子"},          //
     };
     return map;
 }
