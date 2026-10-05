@@ -4048,3 +4048,38 @@ Accuracy: 100%
 | v0.9.46 | 100% | 120 | addon suffix boost+大规模测试 |
 | v0.9.47 | 96% | 96 | 全功能深度验证+数字纠错 |
 | v0.9.48 | 99% | 308 | 21类别大规模测试 |
+
+## v0.9.49 构建成功 (2026-10-06)
+
+### 构建环境
+- openEuler 22.03 aarch64
+- conda-forge 工具链: gcc 16.2.0, cmake 4.2.3, boost 1.85.0, ninja 1.13.2
+- fcitx5 5.1.23 (源码编译, core-only)
+- libime 1.1.17 (4-gram kenlm patch, KENLM_MAX_ORDER=4)
+
+### 数据文件
+- lm_sc.arpa (196MB) → zh_CN.lm (34MB) 4-gram 语言模型
+- dict_sc.txt (5.8MB) → sc.dict (4.5MB) 词典
+- 8 个形码表 (cj/db/erbi/qxm/wanfeng/wbpy/wbx/zrm)
+
+### 构建产物
+- pinyin_ime_cli (765KB) - CLI 前端
+- libpinyinime.so (848KB) - fcitx5 addon
+- libime_bench - 性能基准工具
+- pinyin_corrector_test - 纠错测试
+
+### 测试结果
+- 冒烟测试: 24/24 通过
+- 边界测试: 39/39 通过
+- 压力测试: 25/25 通过
+- 纠错测试: 14/14 通过
+- **总计: 102/102 通过**
+
+### 功能验证
+- 全拼输入: nihao → 你好, zhongguo → 中国, woaini → 我爱你
+- 多候选: nihao → 你好/拟好/你毫/你号/你耗
+- 模糊音: cifan → 吃饭, zeli → 这里
+- 纠错: senme → 什么
+- 双拼(小鹤): nihc → 你好, vsgo → 中国
+- 简拼: bjdx → 北京大学
+- 长句: jintian tianqi hen hao → 今天天气很好
