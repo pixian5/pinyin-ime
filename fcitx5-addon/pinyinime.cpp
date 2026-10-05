@@ -418,6 +418,13 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
                 }
             }
         }
+        // v0.9.46: 完整匹配失败时，尝试后缀匹配
+        if (boostSwap_ == 0) {
+            std::vector<std::string> cand_strs;
+            for (size_t i = 0; i < cands.size(); ++i)
+                cand_strs.push_back(cands[i].toString());
+            boostSwap_ = pinyin_ime::lookup_suffix_boost_index(compact, cand_strs);
+        }
     }
 
     inputContext_->inputPanel().reset();
