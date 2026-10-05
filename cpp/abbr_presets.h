@@ -267,6 +267,55 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"shipin",   "视频"},       // 食品→视频
         {"yinpian",  "音频"},       // 饮片→音频
         {"jicheng",  "继承"},       // 集成→继承
+        // v0.9.40b: 消歧 boost — 日常高频短语优先
+        {"jidian",   "几点"},       // 机电→几点（时间语境更高频）
+        {"zaochenjidian", "早晨几点"}, // 早晨机电→早晨几点
+        {"qingwenyixiazaochenjidian", "请问一下早晨几点"}, //
+        {"yidianshi", "一点事"},     // 一点是→一点事
+        {"henhao",   "很好"},        // 很薄→很好
+        {"tianqihenhao", "天气很好"}, //
+        {"jintiantianqihenhao", "今天天气很好"}, //
+        {"yiqian",   "以前"},        // 一千→以前
+        {"yihou",    "以后"},        // 一后→以后
+        {"tongshi",  "同时"},        // 同事→同时
+        {"yiyang",   "一样"},        // 异样→一样
+        {"zheyang",  "这样"},        //
+        {"nayang",   "那样"},        //
+        {"wangshang", "网上"},       // 往上→网上
+        {"zenmeyang", "怎么样"},     //
+        {"weiwanme", "为什么"},      //
+        {"yinwei",   "因为"},        //
+        {"suoyi",    "所以"},        //
+        {"ruguo",    "如果"},        //
+        {"danshi",   "但是"},        //
+        {"haishi",   "还是"},        //
+        {"huozhe",   "或者"},        //
+        {"erqie",    "而且"},        //
+        {"ranhou",   "然后"},        //
+        {"yijing",   "已经"},        //
+        {"zhidao",   "知道"},        //
+        {"renwei",   "认为"},        // 任务→认为
+        {"yiqi",     "一起"},        //
+        {"yuyue",    "预约"},        // 语音→预约
+        {"fuwu",     "服务"},        //
+        {"fuwuqi",   "服务器"},      //
+        // v0.9.40c: 多词组合 boost
+        {"yijingdenglu", "已经登录"},   // 已经登陆→已经登录
+        {"dengluchenggong", "登录成功"}, //
+        {"denglushibai", "登录失败"},   //
+        {"fuwuqianquan", "服务器安全"}, // 服务缱绻→服务器安全
+        {"fuwuqixitong", "服务器系统"}, //
+        {"ranhouwojiuhuiqu", "然后我就会去"}, // 然后我就回去→然后我就会去
+        {"wojiuhuiqu", "我就会去"},     // 我就回去→我就会去
+        {"jiuhuiqu", "就会去"},         // 就回去→就会去
+        {"womenyiqi", "我们一起"},      // 我一起→我们一起
+        {"yiqiqu", "一起去"},           //
+        {"yiqiqukan", "一起去看"},      //
+        {"qukanwangzhan", "去看网站"},  //
+        {"xiugaimima", "修改密码"},     //
+        {"chongzhimima", "重置密码"},   //
+        {"wangzhandizhi", "网站地址"},  //
+        {"wangzhanmingcheng", "网站名称"}, //
     };
     return map;
 }
