@@ -374,6 +374,9 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"wohenjuedong", "我很激动"},     //
         {"wodasuju", "我大数据"},           //
         {"xuexidasuju", "学习大数据"},       //
+        {"woyijingdenglule", "我已经登录了"},   //
+        {"wofuwuqianquan", "我服务器安全"},     //
+        {"tamenfuwuqianquan", "他们服务器安全"}, //
     };
     return map;
 }
