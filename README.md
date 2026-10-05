@@ -4083,3 +4083,90 @@ Accuracy: 100%
 - 双拼(小鹤): nihc → 你好, vsgo → 中国
 - 简拼: bjdx → 北京大学
 - 长句: jintian tianqi hen hao → 今天天气很好
+
+## S3 构建产物下载 (CSTCloud)
+
+构建产物已上传至 CSTCloud S3 对象存储，可通过 rclone 一键下载。
+
+### S3 配置
+
+```
+Endpoint:   https://s3.cstcloud.cn
+Bucket:     xbz
+路径前缀:    pinyin-ime/v0.9.49/
+```
+
+### rclone 配置
+
+```ini
+[cst]
+type = s3
+endpoint = https://s3.cstcloud.cn
+access_key_id = <your-ak>
+secret_access_key = <your-sk>
+force_path_style = true
+acl = private
+provider = Other
+```
+
+### 一键下载
+
+```bash
+# 安装 rclone (如尚未安装)
+curl -O https://downloads.rclone.org/rclone-current-linux-arm64.zip
+unzip rclone-current-linux-arm64.zip && cp rclone-*-linux-arm64/rclone /usr/local/bin/
+
+# 下载全部构建产物
+rclone copy cst:xbz/pinyin-ime/v0.9.49/ ./pinyin-ime-artifacts/ \
+    --user-agent "rclone/1.75.1 pinyin-ime"
+
+# 产物清单
+#   bin/pinyin_ime_cli        (765KB)  CLI 前端
+#   bin/libime_bench           (76KB)  性能基准
+#   bin/pinyin_corrector_test (656KB)  纠错测试
+#   addon/libpinyinime.so     (848KB)  fcitx5 输入法模块
+#   data/zh_CN.lm             (33MB)   4-gram 语言模型
+#   data/sc.dict              (4.3MB)  拼音词典
+#   data/extb.dict            (152KB)  扩展词典
+#   src/*.cpp *.h             源代码
+#   scripts/*.sh              构建/测试脚本
+#   fcitx5-addon/             fcitx5 addon 源码
+#   config/                   Makefile, INSTALL.md 等
+```
+
+### 快速验证
+
+```bash
+cd pinyin-ime-artifacts
+export LD_LIBRARY_PATH=/path/to/libime/lib:/path/to/fcitx5/lib
+echo "nihao" | bin/pinyin_ime_cli data/zh_CN.lm data/sc.dict
+# 输出: 你好
+```
+
+### S3 目录结构
+
+```
+xbz/pinyin-ime/v0.9.49/
+├── MANIFEST.txt              # 产物清单
+├── bin/
+│   ├── pinyin_ime_cli        # CLI 前端 (765KB)
+│   ├── libime_bench          # 性能基准 (76KB)
+│   └── pinyin_corrector_test # 纠错测试 (656KB)
+├── addon/
+│   └── libpinyinime.so       # fcitx5 addon (848KB)
+├── data/
+│   ├── zh_CN.lm              # 4-gram 语言模型 (33MB)
+│   ├── sc.dict               # 拼音词典 (4.3MB)
+│   └── extb.dict             # 扩展词典 (152KB)
+├── src/
+│   ├── pinyin_ime_cli.cpp    # CLI 源码
+│   ├── pinyin_corrector.cpp  # 纠错引擎
+│   ├── abbr_presets.h        # 50+ 消歧预设
+│   └── ...
+├── fcitx5-addon/
+│   ├── pinyinime.cpp         # addon 实现
+│   ├── pinyinime.h
+│   └── CMakeLists.txt
+├── scripts/                  # 构建/测试脚本
+└── config/                   # Makefile, INSTALL.md, secrets.txt
+```
