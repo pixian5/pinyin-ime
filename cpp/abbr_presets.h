@@ -383,6 +383,28 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"kaifa", "开发"},                  // 卡发→开发
         {"bianchengkaifa", "编程开发"},      //
         {"xuexibianchengkaifa", "学习编程开发"}, //
+        {"huasheitianzu", "画蛇添足"},
+        {"yuhuozhongsheng", "浴火重生"},
+        {"yelaifengyusheng", "夜来风雨声"},
+        {"yuqiongqianlimu", "欲穷千里目"},
+        {"youshengqingxian", "有声清闲"},
+        {"tiandishengliyao", "天地生灵药"},
+        {"wangqianliyoumu", "望千里目"},
+        {"huarongyuemao", "花容月貌"},
+        {"yiqidanchen", "一骑红尘"},
+        {"huangheruhailiu", "黄河入海流"},
+        {"huasheitianzu", "画蛇添足"},
+        {"yuhuozhongsheng", "浴火重生"},
+        {"yelaifengyusheng", "夜来风雨声"},
+        {"yuqiongqianlimu", "欲穷千里目"},
+        {"youshengqingxian", "有声清闲"},
+        {"tiandishengliyao", "天地生灵药"},
+        {"wangqianliyoumu", "望千里目"},
+        {"huarongyuemao", "花容月貌"},
+        {"yiqidanchen", "一骑红尘"},
+        {"huangheruhailiu", "黄河入海流"},
+        {"sh", "上海"},
+        {"ls", "老师"},
     };
     return map;
 }
