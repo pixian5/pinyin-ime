@@ -1157,6 +1157,13 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+            // v0.9.44: 完整匹配失败时，尝试后缀匹配
+            if (boostSwap == 0) {
+                std::vector<std::string> cand_strs;
+                for (size_t ci = 0; ci < total; ++ci)
+                    cand_strs.push_back(cands[ci].toString());
+                boostSwap = lookup_suffix_boost_index(preeditStr, cand_strs);
+            }
         }
         const size_t maxPage = total == 0 ? 0 : (total - 1) / kPageSize;
         if (page > maxPage) page = maxPage;

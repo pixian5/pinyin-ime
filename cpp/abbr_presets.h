@@ -372,6 +372,8 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"wohenshengqi", "我很生气"},     //
         {"wohenxiwang", "我很希望"},      //
         {"wohenjuedong", "我很激动"},     //
+        {"wodasuju", "我大数据"},           //
+        {"xuexidasuju", "学习大数据"},       //
     };
     return map;
 }
@@ -415,6 +417,67 @@ inline std::string lookup_pinyin_boost(const std::string &input) {
 }
 
 // 对简拼候选做 boost：若输入匹配预设表，将预设词移到首位
+// v0.9.44: 子串匹配 boost — 当完整输入未匹配预设时，尝试后缀匹配
+// 例如输入 "yijingdenglu"，预设 "denglu"→"登录"
+// 若候选中包含 "登录" 的候选词，则将其提前
+// 选择最长后缀匹配以避免短 key 误匹配
+inline void suffix_boost(const std::string &input, std::vector<std::string> &cands) {
+    if (cands.size() <= 1) return;
+    const auto& fmap = full_pinyin_preset_map();
+    int best_match_len = 0;
+    size_t best_cand_idx = 0;
+    std::string best_cand;
+    for (const auto& kv : fmap) {
+        const std::string& key = kv.first;
+        const std::string& value = kv.second;
+        if (key.size() >= input.size()) continue;
+        if (key.size() < 4) continue;
+        if ((int)key.size() <= best_match_len) continue;
+        if (input.compare(input.size() - key.size(), key.size(), key) != 0) continue;
+        // v0.9.44b: 若首位候选已包含 value，无需 boost
+        if (cands[0].find(value) != std::string::npos) continue;
+        for (size_t i = 1; i < cands.size(); ++i) {
+            if (cands[i].find(value) != std::string::npos) {
+                best_match_len = (int)key.size();
+                best_cand_idx = i;
+                best_cand = cands[i];
+                break;
+            }
+        }
+    }
+    if (best_match_len > 0) {
+        cands.erase(cands.begin() + best_cand_idx);
+        cands.insert(cands.begin(), best_cand);
+    }
+}
+
+// 交互模式用：通过后缀匹配找到应 boost 的候选索引
+inline size_t lookup_suffix_boost_index(const std::string &preedit,
+                                         const std::vector<std::string> &cand_strs) {
+    if (cand_strs.size() <= 1) return 0;
+    const auto& fmap = full_pinyin_preset_map();
+    int best_match_len = 0;
+    size_t best_idx = 0;
+    for (const auto& kv : fmap) {
+        const std::string& key = kv.first;
+        const std::string& value = kv.second;
+        if (key.size() >= preedit.size()) continue;
+        if (key.size() < 4) continue;
+        if ((int)key.size() <= best_match_len) continue;
+        if (preedit.compare(preedit.size() - key.size(), key.size(), key) != 0) continue;
+        // v0.9.44b: 若首位候选已包含 value，无需 boost
+        if (cand_strs[0].find(value) != std::string::npos) continue;
+        for (size_t i = 1; i < cand_strs.size(); ++i) {
+            if (cand_strs[i].find(value) != std::string::npos) {
+                best_match_len = (int)key.size();
+                best_idx = i;
+                break;
+            }
+        }
+    }
+    return best_idx;
+}
+
 inline void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
     // 英文直通：常见英文词作为首选
     if (is_english_passthrough(input)) {
@@ -425,21 +488,22 @@ inline void boost_abbreviation(const std::string &input, std::vector<std::string
         cands.insert(cands.begin(), input);
         return;
     }
-    // 同时支持简拼 boost 和全拼音 boost
+    // 完整匹配 boost
     std::string preset_word = lookup_pinyin_boost(input);
-    if (preset_word.empty()) return;
-
-    // 在候选列表中查找预设词
-    for (size_t i = 1; i < cands.size(); ++i) {  // 从 1 开始，跳过当前首选
-        if (cands[i] == preset_word) {
-            cands.erase(cands.begin() + i);
-            cands.insert(cands.begin(), preset_word);
-            return;
+    if (!preset_word.empty()) {
+        for (size_t i = 1; i < cands.size(); ++i) {
+            if (cands[i] == preset_word) {
+                cands.erase(cands.begin() + i);
+                cands.insert(cands.begin(), preset_word);
+                return;
+            }
         }
+        // 预设词不在候选列表中：插入首位
+        cands.insert(cands.begin(), preset_word);
+        return;
     }
-
-    // 预设词不在候选列表中：插入首位
-    cands.insert(cands.begin(), preset_word);
+    // v0.9.44: 完整匹配失败时，尝试后缀匹配 boost
+    suffix_boost(input, cands);
 }
 
 // 计算 boostSwap：返回预设词在候选列表中的位置（0 表示无需交换）
