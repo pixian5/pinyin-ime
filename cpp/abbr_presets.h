@@ -203,6 +203,7 @@ inline const std::unordered_set<std::string>& english_passthrough_set() {
         "vip", "ceo", "cto", "coo",
         "usa", "uk", "eu", "un",
         "wifi", "bluetooth", "usb",
+        "ppt", "docx", "xlsx",
     };
     return set;
 }
@@ -405,6 +406,23 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"huangheruhailiu", "黄河入海流"},
         {"sh", "上海"},
         {"ls", "老师"},
+        {"bingfa", "并发"},
+        {"yibu", "异步"},
+        {"weifuwu", "微服务"},
+        {"shui", "谁"},
+        {"budui", "不对"},
+        {"zhichu", "支出"},
+        {"tiaoce", "调试"},
+        {"jidong", "激动"},
+        {"juewang", "绝望"},
+        {"huancun", "缓存"},
+        {"tiaoli", "料理"},
+        {"chuan", "船"},
+        {"fuqian", "付钱"},
+        {"qian", "钱"},
+        {"niantie", "粘贴"},
+        {"buxing", "步行"},
+        {"biaoqian", "标签"},
     };
     return map;
 }
