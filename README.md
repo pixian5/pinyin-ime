@@ -569,7 +569,7 @@ echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet --user-data data/user_lm_full 
 - 核心库: fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
 - fcitx5-full: 含 testing addons (testfrontend/testim/testui) + server + keyboard
 - 额外依赖: expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
-- 数据文件: zh_CN.lm (34MB) + sc.dict (4.5MB)（通过代理 7890 从 download.fcitx-im.org 下载）
+- 数据文件: zh_CN.lm (34MB) + sc.dict 4.2MB)（通过代理 7890 从 download.fcitx-im.org 下载）
 - Python 依赖: pypinyin 0.55 + jieba 0.42 + opencc-python-reimplemented 0.1.7 + flask
 - 镜像源: 清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
 
@@ -579,7 +579,7 @@ echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet --user-data data/user_lm_full 
 | pinyin_ime_cli | 754KB | ✅ |
 | libpinyinime.so (fcitx5 addon) | 773KB | ✅ |
 | zh_CN.lm (语言模型) | 34MB | ✅ |
-| sc.dict (系统词典) | 4.5MB | ✅ |
+| sc.dict 4.2MB | ✅ |
 | fcitx5 server + testing addons | - | ✅ |
 | E2E 测试二进制 | - | ✅ |
 
@@ -623,7 +623,7 @@ bash scripts/build_e2e_test.sh  # → E2E 138/138 PASS
 - **构建工具链**：micromamba 2.9.0 + conda-forge gcc 16.2.0 + cmake 4.2.3 + ninja
 - **核心库**：fcitx5 5.1.23 + libime 1.1.17 (4-gram) + boost 1.85.0 + fmt + zstd + libuv
 - **fcitx5-full 额外依赖**：expat + jsoncpp + iso-codes + nlohmann_json + libxkbcommon
-- **数据文件**：zh_CN.lm (34MB) + sc.dict (4.5MB)（从 download.fcitx-im.org 下载，需代理）
+- **数据文件**：zh_CN.lm (34MB) + sc.dict 4.2MB)（从 download.fcitx-im.org 下载，需代理）
 - **Python 依赖**：pypinyin >= 0.55 + jieba >= 0.42 + opencc-python-reimplemented >= 0.1.7
 - **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
 
@@ -1386,7 +1386,7 @@ g++ -std=c++20 test/e2e_typing_test.cpp -lFcitx5Core -ltestfrontend -lkeyboard .
 - 构建工具：micromamba/conda-forge、gcc 16.2.0、cmake、ninja
 - 库：boost 1.85.0、fmt、zstd、libuv、extra-cmake-modules、gettext、libuuid
 - 源码：fcitx5 5.1.23、libime 1.1.17（含 kenlm）
-- 数据：zh_CN.lm（34MB）、sc.dict（4.5MB）——构建时自动下载
+- 数据：zh_CN.lm（34MB）、sc.dict 4.2MB）——构建时自动下载
 
 **未来优化方向**：
 1. **fcitx5 完整 server 构建**：当前为 headless，需加 X11/Wayland/DBus 支持做桌面实机验证
@@ -1721,7 +1721,7 @@ bash scripts/smoke_test.sh               # 「能打字」自动回归（top1 �
 
 本沙箱 2026-09-26 从零复现：conda-forge 工具链当前检出 gcc **16.2.0**
 （脚本按 gcc 15 设计、conda-forge 已前移，编译/运行仍正常），libime 1.1.17 +
-`zh_CN.lm`（34.7MB）+ `sc.dict`（4.5MB）逐项产出；`smoke_test.sh` 20/20 通过
+`zh_CN.lm`（34.7MB）+ `sc.dict 4.2MB）逐项产出；`smoke_test.sh` 20/20 通过
 （全拼 / 简拼 / 模糊音 / 双拼），交互模式（伪终端逐键 `nihao` 空格上屏「你好」）通过。
 
 ### 双拼 + 候选分页（2026-09-26）
@@ -3610,7 +3610,7 @@ bash scripts/test_fcitx5_addon.sh
 14 项检查全部通过：
 - addon 二进制 + 符号导出
 - 配置文件正确
-- libime 数据加载（zh_CN.lm 34.7MB + sc.dict 4.5MB）
+- libime 数据加载（zh_CN.lm 34.7MB + sc.dict 4.2MB）
 - Xvfb + DBus 启动
 - **fcitx5 server 成功加载 pinyinime addon**
 - **语言模型和字典加载成功**
@@ -3839,7 +3839,7 @@ bash scripts/install_all.sh
 | fcitx5 addon | `fcitx5-addon/build/libpinyinime.so` | ✅ 编译通过 |
 | lmplz 训练工具 | `native-build/build/kenlm/bin/lmplz` | ✅ 编译通过 |
 | 语言模型 | `native-build/opt/libime/lib/libime/zh_CN.lm` | ✅ 34.7MB |
-| 系统词典 | `native-build/opt/libime/share/libime/sc.dict` | ✅ 4.5MB |
+| 系统词典 | `native-build/opt/libime/share/libime/sc.dict 4.2MB |
 
 ### 冒烟测试结果：24/24 全通过
 
@@ -3922,7 +3922,7 @@ echo "nihao" | ./run.sh --top1 --quiet   # → 你好
 |------|------|
 | fcitx5 server | 5.1.23 全量构建，含 Core/Config/Utils + testfrontend/keyboard addon |
 | 工具链 | conda-forge gcc 16.2.0 (aarch64)，C++20 |
-| 数据 | libime zh_CN.lm (34.7MB) + sc.dict (4.5MB)，安装到 /usr/share/libime/ |
+| 数据 | libime zh_CN.lm (34.7MB) + sc.dict 4.2MB)，安装到 /usr/share/libime/ |
 | E2E 测试 | `test/e2e_typing_test.cpp`，静态链接 keyboard addon + xkbcommon |
 
 ### 踩坑记录
@@ -4059,7 +4059,7 @@ Accuracy: 100%
 
 ### 数据文件
 - lm_sc.arpa (196MB) → zh_CN.lm (34MB) 4-gram 语言模型
-- dict_sc.txt (5.8MB) → sc.dict (4.5MB) 词典
+- dict_sc.txt (5.8MB) → sc.dict 4.2MB) 词典
 - 8 个形码表 (cj/db/erbi/qxm/wanfeng/wbpy/wbx/zrm)
 
 ### 构建产物

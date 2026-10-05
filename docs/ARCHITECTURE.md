@@ -37,7 +37,7 @@ pinyin-ime 是一个基于 libime（fcitx5 拼音引擎）的 Linux 拼音输入
 
 ### 1. CLI (pinyin_ime_cli)
 
-**文件**: `cpp/pinyin_ime_cli.cpp` (~1255行)
+**文件**: `cpp/pinyin_ime_cli.cpp` (~1276行)
 
 功能：
 - 行模式：stdin 每行一段拼音 → 输出候选
@@ -55,7 +55,7 @@ pinyin-ime 是一个基于 libime（fcitx5 拼音引擎）的 Linux 拼音输入
 
 ### 2. fcitx5 addon (pinyinime)
 
-**文件**: `fcitx5-addon/` (pinyinime.cpp ~938行, .h, .conf)
+**文件**: `fcitx5-addon/` (pinyinime.cpp ~1015行, .h, .conf)
 
 功能：
 - 标准 fcitx5 输入法接口
@@ -77,7 +77,7 @@ pinyin-ime 是一个基于 libime（fcitx5 拼音引擎）的 Linux 拼音输入
 | 文件 | 大小 | 说明 |
 |------|------|------|
 | zh_CN.lm | 34MB | 系统语言模型（N-gram） |
-| sc.dict | 4.5MB | 系统词典 |
+| sc.dict | 4.2MB | 系统词典 |
 | user.history | ~1KB | 用户学习历史 |
 | user.dict | ~300B | 用户词典 |
 

@@ -1,5 +1,26 @@
 # pinyin-ime 发布说明
 
+
+## v0.9.50 (2026-10-06)
+
+### 修复
+- **安全**: git rm --cached secrets.txt ip.txt，凭据不再入库（P0）
+- **代码质量**: 删除 abbr_presets.h 中 10 个重复 key（263→253 条）
+- **代码质量**: 修正 dasuju→dashuju 等 3 个错误拼音条目
+- **架构**: disambiguate_pinyin 合并到 abbr_presets.h 共享头文件，消除 CLI/addon 205 行重复代码
+- **消歧**: 扩展音节歧义处理：新增 nian→ni'an、qian→qi'an（原有 xian→xi'an）
+
+### 文档
+- 统一版本号到 0.9.50（VERSION/CMakeLists/PROJECT_RULES/CLI）
+- 更新过期文档：源码行数（CLI 1276/addon 1015）、数据大小（sc.dict 4.2MB/zh_CN.lm 33.1MB）
+- 标记 lccc_eval.txt 指标为"已作废"（训练集泄漏）
+- 更新 PROJECT_STATUS/EVALUATION/ARCHITECTURE 中过期版本号和数字
+
+### 未完成（需构建环境）
+- P3-9: 提供 374MB 剪枝 LM 作为可选高精度包（需 openEuler 实测）
+- P3-10: 训练混合语料 LM（需 openEuler 构建机）
+- P3-11: 用 LM-based 消歧替代硬编码 boost 表（需 openEuler 实测）
+
 ## v0.9.16 (2026-09-30)
 
 ### 新功能
@@ -76,7 +97,7 @@
 | v0.9.7 | 09-30 | E2E 39/40 + fcitx5 server构建 |
 
 ## 项目统计
-- 源码: 2,354行 (CLI 1255 + addon 938 + header 153)
+- 源码: 2,354行 (CLI 1276 + addon 1015 + header 153)
 - 脚本: 32个
 - 文档: 22个
 - 测试: 187项 (CLI 41 + E2E 106 + daily 40)

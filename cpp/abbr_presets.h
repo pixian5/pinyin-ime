@@ -364,7 +364,7 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"ruanjiankaifa", "软件开发"},   //
         {"xitongjiagou", "系统架构"},    //
         {"yunjisuan", "云计算"},         //
-        {"dasuju", "大数据"},            //
+        {"dashuju", "大数据"},            //
         {"wulianwang", "物联网"},        //
         {"qukuailian", "区块链"},        //
         {"xunixianshi", "虚拟现实"},     //
@@ -373,8 +373,8 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"wohenshengqi", "我很生气"},     //
         {"wohenxiwang", "我很希望"},      //
         {"wohenjuedong", "我很激动"},     //
-        {"wodasuju", "我大数据"},           //
-        {"xuexidasuju", "学习大数据"},       //
+        {"wodashuju", "我大数据"},           //
+        {"xuexidashuju", "学习大数据"},       //
         {"woyijingdenglule", "我已经登录了"},   //
         {"wofuwuqianquan", "我服务器安全"},     //
         {"tamenfuwuqianquan", "他们服务器安全"}, //
@@ -384,16 +384,6 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"kaifa", "开发"},                  // 卡发→开发
         {"bianchengkaifa", "编程开发"},      //
         {"xuexibianchengkaifa", "学习编程开发"}, //
-        {"huasheitianzu", "画蛇添足"},
-        {"yuhuozhongsheng", "浴火重生"},
-        {"yelaifengyusheng", "夜来风雨声"},
-        {"yuqiongqianlimu", "欲穷千里目"},
-        {"youshengqingxian", "有声清闲"},
-        {"tiandishengliyao", "天地生灵药"},
-        {"wangqianliyoumu", "望千里目"},
-        {"huarongyuemao", "花容月貌"},
-        {"yiqidanchen", "一骑红尘"},
-        {"huangheruhailiu", "黄河入海流"},
         {"huasheitianzu", "画蛇添足"},
         {"yuhuozhongsheng", "浴火重生"},
         {"yelaifengyusheng", "夜来风雨声"},
@@ -567,3 +557,130 @@ inline size_t compute_boost_swap(const std::string &preedit, size_t total) {
 } // namespace pinyin_ime
 
 #endif // ABBR_PRESETS_H
+
+
+// ── 拼音消歧（共享：CLI 与 fcitx5 addon 共用）──────────────
+// 处理音节分割歧义：xian→xi'an (西安)、nian→ni'an、qian→qi'an
+// 根据上下文决定是否拆分，避免误拆常见词
+inline std::string disambiguate_pinyin(const std::string &input) {
+    if (input.empty() || input.find('\'') != std::string::npos)
+        return input;  // 已含隔音符，不处理
+
+    std::string result = input;
+
+    // 歧义音节列表：(歧义串, 拆分形式)
+    struct AmbigEntry {
+        const char *full;    // 完整形式 (如 "xian")
+        const char *split;   // 拆分形式 (如 "xi'an")
+    };
+    static const AmbigEntry ambigTable[] = {
+        {"xian", "xi'an"},   // 西安 vs 先/现/显
+        {"nian",  "ni'an"},  // 泥安 vs 年/念/娘
+        {"qian",  "qi'an"},  // 齐安 vs 前/钱/千
+    };
+
+    // 当歧义音节后跟这些拼音时，倾向于拆分（地名+常见词）
+    static const char *splitContexts[] = {
+        "you", "de", "hao", "jiu", "yao",
+        "hai", "bu", "mei", "hui", "ke", "dao",
+        "qi", "ba", "ma", "ne", "le", "ge", "zuo",
+        "hen", "duo",
+        // 地名常见搭配
+        "shoudu", "chengshi", "daxue", "shifan",
+        "beijing", "nanjing", "shanghai", "guangzhou",
+        "shenzhen", "chengdu", "hangzhou", "tianjin",
+        "wuhan", "chongqing", "kunming", "lashi",
+        "lvyou", "youji", "youke", "meijing",
+        // 常见句式
+        "youhenduo", "shidou", "doushi", "youshi",
+        "yeshi", "jiushi", "haishi", "bushi",
+    };
+
+    // 不拆分的上下文（这些词中完整音节更常见）
+    // xian 系列
+    static const char *keepContextsXian[] = {
+        "dai", "zai", "shi", "xiang", "lia", "jin",
+        "chang", "ming", "huo", "yan", "zhu", "ran",
+        "guang", "hua",
+    };
+    // nian 系列（年/念/娘 更常见）
+    static const char *keepContextsNian[] = {
+        "dai", "hua", "ji", "qing", "zhong", "yue",
+        "ling", "jiu", "san", "si", "wu", "liu",
+        "shao", "du", "tou", "pian", "xian",
+    };
+    // qian 系列（前/钱/千 更常见）
+    static const char *keepContextsQian[] = {
+        "mian", "fang", "jin", "tu", "cheng", "zai",
+        "hou", "shi", "nian", "wan", "bi", "dao",
+        "jin", "yi", "que", "qiu",
+    };
+
+    for (const auto &entry : ambigTable) {
+        std::string full = entry.full;
+        std::string split = entry.split;
+
+        // 选择对应的 keep 上下文
+        const char **keepCtxs = nullptr;
+        size_t keepCount = 0;
+        if (full == "xian") { keepCtxs = keepContextsXian; keepCount = sizeof(keepContextsXian)/sizeof(keepContextsXian[0]); }
+        else if (full == "nian") { keepCtxs = keepContextsNian; keepCount = sizeof(keepContextsNian)/sizeof(keepContextsNian[0]); }
+        else if (full == "qian") { keepCtxs = keepContextsQian; keepCount = sizeof(keepContextsQian)/sizeof(keepContextsQian[0]); }
+
+        size_t pos = 0;
+        while ((pos = result.find(full, pos)) != std::string::npos) {
+            size_t afterPos = pos + full.size();
+            if (afterPos >= result.size()) {
+                // 歧义音节在末尾：不拆分（单音节更常见）
+                pos = afterPos;
+                continue;
+            }
+
+            // 取后面最多 10 个字符作为上下文
+            std::string after = result.substr(afterPos, std::min(size_t(10), result.size() - afterPos));
+
+            // 检查前面是否构成常见词（不拆分）
+            if (pos >= 3) {
+                std::string before3 = result.substr(pos >= 3 ? pos - 3 : 0, std::min(pos, size_t(3)));
+                std::string before2 = result.substr(pos >= 2 ? pos - 2 : 0, std::min(pos, size_t(2)));
+                // 常见前缀词 → 不拆分
+                if (before3 == "shi" || before2 == "xi" || before3 == "xian" ||
+                    before3 == "zai" || before3 == "you" || before3 == "zhe") {
+                    pos = afterPos;
+                    continue;
+                }
+            }
+
+            // 检查是否在不拆分上下文中
+            bool shouldKeep = false;
+            for (size_t i = 0; i < keepCount; ++i) {
+                if (after.starts_with(keepCtxs[i])) {
+                    shouldKeep = true;
+                    break;
+                }
+            }
+            if (shouldKeep) {
+                pos = afterPos;
+                continue;
+            }
+
+            // 检查是否在拆分上下文中
+            bool shouldSplit = false;
+            for (const char *ctx : splitContexts) {
+                if (after.starts_with(ctx)) {
+                    shouldSplit = true;
+                    break;
+                }
+            }
+
+            if (shouldSplit) {
+                result = result.substr(0, pos) + split + result.substr(afterPos);
+                pos = pos + split.size();
+            } else {
+                pos = afterPos;
+            }
+        }
+    }
+
+    return result;
+}

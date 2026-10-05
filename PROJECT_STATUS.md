@@ -1,6 +1,6 @@
 # pinyin-ime 项目状态
 
-> 更新时间：2026-09-30 v0.8.7（端到端打字验证通过）
+> 更新时间：2026-09-30 v0.9.50（端到端打字验证通过）
 
 ## 项目概述
 
@@ -119,7 +119,7 @@
 14 项检查全部通过：
 - addon 二进制存在 + 符号导出
 - 配置文件正确（[Addon] 段 + Library 指定）
-- libime 数据（zh_CN.lm 34.7MB + sc.dict 4.5MB）加载成功
+- libime 数据（zh_CN.lm 33.1MB + sc.dict 4.2MB）加载成功
 - Xvfb 虚拟显示 + DBus session 启动
 - fcitx5 server 加载 pinyinime addon
 - 语言模型和字典加载成功
@@ -144,7 +144,7 @@
 
 ## 构建依赖
 
-- libime 1.1.17（zh_CN.lm 34.7MB + sc.dict 4.5MB）
+- libime 1.1.17（zh_CN.lm 33.1MB + sc.dict 4.2MB）
 - fcitx5 5.1.23（addon + server）
 - conda-forge gcc 16.2.0（openEuler 22.03 aarch64）
 - CMake 3.16+ / Ninja
@@ -188,7 +188,7 @@ pinyin-ime/
 │   ├── user_lm_full/       # 全语料用户 LM
 │   └── user_lm_news/       # 新闻语料用户 LM
 ├── Makefile                # 构建入口
-├── VERSION                 # 0.8.7
+├── VERSION                 # 0.9.50
 └── README.md
 ```
 

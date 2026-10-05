@@ -3,7 +3,7 @@
 ## 评测环境
 
 - 日期：2026-09-30
-- 版本：v0.9.4
+- 版本：v0.9.50
 - 平台：Linux aarch64 (openEuler 22.03)
 - 引擎：libime 1.1.17 (zh_CN.lm 34.7MB, sc.dict)
 - 编译器：gcc 16.2.0 (conda-forge)

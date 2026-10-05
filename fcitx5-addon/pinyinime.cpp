@@ -71,89 +71,6 @@ std::string findData(const std::vector<std::string> &candidates,
 // pinyin-ime addon disambiguation patch
 // Insert after findData function (line 69), before commonFuzzyFlags
 
-// 拼音消歧：xian→xi'an 当后跟地名/常见词上下文时
-// 与 CLI 的 disambiguate_pinyin 保持一致，简化版
-std::string disambiguatePinyin(const std::string &input) {
-    if (input.empty() || input.find('\'') != std::string::npos)
-        return input;
-
-    std::string result = input;
-
-    // 拆分上下文：xian + 这些 → xi'an
-    static const char *splitContexts[] = {
-        "you", "de", "hao", "jiu", "yao",
-        "hai", "bu", "mei", "hui", "ke", "dao",
-        "qi", "ba", "ma", "ne", "le", "ge", "zuo",
-        "hen", "duo",
-        "shoudu", "chengshi", "daxue", "shifan",
-        "beijing", "nanjing", "shanghai", "guangzhou",
-        "shenzhen", "chengdu", "hangzhou", "tianjin",
-        "wuhan", "chongqing", "kunming", "lashi",
-        "lvyou", "youji", "youke", "meijing",
-        "youhenduo", "shidou", "doushi", "youshi",
-        "yeshi", "jiushi", "haishi", "bushi",
-    };
-
-    // 不拆分上下文
-    static const char *keepContexts[] = {
-        "dai", "zai", "shi", "xiang", "lia", "jin",
-        "chang", "ming", "huo", "yan", "zhu", "ran",
-        "guang", "hua",
-    };
-
-    // 只处理 xian→xi'an
-    size_t pos = 0;
-    while ((pos = result.find("xian", pos)) != std::string::npos) {
-        size_t afterPos = pos + 4;
-        if (afterPos >= result.size()) {
-            pos = afterPos;
-            continue;
-        }
-
-        std::string after = result.substr(afterPos,
-            std::min(size_t(10), result.size() - afterPos));
-
-        // 前缀检查
-        if (pos >= 3) {
-            std::string before3 = result.substr(pos - 3, 3);
-            std::string before2 = result.substr(pos - 2, 2);
-            if (before3 == "shi" || before2 == "xi" || before3 == "xian" ||
-                before3 == "zai" || before3 == "you" || before3 == "zhe") {
-                pos = afterPos;
-                continue;
-            }
-        }
-
-        bool shouldKeep = false;
-        for (const char *ctx : keepContexts) {
-            if (after.starts_with(ctx)) {
-                shouldKeep = true;
-                break;
-            }
-        }
-        if (shouldKeep) {
-            pos = afterPos;
-            continue;
-        }
-
-        bool shouldSplit = false;
-        for (const char *ctx : splitContexts) {
-            if (after.starts_with(ctx)) {
-                shouldSplit = true;
-                break;
-            }
-        }
-
-        if (shouldSplit) {
-            result = result.substr(0, pos) + "xi'an" + result.substr(afterPos);
-            pos = pos + 5;
-        } else {
-            pos = afterPos;
-        }
-    }
-
-    return result;
-}
 
 // 常见「好用度」模糊音集合（与 cpp/pinyin_ime_cli.cpp 保持一致）。
 // Note: libime's fuzzyCost has been modified from log10(0.5) to log10(0.1)
@@ -550,7 +467,7 @@ void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
     page_ = 0;
     maxPage_ = 0;
     {
-        std::string disambig = disambiguatePinyin(pinyin);
+        std::string disambig = disambiguate_pinyin(pinyin);
         for (char c : disambig) {
             if ((c >= 'a' && c <= 'z') || c == '\'') {
                 context_.type(std::string(1, c));
@@ -1052,7 +969,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     rawPreedit.push_back(c);
                 }
             }
-            std::string disambig = disambiguatePinyin(rawPreedit);
+            std::string disambig = disambiguate_pinyin(rawPreedit);
             if (disambig != rawPreedit) {
                 // 需要消歧：清空并重新输入拆分后的拼音
                 ctx.clear();
