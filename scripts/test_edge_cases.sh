@@ -67,7 +67,7 @@ check_no_crash "超长拼音(200字符)" "woshizhongguorenwoaibeijingtiananmenwo
 
 # 4. 简拼
 check "简拼bj" "bj" "比较"
-check "简拼sh" "sh" "是"
+check "简拼sh" "sh" "上海"
 check "简拼gz" "gz" "工作"
 check "简拼sz" "sz" "深圳"
 check "简拼hz" "hz" "孩子"
