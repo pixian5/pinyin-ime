@@ -355,6 +355,23 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"shenmedifang", "什么地方"},          //
         {"shenmeshihou", "什么时候"},          //
         {"shenmeyangzi", "什么样子"},          //
+        // v0.9.42b: 专业术语
+        {"dianzishangwu", "电子商务"},   //
+        {"wangluoanquan", "网络安全"},   //
+        {"shujukujiansuo", "数据库检索"}, //
+        {"wangluobiancheng", "网络编程"}, //
+        {"ruanjiankaifa", "软件开发"},   //
+        {"xitongjiagou", "系统架构"},    //
+        {"yunjisuan", "云计算"},         //
+        {"dasuju", "大数据"},            //
+        {"wulianwang", "物联网"},        //
+        {"qukuailian", "区块链"},        //
+        {"xunixianshi", "虚拟现实"},     //
+        {"zengqiangxianshi", "增强现实"}, //
+        {"wohenkaixin", "我很开心"},      //
+        {"wohenshengqi", "我很生气"},     //
+        {"wohenxiwang", "我很希望"},      //
+        {"wohenjuedong", "我很激动"},     //
     };
     return map;
 }
