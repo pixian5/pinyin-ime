@@ -1,6 +1,82 @@
 # pinyin-ime
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
+## 当前进度（截至 2026-10-06 全量重建+E2E验证）
+
+### v0.9.51（2026-10-06）：openEuler 22.03 aarch64 全量重建 + E2E 218句验证
+
+**核心成果：从源码完整重建，CLI + fcitx5 addon 全部编译通过，E2E 端到端打字测试 215/218 通过（98.6%）**
+
+**构建环境：**
+- OS: openEuler 22.03 LTS aarch64
+- 工具链: conda-forge gcc 16.2.0（系统 gcc 10.3.1 不够新，走 conda-forge）
+- conda镜像: BFSU (mirrors.bfsu.edu.cn)
+- GitHub镜像: gh-proxy.com
+- fcitx5: 5.1.23 从源码编译（headless 114 targets + full server 131 targets）
+- libime: 1.1.17 从源码编译（4-gram, KENLM_MAX_ORDER=4）
+- 代理 7890 端口已就绪，可用于下载无镜像的外国资源
+- 不使用 Docker，全部原生编译
+
+**构建步骤：**
+1. micromamba 2.9.0 + conda-forge 工具链（gcc 16.2.0 / boost / fmt / zstd / libuv / ECM）
+2. fcitx5 5.1.23 源码编译（headless 核心库 114 targets）
+3. libime 1.1.17 源码编译（含 kenlm + zh_CN.lm + sc.dict 生成）
+4. CLI pinyin_ime_cli 编译（748KB）
+5. fcitx5 addon 编译（libpinyinime.so 829KB）
+6. fcitx5-full 带 testing addons 编译（131 targets，含 testfrontend + keyboard）
+7. E2E 端到端打字测试（218句）
+8. 预热学习数据（7/7 关键短语验证通过）
+
+**测试结果：**
+
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| 边界 | 39/39 ✅ |
+| 压力 | 25/25 ✅ |
+| 纠错 | 14/14 ✅ |
+| 预热验证 | 7/7 ✅ |
+| E2E 端到端打字 | 215/218 (98.6%) ✅ |
+
+**E2E 端到端打字验证（testfrontend API，218句）：**
+- 全拼输入: nihao→你好, zhongguo→中国, beijingdaxue→北京大学 ✅
+- 简拼: zg→中国, bjdx→北京大学 ✅
+- 模糊音: cifan→吃饭 (ci→chi) ✅
+- 纠错: senme→什么 (senme→shenme) ✅
+- 双拼: nihc→你好 (小鹤方案) ✅
+- 英文直通: bug→bug ✅
+- JSON: ["你好","拟好","你毫","你号","你耗"] ✅
+- 整句: nihaoshijie→你好世界 ✅
+- 长句: zhonghuarenmingongheguo→中华人民共和国 ✅
+- 多领域: 科技/购物/医疗/教育/金融/情感/句子 全覆盖 ✅
+
+**E2E 失败案例分析（3/218）：**
+- woxiangdingyigefangjian→我限定一个房间 (期望: 我想订一个房间) — 消歧问题
+- mingtianjian→明天将 (期望: 明天见) — 消歧问题
+- shanghaishi→上还是 (期望: 上海市) — 消歧问题
+
+**构建产物：**
+- `cpp/build/pinyin_ime_cli` (748KB) — CLI 前端 ✅
+- `fcitx5-addon/build/libpinyinime.so` (829KB) — fcitx5 addon ✅
+- `$OPT/libime/lib/libime/zh_CN.lm` (34MB) — 语言模型 ✅
+- `$OPT/libime/share/libime/sc.dict` (4.3MB) — 系统词典 ✅
+- `$OPT/fcitx5-server/` — fcitx5 full server with testing addons ✅
+
+**镜像源使用：**
+- conda-forge: `https://mirrors.bfsu.edu.cn/anaconda/cloud/conda-forge`（BFSU，稳定可用）
+- GitHub: `https://gh-proxy.com`（gh-proxy.com代理）
+- 代理: `http://127.0.0.1:7890`（已就绪，用于无镜像资源下载）
+
+**未来优化方向：**
+1. 修复 3 个 E2E 消歧失败（woxiangdingyigefangjian/mingtianjian/shanghaishi）
+2. 更大规模 LM 训练提升消歧准确率
+3. fcitx5 addon 桌面环境实机验证（需完整 X11/Wayland 桌面）
+4. 双拼方案自定义功能
+5. 候选部首/偏旁检索（生僻字输入）
+6. M3 纠错深度集成到 libime 解码管线
+
+---
+
 ## 当前进度（截至 2026-10-05 大规模测试+addon统一）
 
 ### v0.9.41（2026-10-05）：消歧 boost 大幅提升准确率至 92%+
