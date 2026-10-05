@@ -25,6 +25,8 @@ fcitx5-addon/build/
 .workbuddy/
 
 # 本机凭据与探路临时产物（勿入库）
+secrets.txt
+ip.txt
 .gitcode_token
 .gitcode_credentials
 .git-credentials
