@@ -412,7 +412,6 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"fuqian", "付钱"},
         {"qian", "钱"},
         {"niantie", "粘贴"},
-        {"buxing", "步行"},
         // v0.9.51: E2E 消歧修复 — 3 个已知失败
         {"shanghaishi", "上海市"},           // 上还是→上海市
         {"mingtianjian", "明天见"},           // 明天将→明天见
@@ -429,6 +428,11 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"dongdeqilai", "懂得起来"}, // 懂得其来→懂得起来
         {"zhandiqilai", "站起来"}, // v0.9.56: 占地→站起
         {"qianmian", "前面"}, // v0.9.56: 钱面→前面
+        {"youhuiyi", "有会议"}, // v0.9.56: 有回忆→有会议
+        {"buxing", "不行"}, // v0.9.56: 步行→不行
+        {"guangjie", "逛街"}, // v0.9.56: 关节→逛街
+        {"zaoqi", "早起"}, // v0.9.56: 早期→早起
+        {"zaishuoyibian", "再说一遍"}, // v0.9.56: 在说→再说
         {"woxihuanzhege", "我喜欢这个"}, // 我喜欢这个
         {"qingwenni", "请问你"}, // 请问你
         {"xiexieni", "谢谢你"}, // 谢谢你

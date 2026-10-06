@@ -388,6 +388,86 @@ void runTests(EventDispatcher *dispatcher) {
         {"woaini", "我爱你", "emotion"},
         {"wohenkaixin", "我很开心", "emotion"},
         {"wohenshangxin", "我很伤心", "emotion"},
+        // v0.9.56: 扩展用例 (248→310+)
+        // 办公/工作
+        {"woyaokaihui", "我要开会", "work"},
+        {"jintianyouhuiyi", "今天有会议", "work"},
+        {"qingfasongyoujian", "请发送邮件", "work"},
+        {"woyaobaoxiao", "我要报销", "work"},
+        {"xiaban", "下班", "work"},
+        {"shangban", "上班", "work"},
+        {"jiaqitian", "假期天", "work"},
+        {"qingjiabuxing", "请假不行", "work"},
+        // 教育
+        {"woyaoshangxue", "我要上学", "education"},
+        {"zuoyewancheng", "作业完成", "education"},
+        {"kaoshidefen", "考试得分", "education"},
+        {"laoshibuzhi", "老师布置", "education"},
+        {"xueshengxuexi", "学生学习", "education"},
+        {"ketangbi", "课堂比", "education"},
+        // 技术
+        {"ruanjiankaifa", "软件开发", "tech"},
+        {"chengxuyuan", "程序员", "tech"},
+        {"jisuanji", "计算机", "tech"},
+        {"wangluolianjie", "网络连接", "tech"},
+        {"shujukufuwu", "数据库服务", "tech"},
+        {"yunduan", "云端", "tech"},
+        {"rengongzhineng", "人工智能", "tech"},
+        // 健康
+        {"shentibuhao", "身体不好", "health"},
+        {"duochishuiguo", "多吃水果", "health"},
+        {"shaoyan", "瘙痒", "health"},
+        {"duanlian", "锻炼", "health"},
+        {"zaoqi", "早起", "health"},
+        // 购物
+        {"woyaomaidongxi", "我要买东西", "shopping"},
+        {"qingjiezhang", "清洁章", "shopping"},
+        {"duoshaoqian", "多少钱", "shopping"},
+        {"biyixia", "比一下", "shopping"},
+        // 交流
+        {"qingdianhua", "请电话", "communication"},
+        {"wozhao", "我找", "communication"},
+        {"qingdengyixia", "请等一下", "communication"},
+        {"meitingqing", "没听清", "communication"},
+        {"zaishuoyibian", "再说一遍", "communication"},
+        // 日常生活
+        {"qichuang", "起床", "daily"},
+        {"xiyifu", "洗衣服", "daily"},
+        {"zuofan", "做饭", "daily"},
+        {"dasao", "打扫", "daily"},
+        {"guangjie", "逛街", "daily"},
+        {"zhumian", "助眠", "daily"},
+        // 天气/季节
+        {"xiayu", "下雨", "weather"},
+        {"xue", "学", "weather"},
+        {"qingtian", "晴天", "weather"},
+        {"yin", "因", "weather"},
+        // 时间/日期
+        {"zuotian", "昨天", "time"},
+        {"mingtian", "明天", "time"},
+        {"houtian", "后天", "time"},
+        {"jintian", "今天", "time"},
+        {"xingqiyi", "星期一", "time"},
+        {"xingqiliu", "星期六", "time"},
+        {"zhoumo", "周末", "time"},
+        // 人物关系
+        {"baba", "爸爸", "family"},
+        {"mama", "妈妈", "family"},
+        {"gege", "哥哥", "family"},
+        {"jiejie", "姐姐", "family"},
+        {"didi", "弟弟", "family"},
+        {"meimei", "妹妹", "family"},
+        {"yeye", "爷爷", "family"},
+        {"nainai", "奶奶", "family"},
+        // 更多消歧
+        {"zhandiqilai", "站起来", "boost"},
+        {"qianmian", "前面", "boost"},
+        {"dongdeqilai", "懂得起来", "boost"},
+        // 更多长句
+        {"woxianzaiyaochifanle", "我现在要吃饭了", "long"},
+        {"tamenxianzaihenmang", "他们现在很忙", "long"},
+        {"womingtianyaoshangban", "我明天要上班", "long"},
+        {"zhongguoshiyigeweida", "中国是一个伟大", "long"},
     };
 
     int pass = 0, fail = 0;
