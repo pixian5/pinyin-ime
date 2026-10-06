@@ -352,6 +352,42 @@ void runTests(EventDispatcher *dispatcher) {
         {"yinhang", "银行", "finance"},
         {"zhifu", "支付", "finance"},
         {"zhuanzhang", "转账", "finance"},
+        // v0.9.53: 扩展测试 — 长句消歧
+        {"woshizhongguoren", "我是中国人", "identity"},
+        {"woxihuanbiancheng", "我喜欢编程", "hobby"},
+        {"woxianzaihenmang", "我现在很忙", "status"},
+        {"wozhidaole", "我知道了", "comprehension"},
+        {"wobuzhidao", "我不知道", "comprehension"},
+        {"woyaohuijia", "我要回家", "intent"},
+        {"woyaogongzuo", "我要工作", "intent"},
+        {"woyouyigewenti", "我有一个问题", "question"},
+        {"zhongguoshiyigedaguo", "中国是一个大国", "statement"},
+        {"beijingshishoudu", "北京是首都", "geography"},
+        {"woxihuanzhongguocai", "我喜欢中国菜", "preference"},
+        {"mingtianyoukongma", "明天有空吗", "question"},
+        {"woyaoshangxue", "我要上学", "intent"},
+        {"woyoulianggehaizi", "我有两个孩子", "statement"},
+        {"dongdeqi", "懂得起", "v0.9.53 boost"},
+        // v0.9.53: 扩展测试 — 前缀 boost
+        {"woxihuanzhege", "我喜欢这个", "prefix boost"},
+        {"womendouzhidao", "我们都知道", "prefix boost"},
+        // v0.9.53: 扩展测试 — 日常对话
+        {"qingbangzhuwo", "请帮助我", "request"},
+        {"xiexienidebangzhu", "谢谢你的帮助", "gratitude"},
+        {"woxuyaonidebangzhu", "我需要你的帮助", "request"},
+        // v0.9.53: 扩展测试 — 复合句
+        {"woxiangqubeijing", "我想去北京", "travel"},
+        {"woxihuanzhongguo", "我喜欢中国", "preference"},
+        {"tamenxihuanzhongguo", "他们喜欢中国", "preference"},
+        {"zhongguorenmin", "中国人民", "entity"},
+        {"wozaibeijing", "我在北京", "location"},
+        // v0.9.53: 扩展测试 — 时间表达
+        {"jintiantianqihenhao", "今天天气很好", "weather"},
+        {"xianzaijidian", "现在几点", "time"},
+        // v0.9.53: 扩展测试 — 情感
+        {"woaini", "我爱你", "emotion"},
+        {"wohenkaixin", "我很开心", "emotion"},
+        {"wohenshangxin", "我很伤心", "emotion"},
     };
 
     int pass = 0, fail = 0;
