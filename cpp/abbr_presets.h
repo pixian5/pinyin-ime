@@ -455,7 +455,6 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"shanghaishiqu", "上海市区"},       // 上海市区
         {"shanghaishiren", "上海市人"},      // 上海市人
         {"shanghaishizhengfu", "上海市政府"}, // 上海市政府
-        {"beijingshishoudu", "北京是首都"},   // 北京市→北京是
         {"qingwenyixiaruzhushenmefangjian", "请问一下入住什么房间"}, // 消歧
         {"qingbangwochaxunyixia", "请帮我查询一下"}, // 消歧
         {"woyaodingcan", "我要订餐"},       // 消歧
