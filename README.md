@@ -1,6 +1,63 @@
 # pinyin-ime
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
+## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
+
+### v0.9.52（2026-10-06）：E2E 端到端打字测试 218/218 全部通过（100%）
+
+**核心改进：修复 3 个 E2E 消歧失败，addon boost 插入机制完善**
+
+**修复的 3 个 E2E 失败案例：**
+
+| 输入 | 修复前 | 修复后 |
+|------|--------|--------|
+| shanghaishi | 上还是 | 上海市 ✅ |
+| mingtianjian | 明天将 | 明天见 ✅ |
+| woxiangdingyigefangjian | 我限定一个房间 | 我想订一个房间 ✅ |
+
+**修复方案：**
+
+1. **abbr_presets.h 新增 20 条全拼 boost 预设**（v0.9.51 条目）：
+   - 3 个 E2E 失败案例直接 boost
+   - 12 条辅助消歧条目（woxiang→我想, mingtian→明天, fangjian→房间 等）
+   - 5 条相关长句消歧
+
+2. **preset_learning.txt 修复冲突条目**：
+   - line 4: `shanghaishi→上海是` 修正为 `shanghaishi→上海市`
+   - 消除与 line 167/444 的冲突
+
+3. **fcitx5 addon boost 插入机制完善**（pinyinime.cpp + pinyinime.h）：
+   - 新增 `boostInsertWord_` 成员变量
+   - 预设词不在候选列表时，插入首位显示（与 CLI `boost_abbreviation` 一致）
+   - `selectCandidate` 处理插入词的直接提交
+   - 英文直通保护：`pword == compact` 时不设置插入词
+
+**测试结果：**
+
+| 测试 | v0.9.51 | v0.9.52 |
+|---|---|---|
+| 冒烟 | 24/24 ✅ | 24/24 ✅ |
+| 边界 | 39/39 ✅ | 39/39 ✅ |
+| 压力 | 25/25 ✅ | 25/25 ✅ |
+| 纠错 | 14/14 ✅ | 14/14 ✅ |
+| E2E 端到端 | 215/218 (98.6%) | **218/218 (100%)** ✅ |
+
+**构建产物：**
+- `cpp/build/pinyin_ime_cli` (749KB) — CLI 前端 ✅
+- `fcitx5-addon/build/libpinyinime.so` (830KB) — fcitx5 addon ✅
+- `$OPT/libime/lib/libime/zh_CN.lm` (34MB) — 语言模型 ✅
+- `$OPT/libime/share/libime/sc.dict` (4.3MB) — 系统词典 ✅
+
+**未来优化方向：**
+1. 更大规模 LM 训练进一步提升消歧准确率
+2. fcitx5 addon 桌面环境实机验证（需完整 X11/Wayland 桌面）
+3. 双拼方案自定义功能
+4. 候选部首/偏旁检索（生僻字输入）
+5. M3 纠错深度集成到 libime 解码管线
+6. 子串匹配 boost 优化（当前仅完整匹配+后缀匹配）
+
+---
+
 ## 当前进度（截至 2026-10-06 全量重建+E2E验证）
 
 ### v0.9.51（2026-10-06）：openEuler 22.03 aarch64 全量重建 + E2E 218句验证

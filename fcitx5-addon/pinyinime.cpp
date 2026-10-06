@@ -235,6 +235,7 @@ void PinyinIMEState::reset() {
     context_.clear();
     page_ = 0;
     boostSwap_ = 0;
+    boostInsertWord_.clear();
     maxPage_ = 0;
     candFocus_ = 0;
     englishMode_ = false;
@@ -309,6 +310,7 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     // 若 preedit 匹配简拼预设（如 zg→中国），把预设词移到首位显示。
     // boostSwap_ 记录实际候选索引，selectCandidate 做索引映射。
     boostSwap_ = 0;
+    boostInsertWord_.clear();
     if (page_ == 0 && end > begin + 1) {
         std::string preeditStr = context_.preedit();
         // 去掉隔音符和空格
@@ -335,6 +337,10 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
                 }
             }
         }
+            // v0.9.51: 预设词不在候选列表中：插入首位（与 CLI boost_abbreviation 一致）
+            if (boostSwap_ == 0 && !pword.empty()) {
+                if (pword != compact) boostInsertWord_ = pword;
+            }
         // v0.9.46: 完整匹配失败时，尝试后缀匹配
         if (boostSwap_ == 0) {
             std::vector<std::string> cand_strs;
@@ -348,6 +354,10 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();
+        // v0.9.51: boost 插入词显示在首位
+        if (!boostInsertWord_.empty() && page_ == 0) {
+            candidateList->append<DisplayOnlyCandidateWord>(Text(boostInsertWord_));
+        }
         for (size_t i = begin; i < end; ++i) {
             size_t displayIdx = i;
             // 简拼 boost：交换候选 0 和 boostSwap_ 的显示位置
@@ -386,6 +396,20 @@ void PinyinIMEState::refreshUI(const InputMethodEntry &entry) {
 void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) {
     const auto &cands = context_.candidatesToCursor();
     if (context_.empty() || idx >= cands.size()) {
+        return;
+    }
+    // v0.9.51: boost 插入词处理：用户选首位且 boostInsertWord_ 非空时，直接提交预设词
+    if (!boostInsertWord_.empty() && page_ == 0 && idx == 0) {
+        std::string pinyin;
+        for (char c : context_.preedit()) {
+            if (c != '\'' && c != ' ') pinyin.push_back(c);
+        }
+        undoStack_.emplace_back(boostInsertWord_, pinyin);
+        if (undoStack_.size() > 32) undoStack_.erase(undoStack_.begin());
+        context_.clear();
+        commitText(boostInsertWord_);
+        boostInsertWord_.clear();
+        refreshUI(entry);
         return;
     }
     // 简拼 boost 索引映射：显示位置 0↔boostSwap_ 交换

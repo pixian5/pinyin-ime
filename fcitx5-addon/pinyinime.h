@@ -81,6 +81,8 @@ public:
     size_t candFocus_ = 0;
     // 简拼 boost：候选 boostSwap_ 与 0 交换显示（0=不交换），与 CLI 行为一致
     size_t boostSwap_ = 0;
+    // boost 插入：预设词不在候选列表时，插入首位显示（空=不插入）
+    std::string boostInsertWord_;
 
     // 中英切换（Tab）/ 中文标点（双/单引号智能配对）会话状态。
     bool englishMode_ = false;

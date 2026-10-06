@@ -1,7 +1,7 @@
 # 预置用户学习数据 - 常见消歧短语
 # 格式：拼音<TAB>中文
 # 地名+是 消歧
-shanghaishi	上海是
+shanghaishi	上海市
 beijingshi	北京市
 nanjingshi	南京是
 guangzhoushi	广州市

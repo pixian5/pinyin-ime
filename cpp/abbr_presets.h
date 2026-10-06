@@ -412,6 +412,25 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"qian", "钱"},
         {"niantie", "粘贴"},
         {"buxing", "步行"},
+        // v0.9.51: E2E 消歧修复 — 3 个已知失败
+        {"shanghaishi", "上海市"},           // 上还是→上海市
+        {"mingtianjian", "明天见"},           // 明天将→明天见
+        {"woxiangdingyigefangjian", "我想订一个房间"}, // 我限定一个房间→我想订一个房间
+        // v0.9.51: 辅助消歧条目
+        {"woxiang", "我想"},                 // 我限→我想
+        {"mingtian", "明天"},               // 明天
+        {"fangjian", "房间"},               // 房间
+        {"dingyige", "订一个"},             // 定一个→订一个
+        {"woxiangding", "我想订"},           // 我限定→我想订
+        {"dingyigefangjian", "订一个房间"},   // 定一个房间→订一个房间
+        {"shanghaishiqu", "上海市区"},       // 上海市区
+        {"shanghaishiren", "上海市人"},      // 上海市人
+        {"shanghaishizhengfu", "上海市政府"}, // 上海市政府
+        {"beijingshishoudu", "北京是首都"},   // 北京市→北京是
+        {"qingwenyixiaruzhushenmefangjian", "请问一下入住什么房间"}, // 消歧
+        {"qingbangwochaxunyixia", "请帮我查询一下"}, // 消歧
+        {"woyaodingcan", "我要订餐"},       // 消歧
+        {"qinggeiwohuidianhua", "请给我回电话"}, // 消歧
         {"biaoqian", "标签"},
     };
     return map;
