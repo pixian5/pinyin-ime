@@ -49,6 +49,7 @@ inline const std::unordered_map<std::string, std::string>& abbr_preset_map() {
         {"az",   "安装"},
         // 城市（sz→随着 需 boost；bj/sh/gz/hz 已正确，不加）
         {"sz",   "深圳"},
+        {"hz",   "孩子"},       // v0.9.55: 发展→孩子
         {"cd",   "成都"},
         {"wh",   "武汉"},
         {"cq",   "重庆"},
@@ -454,6 +455,7 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"woyaodingcan", "我要订餐"},       // 消歧
         {"qinggeiwohuidianhua", "请给我回电话"}, // 消歧
         {"biaoqian", "标签"},
+        {"nve", "虐"}, // v0.9.55: 边界测试修复 (略→虐)
     };
     return map;
 }
@@ -483,6 +485,10 @@ inline std::string lookup_pinyin_boost(const std::string &input) {
     const auto& umap = user_abbr_map();
     auto uit = umap.find(input);
     if (uit != umap.end()) return uit->second;
+    // v0.9.55: 简拼预设也查（修复 hz→孩子 等简拼 boost 失效）
+    const auto& amap = abbr_preset_map();
+    auto ait = amap.find(input);
+    if (ait != amap.end()) return ait->second;
     // 全拼音 boost 预设
     const auto& fmap = full_pinyin_preset_map();
     auto fit = fmap.find(input);
