@@ -133,6 +133,9 @@ void usage(const char *prog) {
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
         << "  --top-k N       输出前 N 个候选（Tab 分隔）\n"
+        << "  --add-user K=V  添加用户词典条目（如 --add-user myname=张三）后退出\n"
+        << "  --list-user     列出所有用户词典条目后退出\n"
+        << "  --del-user K    删除用户词典条目（如 --del-user myname）后退出\n"
         << "  --benchmark     内置基准测试：测量启动/查询/吞吐/准确率\n"
         << "  --predict       联想预测：输入中文文本，输出可能的下一个词\n"
         << "  --train-text F  从中文文本训练用户语言模型（每行一句中文）\n"
@@ -483,6 +486,120 @@ int main(int argc, char **argv) {
                 return 2;
             }
             abbr_file_path() = argv[++i];
+        } else if (a == "--add-user") {
+            // --add-user pinyin=chinese: 添加用户词典条目
+            if (i + 1 >= argc) {
+                std::cerr << "--add-user 缺少参数（格式: pinyin=chinese）\n";
+                return 2;
+            }
+            std::string entry = argv[++i];
+            auto eq = entry.find('=');
+            if (eq == std::string::npos || eq == 0 || eq == entry.size() - 1) {
+                std::cerr << "--add-user 格式错误（应为 pinyin=chinese）\n";
+                return 2;
+            }
+            {
+                std::string path = abbr_file_path();
+                if (path.empty()) {
+                    const char *home = getenv("HOME");
+                    if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
+                }
+                if (path.empty()) {
+                    std::cerr << "无法确定用户词典路径\n";
+                    return 2;
+                }
+                // 确保目录存在
+                std::string dir = path.substr(0, path.find_last_of('/'));
+                std::string cmd = "mkdir -p '" + dir + "'";
+                system(cmd.c_str());
+                // 检查是否已存在
+                std::ifstream check(path);
+                bool found = false;
+                std::string line;
+                std::string key = entry.substr(0, eq);
+                while (std::getline(check, line)) {
+                    auto p = line.find('=');
+                    if (p != std::string::npos && line.substr(0, p) == key) {
+                        found = true;
+                        break;
+                    }
+                }
+                check.close();
+                if (found) {
+                    std::cerr << "已存在: " << key << "（如需修改请先 --del-user " << key << "）\n";
+                    return 0;
+                }
+                std::ofstream f(path, std::ios::app);
+                f << entry << "\n";
+                std::cout << "已添加: " << key << " → " << entry.substr(eq + 1) << "\n";
+                std::cout << "文件: " << path << "\n";
+            }
+            return 0;
+        } else if (a == "--list-user") {
+            {
+                std::string path = abbr_file_path();
+                if (path.empty()) {
+                    const char *home = getenv("HOME");
+                    if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
+                }
+                std::ifstream f(path);
+                if (!f) {
+                    std::cout << "（用户词典为空或不存在）\n";
+                    std::cout << "路径: " << path << "\n";
+                    return 0;
+                }
+                std::cout << "用户词典 (" << path << "):\n";
+                std::string line;
+                int count = 0;
+                while (std::getline(f, line)) {
+                    if (line.empty() || line[0] == '#') continue;
+                    auto p = line.find('=');
+                    if (p != std::string::npos) {
+                        std::cout << "  " << line.substr(0, p) << " → " << line.substr(p + 1) << "\n";
+                        ++count;
+                    }
+                }
+                std::cout << "共 " << count << " 条\n";
+            }
+            return 0;
+        } else if (a == "--del-user") {
+            if (i + 1 >= argc) {
+                std::cerr << "--del-user 缺少参数\n";
+                return 2;
+            }
+            {
+                std::string key = argv[++i];
+                std::string path = abbr_file_path();
+                if (path.empty()) {
+                    const char *home = getenv("HOME");
+                    if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
+                }
+                std::ifstream f(path);
+                if (!f) {
+                    std::cerr << "用户词典不存在\n";
+                    return 0;
+                }
+                std::vector<std::string> lines;
+                std::string line;
+                bool found = false;
+                while (std::getline(f, line)) {
+                    auto p = line.find('=');
+                    if (p != std::string::npos && line.substr(0, p) == key) {
+                        found = true;
+                        continue; // skip = delete
+                    }
+                    lines.push_back(line);
+                }
+                f.close();
+                if (!found) {
+                    std::cerr << "未找到: " << key << "\n";
+                    return 0;
+                }
+                std::ofstream out(path);
+                for (const auto& l : lines) out << l << "\n";
+                std::cout << "已删除: " << key << "\n";
+            }
+            return 0;
         } else if (a == "--user-data") {
             if (i + 1 >= argc) {
                 std::cerr << "--user-data 缺少目录参数\n";

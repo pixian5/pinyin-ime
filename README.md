@@ -3,6 +3,41 @@
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
 ## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
 
+### v0.9.55（2026-10-06）：用户词典 CLI 管理 + 食物消歧 boost
+
+**核心改进：**
+
+1. **用户词典 CLI 管理命令**（`pinyin_ime_cli.cpp`）：
+   - `--add-user K=V`：添加用户词典条目（如 `--add-user myname=张三`）
+   - `--list-user`：列出所有用户词典条目
+   - `--del-user K`：删除指定条目
+   - 用户词典文件：`~/.config/pinyin-ime/abbr.txt`，格式 `pinyin=chinese`
+   - 用户词典优先级最高，覆盖内置预设
+
+2. **食物相关消歧 boost 7 条**：
+   - `zhongguofan` → 中国饭（原：中国反）
+   - `xifan` → 稀饭、`zuofan` → 做饭、`hefan` → 吃饭 等
+
+**使用示例：**
+```bash
+# 添加自定义短语
+pinyin_ime_cli --add-user "myname=张三"
+pinyin_ime_cli --add-user "gongsi=华为技术"
+
+# 列出所有自定义短语
+pinyin_ime_cli --list-user
+
+# 删除
+pinyin_ime_cli --del-user "myname"
+
+# 输入时自动生效
+echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
+```
+
+**测试结果：全部通过，E2E 248/248 (100%)**
+
+---
+
 ### v0.9.54（2026-10-06）：E2E 测试扩展至 248/248（100%）
 
 **核心改进：扩展 E2E 端到端测试覆盖范围**

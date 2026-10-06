@@ -417,6 +417,13 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"mingtianjian", "明天见"},           // 明天将→明天见
         {"woxiangdingyigefangjian", "我想订一个房间"}, // 我限定一个房间→我想订一个房间
         // v0.9.52: 常见消歧 boost
+        {"zhongguofan", "中国饭"}, // 中国反→中国饭
+        {"zhongguocai", "中国菜"}, // ensure correct
+        {"xifan", "稀饭"}, // 西反→稀饭
+        {"hefan", "吃饭"}, // 合反→吃饭
+        {"zuofan", "做饭"}, // 作反→做饭
+        {"dianfan", "点饭"}, // 店反→点饭
+        {"yifan", "一碗"}, // 一反→一碗
         {"dongdeqi", "懂得起"}, // 懂得其→懂得起
         {"dongdeqilai", "懂得起来"}, // 懂得其来→懂得起来
         {"woxihuanzhege", "我喜欢这个"}, // 我喜欢这个
