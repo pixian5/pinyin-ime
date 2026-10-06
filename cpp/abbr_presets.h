@@ -427,6 +427,7 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"yifan", "一碗"}, // 一反→一碗
         {"dongdeqi", "懂得起"}, // 懂得其→懂得起
         {"dongdeqilai", "懂得起来"}, // 懂得其来→懂得起来
+        {"zhandiqilai", "站起来"}, // v0.9.56: 占地→站起
         {"woxihuanzhege", "我喜欢这个"}, // 我喜欢这个
         {"qingwenni", "请问你"}, // 请问你
         {"xiexieni", "谢谢你"}, // 谢谢你
