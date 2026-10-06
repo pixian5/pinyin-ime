@@ -3,6 +3,30 @@
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
 ## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
 
+### v0.9.53（2026-10-06）：前缀 boost 机制 + 数据清理 + 消歧扩展
+
+**核心改进：**
+
+1. **前缀 boost 机制**（`abbr_presets.h` 新增 `prefix_boost()` 函数）：
+   - 原有 `suffix_boost` 仅匹配输入后缀（如 `woxiangshanghaishi` 末尾匹配 `shanghaishi`）
+   - 新增 `prefix_boost` 匹配输入前缀（如 `woxiangqubeijing` 开头匹配 `woxiang` → boost 包含「我想」的候选）
+   - `boost_abbreviation` 现在依次执行：完整匹配 → 后缀 boost → 前缀 boost
+
+2. **preset_learning.txt 数据清理**：
+   - 移除 65 个重复条目（606 行 → 541 行）
+   - 消除学习数据冗余，提升加载效率
+
+3. **新增 14 条常见消歧 boost 预设**：
+   - `dongdeqi` → 懂得起（原：懂得其）
+   - `dongdeqilai` → 懂得起来
+   - `woxihuanzhege` → 我喜欢这个
+   - `womendouzhidao` → 我们都知道
+   - 等 14 条日常高频短语
+
+**测试结果：全部通过，E2E 仍为 218/218 (100%)**
+
+---
+
 ### v0.9.52（2026-10-06）：E2E 端到端打字测试 218/218 全部通过（100%）
 
 **核心改进：修复 3 个 E2E 消歧失败，addon boost 插入机制完善**

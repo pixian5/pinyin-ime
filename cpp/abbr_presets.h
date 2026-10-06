@@ -416,6 +416,21 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"shanghaishi", "上海市"},           // 上还是→上海市
         {"mingtianjian", "明天见"},           // 明天将→明天见
         {"woxiangdingyigefangjian", "我想订一个房间"}, // 我限定一个房间→我想订一个房间
+        // v0.9.52: 常见消歧 boost
+        {"dongdeqi", "懂得起"}, // 懂得其→懂得起
+        {"dongdeqilai", "懂得起来"}, // 懂得其来→懂得起来
+        {"woxihuanzhege", "我喜欢这个"}, // 我喜欢这个
+        {"qingwenni", "请问你"}, // 请问你
+        {"xiexieni", "谢谢你"}, // 谢谢你
+        {"buhuiyounwenjian", "不会有问题"}, // 不会有问题
+        {"meiyoubianfa", "没有办法"}, // 没有办法
+        {"zhidaobuyinggai", "知道不应该"}, // 知道不应该
+        {"woxianzaihenhao", "我现在很好"}, // 我限定很好→我现在很好
+        {"tamenxihuan", "他们喜欢"}, // 他们喜欢
+        {"womendouzhidao", "我们都知道"}, // 我们都知道
+        {"zhongguofazhan", "中国发展"}, // 中国发展
+        {"shijieshang", "世界上"}, // 世界上
+        {"hennanyuedao", "很难约到"}, // 很难约到
         // v0.9.51: 辅助消歧条目
         {"woxiang", "我想"},                 // 我限→我想
         {"mingtian", "明天"},               // 明天
@@ -509,6 +524,38 @@ inline void suffix_boost(const std::string &input, std::vector<std::string> &can
     }
 }
 
+// v0.9.52: 前缀 boost — 输入以预设 key 开头时，boost 包含 value 的候选
+inline void prefix_boost(const std::string &input, std::vector<std::string> &cands) {
+    if (cands.size() <= 1) return;
+    const auto& fmap = full_pinyin_preset_map();
+    int best_match_len = 0;
+    size_t best_cand_idx = 0;
+    std::string best_cand;
+    for (const auto& kv : fmap) {
+        const std::string& key = kv.first;
+        const std::string& value = kv.second;
+        if (key.size() >= input.size()) continue;
+        if (key.size() < 4) continue;
+        if ((int)key.size() <= best_match_len) continue;
+        // 前缀匹配：input 以 key 开头
+        if (input.compare(0, key.size(), key) != 0) continue;
+        // 若首位候选已以 value 开头，无需 boost
+        if (cands[0].compare(0, std::min(value.size(), cands[0].size()), value) == 0) continue;
+        for (size_t i = 1; i < cands.size(); ++i) {
+            if (cands[i].compare(0, std::min(value.size(), cands[i].size()), value) == 0) {
+                best_match_len = (int)key.size();
+                best_cand_idx = i;
+                best_cand = cands[i];
+                break;
+            }
+        }
+    }
+    if (best_match_len > 0) {
+        cands.erase(cands.begin() + best_cand_idx);
+        cands.insert(cands.begin(), best_cand);
+    }
+}
+
 // 交互模式用：通过后缀匹配找到应 boost 的候选索引
 inline size_t lookup_suffix_boost_index(const std::string &preedit,
                                          const std::vector<std::string> &cand_strs) {
@@ -562,6 +609,8 @@ inline void boost_abbreviation(const std::string &input, std::vector<std::string
     }
     // v0.9.44: 完整匹配失败时，尝试后缀匹配 boost
     suffix_boost(input, cands);
+    // v0.9.52: 后缀匹配失败时，尝试前缀匹配 boost
+    prefix_boost(input, cands);
 }
 
 // 计算 boostSwap：返回预设词在候选列表中的位置（0 表示无需交换）

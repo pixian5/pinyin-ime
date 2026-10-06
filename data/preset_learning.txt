@@ -124,7 +124,6 @@ mingtianyaoqichuang	明天要起床
 jintiantianqihenhao	今天天气很好
 # v0.9.28: 扩展学习数据
 # 常见日常用语
-zaoshanghao	早上好
 wananhao	晚安好
 xiawubang	下午帮
 shangbanyaojin	上班要紧
@@ -132,10 +131,6 @@ xiaobanlishi	下班离开
 chifanlema	吃饭了吗
 shuijiaolema	睡觉了吗
 zenmeyang	怎么样
-meiguanxi	没关系
-bukeqi	不客气
-xiexieni	谢谢你
-duibuqi	对不起
 meihaode	美好的
 kaixinde	开心的
 nanguode	难过的
@@ -164,10 +159,6 @@ yunjisuansuanli	云计算算力
 dasujufenxi	数据分析
 rengongzhinengjishu	人工智能技术
 # 城市扩展
-shanghaishi	上海市
-guangzhoushi	广州市
-shenzhenshi	深圳市
-hangzhoushi	杭州市
 chengdushi	成都市
 # 消歧增强
 xianyou	现有
@@ -211,7 +202,6 @@ yufangweiran	蔚然成风
 # 高频问答
 shenmeshihou	什么时候
 weishenme	为什么
-zenmeyang	怎么样
 zainali	在哪里
 shide	是的
 bushi	不是
@@ -226,7 +216,6 @@ jintian	今天
 mingtian	明天
 zuotian	昨天
 houtian	后天
-xianzai	现在
 yiqian	以前
 yihou	以后
 shanggeyue	上个月
@@ -339,15 +328,12 @@ dierci	第二次
 disanci	第三次
 zuihou	最后
 # 科技再扩展
-jiqixuexi	机器学习
-shenduxuexi	深度学习
 dashuju	大数据
 qukuailian	区块链
 qianduan	前端
 houduan	后端
 quanzhan	全栈
 APIjiekou	API接口
-shujuku	数据库
 fuwuyun	服务云
 shideyaodeshi	是的要的事
 woshide	我是的
@@ -360,17 +346,9 @@ dangranshide	当然是得
 # 简拼全拼对照（帮助用户自学习模型建立简拼→全拼关联）
 zhongguo	中国
 jishu	技术
-shenzhen	深圳
 beijing	北京
-shanghai	上海
-guangzhou	广州
-hangzhou	杭州
-chengdu	成都
 # 高频技术术语全拼
 shujug	数据
-ruanjian	软件
-keji	科技
-wangluo	网络
 suanfa	算法
 daima	代码
 chengxu	程序
@@ -385,7 +363,6 @@ shengchan	生产
 # 高频日常搭配
 ziliao	资料
 jilu	记录
-xinwen	新闻
 bumen	部门
 danwei	单位
 geren	个人
@@ -431,37 +408,19 @@ zgrm	中国人民
 bjdx	北京大学
 qhdx	清华大学
 # 消歧增强
-zhongguo	中国
 zhongguoren	中国人
-zhongguorenmin	中国人民
 zhonghuarenmin	中华人民
 zhonghuarenmingongheguo	中华人民共和国
 # 常见句子补充
-woaizhongguo	我爱中国
 zhongguoweida	中国伟大
 zhongguojia	国家
 # 城市消歧
-shanghaishi	上海市
-beijingshi	北京市
-shenzhenshi	深圳市
-guangzhoushi	广州市
-hangzhoushi	杭州市
-chengdushi	成都市
 # 常见动词搭配
 xiangyao	想要
-xiangqu	想去
-xiangchi	想吃
-xiangshuo	想说
-xiangkan	想看
-xiangmai	想买
 xiangwen	想问
 xiangzhi	想知道
 # 常见疑问句
 shenme	什么
-weishenme	为什么
-zenmeyang	怎么样
-zainali	在哪里
-shenmeshihou	什么时候
 zenmeban	怎么办
 # 常见感叹
 taihaole	太好了
@@ -470,7 +429,6 @@ meixiangdao	没想到
 # 常见工作场景
 kaifa	开发
 yunwei	运维
-ceshi	测试
 bug	bug
 debug	debug
 fix	fix
@@ -483,17 +441,12 @@ branch	分支
 release	发布
 
 # nihaoshijie 高权重（克服 LM 对 时节 的偏好）
-nihaoshijie	你好世界
-nihaoshijie	你好世界
-nihaoshijie	你好世界
-nihaoshijie	你好世界
 
 # v0.9.35: 常见短语排序修正
 yiqiehaoma	一切好吗
 dongle	懂了
 
 # v0.9.37: 常见词排序修复
-shide	是的
 chucha	出差
 chuchalvyou	出差旅游
 shoujihao	手机号
@@ -536,8 +489,6 @@ womingtianqu	我明天去
 beijingchucha	北京出差
 
 # v0.9.37 fix: 高权重长句组合
-chuchalvyou	出差旅游
-beijingchucha	北京出差
 womingtianqubeijingchuchalvyou	我明天去北京出差旅游
 # v0.9.40: 新增消歧学习数据
 jidian	几点
@@ -547,15 +498,11 @@ yidianshi	一点事
 woxiangnongyidianshi	我想弄一点事
 henhao	很好
 tianqihenhao	天气很好
-jintiantianqihenhao	今天天气很好
-yiqian	以前
-yihou	以后
 tongshi	同时
 yiyang	一样
 zheyang	这样
 nayang	那样
 wangshang	网上
-zenmeyang	怎么样
 weiwanme	为什么
 yinwei	因为
 suoyi	所以
@@ -568,29 +515,18 @@ ranhou	然后
 yijing	已经
 zhidao	知道
 yiqi	一起
-fuwu	服务
 fuwuqi	服务器
-shijian	时间
 kongjian	空间
 wangzhan	网站
-xitong	系统
-anquan	安全
-mima	密码
 zhanghu	账户
-denglu	登录
-zhuce	注册
-tuichu	退出
 shezhi	设置
 gengxin	更新
-banben	版本
 # v0.9.41: 更多消歧学习数据
 nanjingshiliuchaogudu	南京是六朝古都
 buzhidao	不知道
-weishenme	为什么
 meiyouwenti	没有问题
 meiyouyisi	没有意思
 youyisi	有意思
-shenmeshihou	什么时候
 shenmedifang	什么地方
 woyouyigewenti	我有一个问题
 woyouyigexiangfa	我有一个想法
@@ -598,7 +534,6 @@ qingwenyixia	请问一下
 xianzaijidianle	现在几点了
 zaochenjidianle	早晨几点了
 woyebuzhidao	我也不知道
-meixiangdao	没想到
 woyouyige	我有一个
 zheshiyige	这是一个
 naliyou	哪里有
