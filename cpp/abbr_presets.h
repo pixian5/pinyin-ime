@@ -515,21 +515,21 @@ inline std::string lookup_pinyin_boost(const std::string &input) {
 inline void suffix_boost(const std::string &input, std::vector<std::string> &cands) {
     if (cands.size() <= 1) return;
     const auto& fmap = full_pinyin_preset_map();
+    // v0.9.57: 直接提取后缀查表，O(m) 替代 O(n) 遍历
     int best_match_len = 0;
     size_t best_cand_idx = 0;
     std::string best_cand;
-    for (const auto& kv : fmap) {
-        const std::string& key = kv.first;
-        const std::string& value = kv.second;
-        if (key.size() >= input.size()) continue;
-        if (key.size() < 4) continue;
-        if ((int)key.size() <= best_match_len) continue;
-        if (input.compare(input.size() - key.size(), key.size(), key) != 0) continue;
-        // v0.9.44b: 若首位候选已包含 value，无需 boost
+    // 从最长后缀开始查（最长匹配优先）
+    for (size_t klen = input.size() - 1; klen >= 4; --klen) {
+        if ((int)klen <= best_match_len) break;
+        std::string suffix = input.substr(input.size() - klen, klen);
+        auto it = fmap.find(suffix);
+        if (it == fmap.end()) continue;
+        const std::string& value = it->second;
         if (cands[0].find(value) != std::string::npos) continue;
         for (size_t i = 1; i < cands.size(); ++i) {
             if (cands[i].find(value) != std::string::npos) {
-                best_match_len = (int)key.size();
+                best_match_len = (int)klen;
                 best_cand_idx = i;
                 best_cand = cands[i];
                 break;
@@ -546,22 +546,21 @@ inline void suffix_boost(const std::string &input, std::vector<std::string> &can
 inline void prefix_boost(const std::string &input, std::vector<std::string> &cands) {
     if (cands.size() <= 1) return;
     const auto& fmap = full_pinyin_preset_map();
+    // v0.9.57: 直接提取前缀查表，O(m) 替代 O(n) 遍历
     int best_match_len = 0;
     size_t best_cand_idx = 0;
     std::string best_cand;
-    for (const auto& kv : fmap) {
-        const std::string& key = kv.first;
-        const std::string& value = kv.second;
-        if (key.size() >= input.size()) continue;
-        if (key.size() < 4) continue;
-        if ((int)key.size() <= best_match_len) continue;
-        // 前缀匹配：input 以 key 开头
-        if (input.compare(0, key.size(), key) != 0) continue;
-        // 若首位候选已以 value 开头，无需 boost
+    // 从最长前缀开始查（最长匹配优先）
+    for (size_t klen = input.size() - 1; klen >= 4; --klen) {
+        if ((int)klen <= best_match_len) break;
+        std::string prefix = input.substr(0, klen);
+        auto it = fmap.find(prefix);
+        if (it == fmap.end()) continue;
+        const std::string& value = it->second;
         if (cands[0].compare(0, std::min(value.size(), cands[0].size()), value) == 0) continue;
         for (size_t i = 1; i < cands.size(); ++i) {
             if (cands[i].compare(0, std::min(value.size(), cands[i].size()), value) == 0) {
-                best_match_len = (int)key.size();
+                best_match_len = (int)klen;
                 best_cand_idx = i;
                 best_cand = cands[i];
                 break;
