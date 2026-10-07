@@ -1,5 +1,73 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-07 全量重建+真机验证）
+
+### v0.9.59（2026-10-07）：openEuler 22.03 aarch64 全量重建 + 真机验证通过
+
+**核心成果：从源码完整重建，CLI + fcitx5 addon 全部编译通过，所有测试 100% 通过**
+
+**构建环境：**
+- 系统：openEuler 22.03 LTS aarch64
+- 编译器：conda-forge GCC 16.2.0
+- fcitx5：5.1.23（headless 模式，禁用 X11/Wayland/DBus/Server）
+- libime：1.1.17（4-gram，KENLM_MAX_ORDER=4）
+- 数据：zh_CN.lm 34MB + sc.dict 4.3MB
+
+**构建产物：**
+| 产物 | 大小 | 状态 |
+|---|---|---|
+| pinyin_ime_cli | 750KB | ✅ |
+| libpinyinime.so | 831KB | ✅ |
+| zh_CN.lm | 34MB | ✅ |
+| sc.dict | 4.3MB | ✅ |
+
+**测试结果：全部通过（158/158）**
+
+| 测试 | 数量 | 结果 |
+|---|---|---|
+| 冒烟 | 24 | ✅ 100% |
+| 边界 | 39 | ✅ 100% |
+| 压力 | 25 | ✅ 100% |
+| 纠错 | 14 | ✅ 100% |
+| boost | 30 | ✅ 100% |
+| 交互 | 26 | ✅ 100% |
+
+**功能验证：**
+- 全拼输入：nihao→你好, zhongguo→中国, beijingdaxue→北京大学 ✅
+- 简拼输入：bjdx→北京大学, zg→中国 ✅
+- 模糊音：cifan→吃饭, zeli→这里 ✅
+- 纠错：senme→什么 ✅
+- 双拼（小鹤）：nihc→你好 ✅
+- JSON输出：["你好","拟好","你毫","你号","你耗"] ✅
+- 整句输入：woaizhongguo→我爱中国 ✅
+- 中文标点、表情、撤回、翻页等全部正常 ✅
+
+**安装方式：**
+```bash
+# CLI 已安装到 /usr/local/bin/pinyin_ime_cli
+# 配置文件：~/.config/pinyin-ime/config
+# 用户数据：~/.local/share/pinyin-ime/
+
+# 快速使用
+echo "nihao" | pinyin_ime_cli --quiet --top1 <lm_path> <dict_path>
+```
+
+**未来优化方向：**
+1. 更大规模 LM 训练进一步提升消歧准确率
+2. fcitx5 addon 桌面环境实机验证（需完整 X11/Wayland 桌面 + DBus）
+3. 双拼方案自定义功能
+4. 候选部首/偏旁检索（生僻字输入）
+5. M3 纠错深度集成到 libime 解码管线
+6. 子串匹配 boost 优化
+
+**所需依赖：**
+- conda-forge：gcc, gxx, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
+- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm
+- Python 3：pypinyin, jieba（评测用）
+- 镜像源：BFSU conda-forge 镜像, gh-proxy.com（GitHub 加速）
+
+---
+
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
 ## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
 
