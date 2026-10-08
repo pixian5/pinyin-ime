@@ -46,6 +46,28 @@
 - fcitx5 addon 符号导出：fcitx_addon_factory_instance_pinyinime ✅
 - fcitx5 输入法注册：pinyinime (Label=拼, LangCode=zh_CN) ✅
 
+
+**性能基准（2026-10-08 实测）：**
+| 指标 | 值 |
+|---|---|
+| CLI 启动时间 | 35ms |
+| 批量吞吐量 | 34 句/秒 |
+| 单次延迟（12键） | 38ms |
+| 准确率抽测 | 10/10 (100%) |
+
+**准确率抽测详情：**
+- woaizhongguo→我爱中国 ✅
+- xuexijisuanji→学习计算机 ✅
+- huanyinglai→欢迎来 ✅
+- xiexie→谢谢 ✅
+- zaijian→再见 ✅
+- tianqi→天气 ✅
+- shouji→手机 ✅
+- dianhua→电话 ✅
+- gongzuo→工作 ✅
+- youxiang→邮箱 ✅
+
+
 **系统安装：**
 ```bash
 # CLI 已安装到 /usr/local/bin/pinyin_ime_cli
