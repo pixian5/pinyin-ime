@@ -539,3 +539,11 @@ zheshiyige	这是一个
 naliyou	哪里有
 youyidian	有一点
 meiyouguanxi	没有关系
+yundongjisuan	云计算
+jisuanjituxingxue	计算机图形学
+weifuwujiaigou	微服务架构
+dashujufenxi	大数据分析
+zhinengzhizao	智能制造
+wulianwang	物联网
+xunixianshi	虚拟现实
+zengqiangxianshi	增强现实

@@ -62,3 +62,7 @@ native-build
 cpp/build
 fcitx5-addon/build
 fcitx5-addon/stage
+dist/*.tar.gz
+dist/zh_CN.lm
+dist/sc.dict
+dist/custom_full.lm

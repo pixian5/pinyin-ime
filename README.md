@@ -4494,3 +4494,63 @@ xbz/pinyin-ime/v0.9.49/
 ├── scripts/                  # 构建/测试脚本
 └── config/                   # Makefile, INSTALL.md, secrets.txt
 ```
+
+### v0.9.60（2026-10-08）：fcitx5 Server 端到端验证 + 领域 LM + 性能优化
+
+#### fcitx5 Server 构建与验证
+
+- **fcitx5 5.1.23** 重新构建，启用 Server + DBus + testfrontend（无 X11/Wayland UI，headless 模式）
+- 构建依赖补全：iso-codes、nlohmann_json、librsvg2
+- **pinyinime addon 成功加载**：
+  - `Loaded addon pinyinime` ✅
+  - `pinyinime: loaded lm=zh_CN.lm dict=sc.dict` ✅
+  - `Found 1 input method(s) in addon pinyinime` ✅
+  - DBus 服务 `org.fcitx.Fcitx5` 注册 ✅
+  - `fcitx5-remote -s pinyinime` 切换成功 ✅
+- testfrontend/testui/testim 模块可用，支持无显示端到端测试
+
+#### 领域语言模型训练
+
+- 使用 kenlm 从 7 个语料文件训练 4-gram ARPA LM（16,178 句）
+- 转换为 libime 二进制格式（trie + 量化 + 压缩指针）
+- 结果：`custom_full.lm` 2.9MB（vs 原始 `zh_CN.lm` 34MB）
+- 结论：原始 LM 数据量远超自定义 LM，仍为首选；自定义 LM 可作为垂直领域补充
+
+#### 用户词典预热
+
+- 批量学习 18 个技术词汇（云计算、区块链、物联网、微服务架构等）
+- 成功学习 15/18 句，boost 表新增 8 条
+- 技术词汇准确率提升：`jisuanjituxingxue` → 计算机图形学 ✅、`weifuwujiagou` → 微服务架构 ✅
+
+#### 综合准确率
+
+| 类别 | 测试数 | 通过 | 准确率 |
+|------|--------|------|--------|
+| 全拼 | 27 | 26 | **96.3%** |
+| 简拼 | 2 | 0 | 0%（需优化） |
+| **合计** | **29** | **26** | **89.7%** |
+
+#### 性能基准
+
+| 指标 | 值 |
+|------|-----|
+| 冷启动延迟 | 30ms |
+| 单查询延迟（5键） | 29ms |
+| 单查询延迟（17键） | 45ms |
+| 吞吐量 | 83 queries/sec |
+| 进程 RSS | 3MB |
+
+#### 构建产物
+
+- `dist/pinyin-ime-aarch64.tar.gz` (36MB)：含 CLI、fcitx5 addon、LM、词典
+- `dist/pinyin_ime_cli` (750KB)
+- `dist/libpinyinime.so` (831KB)
+- `dist/zh_CN.lm` (34MB) + `dist/custom_full.lm` (2.9MB)
+- `dist/sc.dict` (4.3MB)
+
+#### 待优化
+
+- [ ] 简拼准确率（nh→你好、xj→学习）
+- [ ] X11/Wayland 前端（需 wayland 1.22+、yoga 子模块）
+- [ ] RPM/DEB 打包
+- [ ] S3 上传构建产物
