@@ -1,36 +1,38 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-07 全量重建+真机验证）
+## 当前进度（截至 2026-10-08 沙箱构建+系统安装）
 
-### v0.9.59（2026-10-07）：openEuler 22.03 aarch64 全量重建 + 真机验证通过
+### v0.9.59（2026-10-08）：沙箱环境全量构建 + 系统安装 + 代理优化
 
-**核心成果：从源码完整重建，CLI + fcitx5 addon 全部编译通过，所有测试 100% 通过**
+**核心成果：在 openEuler 22.03 aarch64 沙箱中从源码完整构建，CLI + fcitx5 addon 全部编译通过，系统安装完成，可直接使用**
 
 **构建环境：**
 - 系统：openEuler 22.03 LTS aarch64
-- 编译器：conda-forge GCC 16.2.0
+- 编译器：conda-forge GCC 16.2.0（清华 TUNA 镜像）
 - fcitx5：5.1.23（headless 模式，禁用 X11/Wayland/DBus/Server）
 - libime：1.1.17（4-gram，KENLM_MAX_ORDER=4）
 - 数据：zh_CN.lm 34MB + sc.dict 4.3MB
+- 代理：mihomo DE-2087 节点（~2.5MB/s，用于下载 fcitx-im.org 数据）
+- GitHub 源码：gh-proxy.com 镜像加速
 
 **构建产物：**
-| 产物 | 大小 | 状态 |
-|---|---|---|
-| pinyin_ime_cli | 750KB | ✅ |
-| libpinyinime.so | 831KB | ✅ |
-| zh_CN.lm | 34MB | ✅ |
-| sc.dict | 4.3MB | ✅ |
+| 产物 | 大小 | 路径 | 状态 |
+|---|---|---|---|
+| pinyin_ime_cli | 750KB | /usr/local/bin/pinyin_ime_cli | ✅ |
+| libpinyinime.so | 831KB | /usr/lib/fcitx5/libpinyinime.so | ✅ |
+| zh_CN.lm | 34MB | /usr/share/libime/zh_CN.lm | ✅ |
+| sc.dict | 4.3MB | /usr/share/libime/sc.dict | ✅ |
+| lmplz | 1.4MB | native-build/build/kenlm/bin/lmplz | ✅ |
 
-**测试结果：全部通过（158/158）**
+**测试结果：冒烟 24/24 通过**
 
 | 测试 | 数量 | 结果 |
 |---|---|---|
-| 冒烟 | 24 | ✅ 100% |
-| 边界 | 39 | ✅ 100% |
-| 压力 | 25 | ✅ 100% |
-| 纠错 | 14 | ✅ 100% |
-| boost | 30 | ✅ 100% |
-| 交互 | 26 | ✅ 100% |
+| 全拼 | 5 | ✅ nihao→你好, zhongguo→中国, beijingdaxue→北京大学 等 |
+| 简拼 | 3 | ✅ bjdx→北京大学, zg→中国 |
+| 模糊音 | 4 | ✅ cifan→吃饭, senme→什么 |
+| 双拼（小鹤） | 8 | ✅ nihc→你好, vsgo→中国 |
+| CLI功能 | 4 | ✅ --version, --stats, --json, --correct |
 
 **功能验证：**
 - 全拼输入：nihao→你好, zhongguo→中国, beijingdaxue→北京大学 ✅
@@ -39,18 +41,40 @@
 - 纠错：senme→什么 ✅
 - 双拼（小鹤）：nihc→你好 ✅
 - JSON输出：["你好","拟好","你毫","你号","你耗"] ✅
-- 整句输入：woaizhongguo→我爱中国 ✅
-- 中文标点、表情、撤回、翻页等全部正常 ✅
+- 联想预测：你好→吗 的 不 了 。 ， 呢 ✅
+- 自检：通过 ✅
+- fcitx5 addon 符号导出：fcitx_addon_factory_instance_pinyinime ✅
+- fcitx5 输入法注册：pinyinime (Label=拼, LangCode=zh_CN) ✅
 
-**安装方式：**
+**系统安装：**
 ```bash
 # CLI 已安装到 /usr/local/bin/pinyin_ime_cli
-# 配置文件：~/.config/pinyin-ime/config
-# 用户数据：~/.local/share/pinyin-ime/
+# fcitx5 addon 已安装到 /usr/lib/fcitx5/libpinyinime.so
+# libime 数据已安装到 /usr/share/libime/
+# fcitx5 配置：/usr/share/fcitx5/addon/pinyinime.conf
+# 输入法注册：/usr/share/fcitx5/inputmethod/pinyinime.conf
+# 用户配置：~/.config/fcitx5/conf/pinyinime.conf
+# 环境变量：/etc/profile.d/pinyin-ime.sh
 
 # 快速使用
-echo "nihao" | pinyin_ime_cli --quiet --top1 <lm_path> <dict_path>
+source /root/workspace/pinyin-ime/setup_env.sh
+echo "nihao" | ./run.sh
+# 或直接
+echo "nihao" | pinyin_ime_cli --quiet --top1 /usr/share/libime/zh_CN.lm /usr/share/libime/sc.dict
 ```
+
+**所需依赖（已安装）：**
+| 依赖 | 版本 | 来源 |
+|---|---|---|
+| micromamba | 2.9.0 | gh-proxy.com/GitHub |
+| GCC (conda-forge) | 16.2.0 | 清华 TUNA 镜像 |
+| Boost | 1.85.0 | conda-forge |
+| CMake | 4.2.3 | conda-forge |
+| Ninja | 1.13.2 | conda-forge |
+| fcitx5 | 5.1.23 | gh-proxy.com/GitHub |
+| libime | 1.1.17 | gh-proxy.com/GitHub |
+| kenlm | 4cb443e | gh-proxy.com/GitHub |
+| zh_CN.lm | 20260629 | mihomo proxy (DE-2087) |
 
 **未来优化方向：**
 1. 更大规模 LM 训练进一步提升消歧准确率
@@ -58,17 +82,10 @@ echo "nihao" | pinyin_ime_cli --quiet --top1 <lm_path> <dict_path>
 3. 双拼方案自定义功能
 4. 候选部首/偏旁检索（生僻字输入）
 5. M3 纠错深度集成到 libime 解码管线
-6. 子串匹配 boost 优化
+6. 构建产物上传 S3（rclone 到 cstcloud）
+7. RPM/DEB 打包自动化
+8. 代理节点自动测速选择
 
-**所需依赖：**
-- conda-forge：gcc, gxx, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
-- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm
-- Python 3：pypinyin, jieba（评测用）
-- 镜像源：BFSU conda-forge 镜像, gh-proxy.com（GitHub 加速）
-
----
-
-> **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释、主动优化建议，每轮开发前必读）。
 ## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
 
 ### v0.9.55（2026-10-06）：用户词典 CLI 管理 + 食物消歧 boost
