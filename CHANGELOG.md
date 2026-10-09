@@ -166,3 +166,24 @@
 - 测试: 187项 (CLI 41 + E2E 106 + daily 40)
 - 语言模型: 34MB (zh_CN.lm)
 - 系统词典: 4.3MB (sc.dict)
+
+## v0.9.68 (2026-10-09)
+
+### 新增
+- **长句切分**: 拼音音节解析器 + 边界空格插入，提升长句准确率
+  - `scripts/pinyin_syllable.py`: 拼音音节解析器，基于声母韵母表 + 动态规划最优切分
+  - `scripts/sentence_splitter.py`: 在自然语言边界音节（的/了/在/和/与等）后插入空格，给 LM 分词提示
+  - 移除 shi/you/bu 避免拆散复合词（实现/有效/不断）
+- **频率 boost 增强**: pinyin→word 精确映射
+  - `user_freq.py` v2: 新增 pinyin_map 字段，记录哪个拼音选了哪个词
+  - boost 时拼音精确匹配权重 ×3，优先提升用户历史选择
+  - top1 模式内部取 top-k → 频率 boost → 返回 top1
+- `pinyin_ime_smart.py` 重构: 集成长句切分 + 频率 boost + 后纠错统一流程
+  - 新增 `--no-split` 禁用长句切分
+  - `--record-freq` 记录 pinyin→word 映射
+
+### 评测
+- news: 46% → 47% (+1)
+- wiki: 19% → 20% (+1)
+- daily/dialogue/baike/recent: 无变化，零回退
+- 频率 boost 验证: 重复选择正确提升至首屏
