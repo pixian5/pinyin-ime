@@ -1,5 +1,73 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-09 v0.9.75）
+
+### v0.9.75（2026-10-09）：全新机器从源码全量重建 — 24/24 冒烟全通过，真正能跑的输入法
+
+**核心成果：在一台干净的 openEuler 22.03 aarch64 沙箱（无 conda/fcitx5/libime、无历史产物）从零重建，拼音→中文冒烟测试 24/24 全通过。**
+
+**重建链路（不使用 Docker，全部源码编译）：**
+```
+conda-forge 工具链(gcc/gxx/boost/fmt/zstd/libuv/ECM, BFSU 镜像)
+  → fcitx5 5.1.23（源码, gh-proxy.com 镜像, headless）
+  → libime 1.1.17（源码 + kenlm 子模块 + 4-gram 补丁）
+  → libime 数据（fcitx-im 海外源，走本地 7890 Hysteria2 代理多连接并行下载）
+  → pinyin_ime_cli + libpinyinime.so(fcitx5 addon)
+```
+
+**关键决策与踩坑（详见 `docs/2026年10月09日22时14分全新机器重建fcitx-im海外数据并行下载与zombie规避.md`）：**
+- 构建目录 `/` 是 tmpfs 仅 7.2G → 用符号链接把 `NB` 落到 79G 的 `/workspace` 大盘
+- libime `ENABLE_DATA=On` 需从 `download.fcitx-im.org`（海外、无国内镜像）下载 74.1MB 语言模型 + 2.2MB 词典 + 4.4MB 码表：
+  直连 ~20KB/s，改用**本地 7890 Hysteria2 代理 + 8 连接并行 + 段内断点续传**（`/tmp/opencode/pget.py`），预置到 `src/libime/data/` 后 cmake 自动跳过下载
+- 后台构建进程落在 supervisor 命名空间，`kill`/`pkill` 均无法终止（zombie）→ 采用**增量续建**复用已编译 .so，只补数据转换 + 安装
+
+**冒烟测试 24/24（`scripts/smoke_test.sh`）：**
+| 档位 | 用例 | 结果 |
+|---|---|---|
+| 全拼 | nihao→你好, zhongguo→中国, woshiyige→我是一个, beijingdaxue→北京大学, zhongguoruanjian→中国软件 | 5/5 ✅ |
+| 简拼 | bjdx→北京大学, zg→中国, js→技术 | 3/3 ✅ |
+| 模糊音 | cifan→吃饭, senme→什么, zeli→这里, lanfang→南方 | 4/4 ✅ |
+| 双拼(小鹤) | nihc→你好, vsgo→中国, bwjkdaxt→北京大学, ufme→什么, veli→这里, iifj→吃饭, jiuu→技术, wouiyige→我是一个 | 8/8 ✅ |
+| CLI 功能 | --version/--stats/--json/--correct | 4/4 ✅ |
+
+**真实输入验证：** `nihao→你好`、`zhongguojiaoyu→中国教育`、`shurufa→输入法`、`kexuejishu→科学技术`（run.sh / pinyin_ime_cli 均正确）
+
+**产物：**
+| 产物 | 路径 | 大小 |
+|---|---|---|
+| CLI | `cpp/build/pinyin_ime_cli` | 750KB |
+| fcitx5 addon | `fcitx5-addon/build/libpinyinime.so` | 830KB |
+| 语言模型 | `$NB/opt/libime/lib/libime/zh_CN.lm` | 34.7MB（4-gram） |
+| 拼音词典 | `$NB/opt/libime/share/libime/sc.dict` | 4.5MB |
+
+**版本同步：** `VERSION` / `fcitx5-addon/CMakeLists.txt` / CLI 源码字符串统一为 `0.9.75`（修正了 CLI 长期滞留的 `0.9.58` 陈旧串）
+
+**仓库维护：** `ip.txt` 移出 `.gitignore`（按维护者要求，本机公网 IP 附加到文件首行）；GitCode 令牌等凭据写入 `secrets.txt` / `.gitcode_token`（均 gitignore，不入库）
+
+**未来优化方向：**
+- [ ] fcitx5 桌面集成实测：装好 Xvfb + DBus + X11，用 XIM/testfrontend 走「按键→候选→上屏」桌面链路（复用 `scripts/xvfb_desktop_ime_test.sh`，上轮 15/15）
+- [ ] 一键安装到系统：`scripts/install.sh` 装 CLI + addon + 数据 + fcitx5 注册
+- [ ] RPM/tarball 打包 + S3 分发上传（rclone + CSTCloud）
+- [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略（当前 16K 句自训 LM 在 holdout 不如原始 libime LM）
+- [ ] Web Demo 部署（`scripts/web_demo_v2.py`）
+- [ ] M3 纠错深度集成进 libime 解码管线
+- [ ] 候选部首/偏旁检索、跨设备词库同步
+
+**待办事项：**
+- [ ] fcitx5 桌面集成（Xvfb + DBus + X11）实测验证
+- [ ] 系统级一键安装验证
+- [ ] 打包 + S3 分发
+
+**所需依赖（本机已就绪）：**
+- 系统：cmake 3.22, ninja, make, gcc/g++（conda-forge 15.x 工具链）
+- conda-forge（BFSU 镜像）：gcc, gxx, boost-cpp(1.85), fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
+- 源码（gh-proxy.com 镜像）：fcitx5 5.1.23, libime 1.1.17, kenlm(commit 4cb443e)
+- 数据（fcitx-im 海外源，走 7890 代理）：lm_sc.arpa(74.1MB), dict(2.2MB), table(4.4MB)
+- 代理：本地 Hysteria2 7890 端口（海外源加速）
+- Python（评测用）：pypinyin, pyyaml, jieba
+
+---
+
 ## 当前进度（截至 2026-10-09 v0.9.71）
 
 ### v0.9.72（2026-10-09）：Xvfb 桌面集成测试 15/15 全通过 — 真正能跑的输入法
