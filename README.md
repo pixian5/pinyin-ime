@@ -1,6 +1,62 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-09 v0.9.70）
+## 当前进度（截至 2026-10-09 v0.9.71）
+
+### v0.9.71（2026-10-09）：RPM 打包成功 — 完整可安装包
+
+**核心成果：RPM 包构建成功，可直接 `rpm -ivh` 安装**
+
+**打包产物：**
+| 文件 | 大小 | 说明 |
+|------|------|------|
+| pinyin-ime-0.9.71-1.oe2203.aarch64.rpm | 31MB | RPM 安装包 |
+| pinyin-ime-0.9.70.tar.gz | 33MB | 源码 tarball |
+| SHA256SUMS | - | 校验和 |
+
+**RPM 包内容：**
+- `/usr/bin/pinyin_ime_cli` — CLI 前端
+- `/usr/lib/fcitx5/libpinyinime.so` — fcitx5 输入法模块
+- `/usr/share/libime/zh_CN.lm` — 4-gram 语言模型（34MB）
+- `/usr/share/libime/sc.dict` — 拼音词典（4.3MB）
+- `/usr/share/fcitx5/addon/pinyinime.conf` — addon 配置
+- `/usr/share/fcitx5/conf/pinyinime.conf` — 输入法配置
+
+**安装方式：**
+```bash
+rpm -ivh pinyin-ime-0.9.71-1.oe2203.aarch64.rpm
+```
+
+**全量测试汇总：**
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| CLI综合 | 41/41 ✅ |
+| daily 40句 | 40/40 = 100% ✅ |
+| E2E端到端 | 315/315 = 100% ✅ |
+| 健康检查 | 14/15 ✅ |
+| RPM打包 | ✅ 31MB |
+
+**未来优化方向：**
+- [ ] S3 分发上传（rclone + CSTCloud S3）
+- [ ] fcitx5 桌面集成（Xvfb + DBus 实际桌面环境）
+- [ ] 优化启动速度
+- [ ] 扩展用户词典和自学习功能
+- [ ] Web Demo 部署
+
+**待办事项：**
+- [ ] S3 分发上传
+- [ ] fcitx5 桌面集成测试
+
+**所需依赖：**
+- 系统：cmake, ninja, make, gcc, g++, rpm-build
+- Python：pypinyin, pyyaml, jieba
+- conda-forge：gcc, gxx, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, gettext, lib_uuid, cmake, ninja, pkg-config, make, expat, jsoncpp, iso-codes, nlohmann_json
+- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm
+- 代理：mihomo 7890 端口
+
+---
+
+### v0.9.70（2026-10-09）：E2E 端到端测试构建成功 — 315/315 全通过
 
 ### v0.9.70（2026-10-09）：E2E 端到端测试构建成功 — 315/315 全通过
 

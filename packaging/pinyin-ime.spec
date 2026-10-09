@@ -1,5 +1,5 @@
 Name:           pinyin-ime
-Version:        0.9.63
+Version:        0.9.70
 Release:        1.oe2203
 Summary:        Pinyin input method for Linux based on libime engine
 
@@ -13,14 +13,7 @@ Requires:       libime >= 1.1
 
 %description
 pinyin-ime is a Chinese pinyin input method for Linux, built on the
-libime engine with fcitx5 framework integration. Features include:
-
-- Full pinyin, abbreviated pinyin, fuzzy pinyin, and double pinyin
-- Context-aware disambiguation with 150+ boost presets
-- Self-learning user dictionary and language model
-- Error correction for common typos
-- fcitx5 addon for desktop integration
-- CLI tool for scripting and batch processing
+libime engine with fcitx5 framework integration.
 
 %prep
 %setup -q
@@ -29,21 +22,15 @@ libime engine with fcitx5 framework integration. Features include:
 mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}/usr/lib/fcitx5
 mkdir -p %{buildroot}/usr/share/libime
+mkdir -p %{buildroot}/usr/share/fcitx5/addon
+mkdir -p %{buildroot}/usr/share/fcitx5/conf
 
-install -Dm755 bin/pinyin_ime_cli %{buildroot}/usr/bin/pinyin_ime_cli
-install -Dm755 lib/fcitx5/libpinyinime.so %{buildroot}/usr/lib/fcitx5/libpinyinime.so
-install -Dm644 share/libime/zh_CN.lm %{buildroot}/usr/share/libime/zh_CN.lm
-install -Dm644 share/libime/sc.dict %{buildroot}/usr/share/libime/sc.dict
-
-# Addon configs (optional - may not exist in tarball)
-if [ -d share/fcitx5/addon ]; then
-    mkdir -p %{buildroot}/usr/share/fcitx5/addon
-    install -Dm644 share/fcitx5/addon/* %{buildroot}/usr/share/fcitx5/addon/ 2>/dev/null || true
-fi
-if [ -d share/fcitx5/conf ]; then
-    mkdir -p %{buildroot}/usr/share/fcitx5/conf
-    install -Dm644 share/fcitx5/conf/* %{buildroot}/usr/share/fcitx5/conf/ 2>/dev/null || true
-fi
+install -m755 bin/pinyin_ime_cli %{buildroot}/usr/bin/pinyin_ime_cli
+install -m755 lib/fcitx5/libpinyinime.so %{buildroot}/usr/lib/fcitx5/libpinyinime.so
+install -m644 share/libime/zh_CN.lm %{buildroot}/usr/share/libime/zh_CN.lm
+install -m644 share/libime/sc.dict %{buildroot}/usr/share/libime/sc.dict
+install -m644 share/fcitx5/addon/pinyinime.conf %{buildroot}/usr/share/fcitx5/addon/pinyinime.conf
+install -m644 share/fcitx5/conf/pinyinime.conf %{buildroot}/usr/share/fcitx5/conf/pinyinime.conf
 
 %files
 %defattr(-,root,root,-)
@@ -51,6 +38,8 @@ fi
 /usr/lib/fcitx5/libpinyinime.so
 /usr/share/libime/zh_CN.lm
 /usr/share/libime/sc.dict
+/usr/share/fcitx5/addon/pinyinime.conf
+/usr/share/fcitx5/conf/pinyinime.conf
 
 %post
 ldconfig
@@ -59,8 +48,6 @@ ldconfig
 ldconfig
 
 %changelog
-* Fri Oct 09 2026 pinyin-ime <pinyin-ime@noreply.gitcode.com> - 0.9.63-1
-- v0.9.63: Full verification passed
-- E2E 315/315, Daily 40/40 = 100%, CI all green
-- Context-aware disambiguation with 150+ boost presets
-- fcitx5 addon + CLI + Web demo
+* Fri Oct 09 2026 pinyin-ime <pinyin-ime@noreply.gitcode.com> - 0.9.70-1
+- v0.9.70: E2E 315/315, full build from source
+- CLI + fcitx5 addon + LM + dict
