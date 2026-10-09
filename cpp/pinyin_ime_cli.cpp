@@ -889,7 +889,7 @@ int main(int argc, char **argv) {
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
             boost_abbreviation(line, cands);
             if (top1Only) {
-                if (!cands.empty()) std::cout << cands[0];
+                if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
             } else if (topK > 0) {
                 size_t limit = std::min(static_cast<size_t>(topK), cands.size());
                 for (size_t i = 0; i < limit; ++i) {
@@ -1080,7 +1080,7 @@ int main(int argc, char **argv) {
             auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
             boost_abbreviation(line, cands);
             if (top1Only) {
-                if (!cands.empty()) std::cout << cands[0];
+                if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
             } else if (topK > 0) {
                 size_t limit = std::min(static_cast<size_t>(topK), cands.size());
                 for (size_t i = 0; i < limit; ++i) {

@@ -62,7 +62,10 @@ with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding
         f.write(py + '\n')
     tmpfile = f.name
 
-result = subprocess.run([CLI, '--batch', tmpfile, '--top1'], capture_output=True, text=True, timeout=30)
+import os
+LM = os.environ.get("PINYIN_IME_LM", "/usr/share/libime/zh_CN.lm")
+DICT = os.environ.get("PINYIN_IME_DICT", "/usr/share/libime/sc.dict")
+result = subprocess.run([CLI, "--batch", tmpfile, "--top1", "--quiet", LM, DICT], capture_output=True, text=True, timeout=30)
 os.unlink(tmpfile)
 
 outputs = result.stdout.strip().split('\n')

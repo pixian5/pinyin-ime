@@ -81,7 +81,7 @@ def measure_throughput():
     print(f"{'='*50}")
     print(f"  总查询: {count} 次")
     print(f"  总耗时: {elapsed:.2f} s")
-    print(f"  QPS:    {qps:.1f} queries/sec")
+    print(f"  QPS:    {qps:.1f} queries/sec  ({qps:.1f} 句/秒)")
     return qps
 
 def measure_cold_start():
@@ -144,7 +144,7 @@ def main():
     print(f"  短拼音延迟: {short_avg:.2f} ms")
     print(f"  中等延迟:   {med_avg:.2f} ms")
     print(f"  长拼音延迟: {long_avg:.2f} ms")
-    print(f"  吞吐量:     {qps:.1f} QPS")
+    print(f"  吞吐量:     {qps:.1f} QPS ({qps:.1f} 句/秒)")
     print(f"  交互态延迟: ~1 ms (进程常驻，无冷启动)")
 
 if __name__ == "__main__":

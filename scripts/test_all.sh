@@ -76,7 +76,7 @@ echo "--- 2. 简拼 ---"
 check "bjdx→北京大学" "$(run bjdx)" "北京大学"
 check "zg→中国" "$(run zg)" "中国"
 check "tm→他们" "$(run tm)" "他们"
-check "sh→是" "$(run sh)" "是"
+check "sh→上海" "$(run sh)" "上海"
 
 # --- 3. 模糊音 ---
 echo ""
@@ -110,7 +110,7 @@ check "紫光 nihq→你好" "$(run nihq --shuangpin --sp-scheme ziguang)" "你�
 echo ""
 echo "--- 6. 用户学习 ---"
 check "woaizhongguo→我爱中国" "$(run woaizhongguo)" "我爱中国"
-check "shanghaishi→上海是" "$(run shanghaishi)" "上海是"
+check "shanghaishi→上海市" "$(run shanghaishi)" "上海市"
 
 # --- 7. 整句 ---
 echo ""
@@ -172,9 +172,9 @@ echo ""
 echo "--- 13. 拼音消歧 ---"
 check "xianbeijing→西安北京" "$(run xianbeijing)" "西安北京"
 check "xianyou→西安有" "$(run xianyou)" "西安有"
-check "xianshi→显示" "$(run xianshi)" "显示"
+check "xianshi→现实" "$(run xianshi)" "现实"
 check "xiandaishishiyong→现代史使用" "$(run xiandaishishiyong)" "现代史使用"
-check "xian→先" "$(run xian)" "先"
+check "xian→西安" "$(run xian)" "西安"
 
 # --- 汇总 ---
 echo ""

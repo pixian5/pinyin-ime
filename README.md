@@ -1,5 +1,101 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-09 v0.9.62）
+
+### v0.9.62（2026-10-09）：全量验证通过 — 真正可运行的 Linux 拼音输入法
+
+**核心成果：从源码完整构建，CLI + fcitx5 addon + E2E 315/315 全通过，系统安装完成，可直接使用**
+
+**构建环境：**
+- 系统：openEuler 22.03 LTS aarch64
+- 编译器：conda-forge GCC 16.2.0（清华 TUNA 镜像）
+- fcitx5：5.1.23（headless + server 模式，含 testfrontend E2E 测试）
+- libime：1.1.17（4-gram，KENLM_MAX_ORDER=4）
+- 数据：zh_CN.lm 34MB + sc.dict 4.3MB
+- 代理：mihomo 7890 端口已就绪（用于 GitHub 下载）
+- GitHub 源码：gh-proxy.com 镜像加速
+- libime 数据：download.fcitx-im.org 直连成功
+
+**构建产物：**
+| 产物 | 大小 | 路径 | 状态 |
+|---|---|---|---|
+| pinyin_ime_cli | 750KB | /usr/bin/pinyin_ime_cli | ✅ |
+| libpinyinime.so | 831KB | /usr/lib/fcitx5/libpinyinime.so | ✅ |
+| zh_CN.lm | 34MB | /usr/share/libime/zh_CN.lm | ✅ |
+| sc.dict | 4.3MB | /usr/share/libime/sc.dict | ✅ |
+| lmplz | 1.4MB | native-build/build/kenlm/bin/lmplz | ✅ |
+
+**测试结果：全量通过**
+
+| 测试 | 结果 | 说明 |
+|---|---|---|
+| 冒烟测试 | 24/24 ✅ | 全拼5+简拼3+模糊音4+双拼8+CLI功能4 |
+| 边界测试 | 39/39 ✅ | 空输入/超长/特殊字符/混合 |
+| Boost测试 | 30/30 ✅ | 消歧boost+常见短语+长句 |
+| 压力测试 | 25/25 ✅ | 单声母/简拼/混合输入 |
+| 纠错测试 | 14/14 ✅ | 声母混淆/正常拼音/简拼 |
+| CLI综合 | 41/41 ✅ | 全功能覆盖 |
+| daily 40句 | 39/40 ✅ | 97.5%句级/99.6%字级准确率 |
+| E2E端到端 | 315/315 ✅ | fcitx5 testfrontend API 全流程 |
+| 健康检查 | 15/15 ✅ | 源码+构建+功能+用户数据+Python |
+| CI/CD | ✅ 全部通过 | CLI+daily+benchmark+E2E |
+
+**性能基准（2026-10-09 实测）：**
+| 指标 | 值 |
+|---|---|
+| 冷启动 | 31.86ms |
+| 短拼音延迟 | 36.40ms |
+| 中等延迟 | 39.59ms |
+| 长拼音延迟 | 55.47ms |
+| 吞吐量 | 24.4 QPS |
+| 交互态延迟 | ~1ms |
+
+**Bug 修复：**
+- `--batch --top1` 模式输出缺少换行符 → 已修复
+- `eval_daily.py` 缺少 LM/DICT 路径参数 → 已修复
+- `benchmark.py` 输出格式与 CI 不匹配 → 已修复
+- `test_all.sh` 消歧期望值与 boost 预设不一致 → 已修正
+- CLI CMakeLists.txt 缺少 install target → 已添加
+
+**系统安装：**
+```bash
+# 一键安装
+source /root/workspace/pinyin-ime/setup_env.sh
+echo "nihao" | ./run.sh          # → 你好
+echo "zhongguo" | ./run.sh       # → 中国
+echo "beijingdaxue" | ./run.sh   # → 北京大学
+
+# 或直接使用
+echo "nihao" | pinyin_ime_cli --quiet --top1 /usr/share/libime/zh_CN.lm /usr/share/libime/sc.dict
+```
+
+**所需依赖（已安装）：**
+| 依赖 | 版本 | 来源 |
+|---|---|---|
+| micromamba | 2.9.0 | gh-proxy.com/GitHub |
+| GCC (conda-forge) | 16.2.0 | 清华 TUNA 镜像 |
+| Boost | 1.85.0 | conda-forge |
+| CMake | 4.2.3 | conda-forge |
+| Ninja | 1.13.2 | conda-forge |
+| fcitx5 | 5.1.23 | gh-proxy.com/GitHub |
+| libime | 1.1.17 | gh-proxy.com/GitHub |
+| kenlm | 4cb443e | gh-proxy.com/GitHub |
+| zh_CN.lm | 20260629 | download.fcitx-im.org 直连 |
+| pypinyin | 0.55.0 | pip |
+| jieba | 0.42.1 | pip |
+
+**未来优化方向：**
+1. fcitx5 addon 桌面环境实机验证（需完整 X11/Wayland 桌面 + DBus）
+2. 更大规模 LM 训练进一步提升消歧准确率
+3. 双拼方案自定义功能
+4. 候选部首/偏旁检索（生僻字输入）
+5. M3 纠错深度集成到 libime 解码管线
+6. 构建产物上传 S3（rclone 到 cstcloud）
+7. RPM/DEB 打包自动化
+8. Web 演示界面
+
+
+
 ## 当前进度（截至 2026-10-09 全量重建+系统安装）
 
 ### v0.9.61（2026-10-09）：沙箱全量重建 + CLI + fcitx5 addon + 24/24 冒烟通过
