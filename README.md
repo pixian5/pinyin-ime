@@ -1,6 +1,77 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-09 v0.9.68）
+## 当前进度（截至 2026-10-09 v0.9.69）
+
+### v0.9.69（2026-10-09）：全量从源码构建成功 — CLI + fcitx5 addon + 全功能验证
+
+**核心成果：在 openEuler 22.03 aarch64 上从零完整构建，所有功能验证通过**
+
+**构建环境：**
+- 系统：openEuler 22.03 LTS aarch64
+- conda-forge 工具链：micromamba + GCC（清华 BFSU 镜像）
+- fcitx5：5.1.23（headless 模式）
+- libime：1.1.17（4-gram，KENLM_MAX_ORDER=4）
+- 数据：zh_CN.lm 34MB + sc.dict 4.3MB
+- 代理：mihomo 7890 端口（用于 download.fcitx-im.org 下载语言模型）
+- GitHub 源码：gh-proxy.com 镜像加速
+
+**构建产物：**
+| 文件 | 大小 | 说明 |
+|------|------|------|
+| cpp/build/pinyin_ime_cli | 750KB | CLI 前端 |
+| fcitx5-addon/build/libpinyinime.so | 831KB | fcitx5 输入法模块 |
+| zh_CN.lm | 34MB | 4-gram 语言模型 |
+| sc.dict | 4.3MB | 拼音词典 |
+
+**功能验证：**
+- CLI 基本输入：nihao→你好、zhongguo→中国、beijingdaxue→北京大学 ✅
+- 多候选：nihao→你好/拟好/你毫/你号/你耗 ✅
+- 模糊音：cifan→吃饭（ci→chi）✅
+- 纠错：senme→什么（senme→shenme）✅
+- 双拼（小鹤）：nihc→你好 ✅
+- JSON 输出 ✅
+- 联想预测：你好→吗/的/不/了/。 ✅
+- 长句：woaixuexi→我爱学习、shanghaishi→上海市 ✅
+- Python smart.py：top1/top-k/后纠错 全部正常 ✅
+- 后纠错：在/再 混淆自动修正 ✅
+
+**测试结果：**
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| CLI综合 | 41/41 ✅ |
+| daily 40句 | 40/40 = 100% ✅ |
+| 性能基准 | 5 句/秒 ✅ |
+| 健康检查 | 14/15 ✅（E2E未构建） |
+
+**构建关键问题及解决：**
+1. LM 下载：`download.fcitx-im.org` 的 `lm_sc.arpa-20260629.tar.zst`（77MB）需通过代理下载，直连和 gh-proxy 均获取到不完整文件
+2. 解决方案：`wget -e https_proxy=http://127.0.0.1:7890` 下载，SHA256 校验通过
+
+**未来优化方向：**
+- [ ] 构建 E2E 测试（fcitx5 testfrontend）
+- [ ] 安装 fcitx5 到系统，实现桌面级输入法集成
+- [ ] 优化启动速度（冷启动延迟）
+- [ ] 扩展用户词典和自学习功能
+- [ ] 添加更多双拼方案支持
+- [ ] Web Demo 部署
+
+**待办事项：**
+- [ ] E2E 端到端测试构建（需 fcitx5 testfrontend）
+- [ ] fcitx5 桌面集成测试（Xvfb + DBus）
+- [ ] RPM 打包
+- [ ] S3 分发上传
+
+**所需依赖：**
+- 系统：cmake, ninja, make, gcc, g++
+- Python：pypinyin, pyyaml, jieba
+- conda-forge：gcc, gxx, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make
+- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm
+- 代理：mihomo 7890 端口（用于下载语言模型）
+
+---
+
+### v0.9.68（2026-10-09）：长句切分 + 频率boost增强 + pinyin→word映射
 
 ### v0.9.68（2026-10-09）：长句切分 + 频率boost增强 + pinyin→word映射
 
