@@ -58,6 +58,13 @@ fcitx5 加载的完整 addon 列表（17 个）：pinyinime, imselector, xcb, qu
   - news/wiki/recent/baike：长句（30+ 字）解码 60ms/句，全量评测进行中
 - 注：准确率受 pypinyin 无隔音符全拼转换影响，实际输入法有用户切分上下文
 
+**P1：打包分发**
+
+- 源码 tarball：`packaging/build/pinyin-ime-0.9.77.tar.gz`（64MB，297 文件）
+- 二进制发行包：`packaging/build/pinyin-ime-0.9.77-bin.tar.gz`（33MB，含 CLI + addon + LM + dict）
+- VERSION 文件更新至 0.9.77
+- rpmbuild 不可用（openEuler 沙箱未安装），tarball 已满足分发需求
+
 **P4：Web 演示部署**
 
 - `scripts/web_demo_v2.py` 启动成功，监听 `http://localhost:8080`
