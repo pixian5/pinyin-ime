@@ -5203,3 +5203,46 @@ xbz/pinyin-ime/v0.9.49/
 测试链路：`XTest按键 → XIM协议 → fcitx5 5.1.23 → pinyinime引擎 → 中文commit`
 
 可视化报告：`screenshots/xim-test-report.png`
+
+## v0.9.74 — 系统级安装 + 真实应用验证
+
+### 重大突破：真实 GUI 应用验证通过
+
+在 Python Tkinter 文本编辑器（真实 GUI 应用）中，通过 fcitx5 XIM 协议：
+- 按 `Ctrl+Space` 切换中文输入
+- 输入 `nihao` → 空格 → `你好` 上屏
+- 输入 `zhongguo` → 空格 → `中国` 上屏
+- 输入 `shurufa` → 空格 → `输入法` 上屏
+- 输入 `hanzi` → 空格 → `汉字` 上屏
+
+**这是真实应用中的中文输入，不是测试程序。**
+
+### 系统级安装
+
+#### 安装位置
+- `fcitx5` → `/usr/local/bin/fcitx5`
+- `pinyinime addon` → `/usr/local/lib/fcitx5/libpinyinime.so`
+- `addon 配置` → `/usr/local/share/fcitx5/addon/pinyinime.conf`
+- `语言模型` → `/usr/share/libime/libime/zh_CN.lm` (34MB)
+- `词典` → `/usr/share/libime/sc.dict` (4.3MB)
+
+#### 配置文件
+- `~/.config/fcitx5/profile` — 输入法配置（pinyinime 为默认）
+- `~/.config/fcitx5/config` — 全局配置（Ctrl+Space 切换）
+- `~/.config/fcitx5/conf/pinyinime.conf` — 拼音引擎配置
+- `/etc/profile.d/fcitx5.sh` — 环境变量（XMODIFIERS, GTK_IM_MODULE, QT_IM_MODULE）
+
+#### 自启动
+- `~/.xprofile` — X11 会话自启动
+- `~/.config/autostart/fcitx5.desktop` — 桌面自启动
+- `~/.config/systemd/user/fcitx5.service` — systemd user service
+
+### 使用方法
+
+```bash
+# 1. 启动输入法
+start-fcitx5.sh
+
+# 2. 在任何应用中按 Ctrl+Space 切换中文
+# 3. 输入拼音，空格确认
+```
