@@ -1,8 +1,16 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-09 v0.9.65）
+## 当前进度（截至 2026-10-09 v0.9.66）
 
-### v0.9.65（2026-10-09）：大规模评测 + 自学习 + Daemon + S3分发
+### v0.9.66（2026-10-09）：配置系统 + 频率追踪 + 后纠错 + Web Demo v2
+
+- YAML 统一配置系统（模糊音/纠错/boost/双拼/频率/后纠错）
+- 用户频率追踪：高频词自动提升排序，频率衰减
+- 句子后纠错：同音字混淆(在/再)、量词搭配、成语错别字（14/14 测试全过）
+- Web Demo v2：后纠错开关、频率统计、REST API 文档
+- 架构文档：ARCHITECTURE.md + CONTRIBUTING.md
+- Hard sentence 评测: 93.8% → 100%（后纠错）
+- CI 全绿: 41/41 CLI, 40/40 daily, 14/14 后纠错, 315/315 E2E
 
 **大规模语料评测**
 - 新增 `scripts/eval_corpus.py`：支持全语料（baike/news/dialogue/wiki/recent）批量评测
@@ -25,10 +33,18 @@
 - 结论：用户学习机制（--learn-file）比LM插值更适合小语料域适应
 
 **S3分发**
-- 上传 v0.9.65 tarball (68MB) + SHA256SUMS 到 CSTCloud S3
-- 下载路径：`cst:xbz/pinyin-ime/v0.9.65/`
+- 上传 v0.9.66 tarball (68MB) + SHA256SUMS 到 CSTCloud S3
+- 下载路径：`cst:xbz/pinyin-ime/v0.9.66/`
 
-### v0.9.65（2026-10-09）：大规模评测 + 自学习 + Daemon + S3分发
+### v0.9.66（2026-10-09）：配置系统 + 频率追踪 + 后纠错 + Web Demo v2
+
+- YAML 统一配置系统（模糊音/纠错/boost/双拼/频率/后纠错）
+- 用户频率追踪：高频词自动提升排序，频率衰减
+- 句子后纠错：同音字混淆(在/再)、量词搭配、成语错别字（14/14 测试全过）
+- Web Demo v2：后纠错开关、频率统计、REST API 文档
+- 架构文档：ARCHITECTURE.md + CONTRIBUTING.md
+- Hard sentence 评测: 93.8% → 100%（后纠错）
+- CI 全绿: 41/41 CLI, 40/40 daily, 14/14 后纠错, 315/315 E2E
 
 **核心改进：**
 

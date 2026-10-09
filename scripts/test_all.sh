@@ -190,3 +190,46 @@ else
     echo "========================================"
     exit 1
 fi
+
+# === 后纠错测试 ===
+echo ""
+echo "【5】后纠错测试:"
+CORRECT_PASS=0
+CORRECT_TOTAL=0
+
+test_correct() {
+    local input="$1" expected="$2"
+    CORRECT_TOTAL=$((CORRECT_TOTAL + 1))
+    got=$(python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+from post_corrector import PostCorrector
+c = PostCorrector()
+print(c.correct('$input'))
+" 2>/dev/null)
+    if [ "$got" = "$expected" ]; then
+        CORRECT_PASS=$((CORRECT_PASS + 1))
+    else
+        echo "  ❌ '$input' → '$got' (期望: '$expected')"
+    fi
+}
+
+test_correct "这个问题需要在研究" "这个问题需要再研究"
+test_correct "在试一次" "再试一次"
+test_correct "在是一次" "再试一次"
+test_correct "在家里看书" "在家里看书"
+test_correct "现在家里" "现在家里"
+test_correct "反映很快" "反应很快"
+test_correct "反应情况" "反映情况"
+test_correct "跑的很快" "跑得很快"
+test_correct "一支猫" "一只猫"
+test_correct "一只笔" "一支笔"
+test_correct "按步就班" "按部就班"
+test_correct "一股作气" "一鼓作气"
+test_correct "再接再励" "再接再厉"
+test_correct "穿流不息" "川流不息"
+
+if [ $CORRECT_PASS -eq $CORRECT_TOTAL ]; then
+    echo "  ✅ $CORRECT_PASS/$CORRECT_TOTAL"
+else
+    echo "  ❌ $CORRECT_PASS/$CORRECT_TOTAL"
+fi

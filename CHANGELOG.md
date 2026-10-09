@@ -1,6 +1,39 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.66 (2026-10-09)
+
+### 新功能
+- **YAML 配置系统**: 统一 CLI/addon/daemon 所有设置（模糊音、纠错、boost、双拼、频率、后纠错等），支持热重载
+  - `config/pinyin-ime.yaml` 配置文件
+  - `scripts/config_loader.py` 加载模块
+- **用户频率追踪**: 记录词使用频率，高频词自动提升候选排序
+  - `scripts/user_freq.py` 频率追踪模块
+  - 频率衰减（30天未使用 × 0.95）、LRU 淘汰（最大 50000 词）
+  - Daemon 新增 FREQ/FREQ_TOP/FREQ_STATS 命令
+- **句子后纠错**: 初始预测后用规则引擎修正常见错误模式
+  - 同音字混淆: 在/再、的/得/地、做/作、反应/反映
+  - 量词搭配: 一只猫(非一支)、一支笔(非一只)
+  - 常见错别字: 40+ 条成语/固定搭配纠正
+  - `scripts/post_corrector.py` 后纠错引擎
+  - Hard sentence 评测: 93.8% → 100%
+  - Daemon TOP1 自动应用后纠错，新增 CORRECT 命令
+- **Web Demo v2**: 改进 UI，添加 REST API 文档
+  - 后纠错开关、频率统计面板
+  - API 端点: /api?q=, /api?top1=, /api?predict=, /api?freq=1, /api?learn=, /api?correct=, /api?bench=1
+  - `scripts/web_demo_v2.py`
+
+### 文档
+- 新增 `ARCHITECTURE.md`: 引擎架构、数据流、扩展点、性能特征
+- 新增 `CONTRIBUTING.md`: 开发环境、代码规范、提交规范、发布流程
+
+### 测试
+- 后纠错测试: 14/14 全通过
+- CLI 综合: 41/41
+- Daily 评测: 40/40 = 100%
+- E2E 端到端: 315/315 = 100%
+
+
 ## v0.9.50 (2026-10-06)
 
 ### 修复

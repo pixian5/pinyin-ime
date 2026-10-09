@@ -1,0 +1,99 @@
+# pinyin-ime 配置文件 v0.9.66
+# 路径: ~/.config/pinyin-ime/config.yaml (用户) 或 /etc/pinyin-ime/config.yaml (全局)
+# 用户配置优先于全局配置
+
+# === 基本设置 ===
+basic:
+  # 候选词数量
+  nbest: 45
+  # 每页候选数
+  page_size: 9
+  # 数据目录（系统LM+词典）
+  data_dir: "/usr/share/libime"
+  # 用户数据目录（学习历史+用户词典）
+  user_data_dir: "~/.local/share/pinyin-ime"
+
+# === 模糊音 ===
+fuzzy:
+  # 启用模糊音
+  enabled: false
+  # 平翘舌: z↔zh, c↔ch, s↔sh
+  z_zh: true
+  c_ch: true
+  s_sh: true
+  # 前后鼻音: an↔ang, en↔eng, in↔ing
+  an_ang: true
+  en_eng: true
+  in_ing: true
+  # 其他
+  ian_iang: false
+  uan_uang: false
+  # 声母混淆: n↔l, f↔h, l↔r
+  n_l: false
+  f_h: false
+  l_r: false
+
+# === 拼音纠错 ===
+correction:
+  # 启用纠错
+  enabled: false
+  # 键盘邻近键纠错
+  keyboard_adjacent: true
+  # 常见拼写错误自动纠正
+  common_typos: true
+
+# === 双拼 ===
+shuangpin:
+  # 启用双拼
+  enabled: false
+  # 双拼方案: xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb
+  scheme: "xiaohe"
+
+# === 简拼 ===
+abbreviation:
+  # 启用简拼（首字母输入）
+  enabled: true
+  # 简拼boost：将完整拼音匹配的候选提升到前面
+  boost: true
+
+# === 自学习 ===
+learning:
+  # 启用自学习（选词上屏自动造词）
+  enabled: true
+  # 用户语言模型权重（越大越偏向用户历史）
+  history_weight: 1.0
+  # 自动学习阈值：同一词被选择N次后加入用户词典
+  auto_learn_threshold: 3
+  # 用户词典最大条目数
+  max_user_dict_entries: 10000
+
+# === 用户频率 ===
+frequency:
+  # 启用用户频率追踪
+  enabled: true
+  # 频率文件路径
+  freq_file: "~/.local/share/pinyin-ime/user.freq"
+  # 频率衰减因子（0-1，越大衰减越慢）
+  decay_factor: 0.95
+  # 高频词boost权重
+  boost_weight: 2.0
+
+# === 后纠错 ===
+post_correction:
+  # 启用句子后纠错
+  enabled: true
+  # 同音字混淆纠正
+  homophone_fix: true
+  # 量词搭配纠正
+  measure_word_fix: true
+  # 常见错别字纠正
+  common_mistake_fix: true
+
+# === 性能 ===
+performance:
+  # 预加载模型（daemon模式）
+  preload: true
+  # 批量模式超时（秒）
+  batch_timeout: 120
+  # 单次请求超时（秒）
+  request_timeout: 10

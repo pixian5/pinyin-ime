@@ -69,6 +69,8 @@ class PinyinIMEDaemon:
         
         self.running = False
         self.request_count = 0
+        self.freq_tracker = UserFreqTracker() if UserFreqTracker else None
+        self.corrector = PostCorrector() if PostCorrector else None
         self.start_time = 0
         self.env = get_env()
     
@@ -232,10 +234,42 @@ class PinyinIMEDaemon:
                     conn.sendall(f"ERROR: {e}\n".encode())
             else:
                 conn.sendall(b"ERROR: LEARN requires pinyin<TAB>chinese\n")
+        elif cmd == "CORRECT":
+            # CORRECT <text> — apply post-correction to text
+            if self.corrector and arg:
+                corrected = self.corrector.correct(arg)
+                conn.sendall(f"{corrected}\n".encode())
+            else:
+                conn.sendall(b"ERROR: No corrector\n")
+        elif cmd == "FREQ":
+            # FREQ <word> — record word usage
+            if self.freq_tracker and arg:
+                self.freq_tracker.record(arg)
+                conn.sendall(b"OK\n")
+            else:
+                conn.sendall(b"ERROR: No freq tracker\n")
+        elif cmd == "FREQ_TOP":
+            # FREQ_TOP [N] — top N frequent words
+            if self.freq_tracker:
+                n = int(arg) if arg else 20
+                top = self.freq_tracker.top_words(n)
+                lines = [f"{w}\t{c}" for w, c in top]
+                conn.sendall(("\n".join(lines) + "\n").encode())
+            else:
+                conn.sendall(b"ERROR: No freq tracker\n")
+        elif cmd == "FREQ_STATS":
+            if self.freq_tracker:
+                import json
+                stats = self.freq_tracker.stats()
+                conn.sendall((json.dumps(stats, ensure_ascii=False) + "\n").encode())
+            else:
+                conn.sendall(b"ERROR: No freq tracker\n")
         else:
             conn.sendall(f"ERROR: Unknown command {cmd}\n".encode())
     
     def cleanup(self):
+        if self.freq_tracker:
+            self.freq_tracker.save()
         for p in [self.socket_path, PID_FILE]:
             if os.path.exists(p):
                 try:
