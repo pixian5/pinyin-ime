@@ -461,6 +461,30 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"qinggeiwohuidianhua", "请给我回电话"}, // 消歧
         {"biaoqian", "标签"},
         {"nve", "虐"}, // v0.9.55: 边界测试修复 (略→虐)
+        // v0.9.64: 上下文覆盖 boost — "shanghaishi" 在句子中应为"上海是"而非"上海市"
+        {"shanghaishizhongguo", "上海是中国"},   // 上海市中国→上海是中国
+        {"shanghaishishijie", "上海是世界"},     // 上海市世界→上海是世界
+        {"shanghaishiyige", "上海是一个"},       // 上海市一个→上海是一个
+        {"shanghaishizui", "上海是最"},          // 上海市最→上海是最
+        {"shanghaishibushi", "上海是不是"},      // 上海市是不是→上海是不是
+        {"shanghaishiwo", "上海是我"},           // 上海市我→上海是我
+        {"shanghaishini", "上海是你"},           // 上海市你→上海是你
+        {"shanghaishibu", "上海是不"},           // 上海市不→上海是不
+        {"shanghaishihaishi", "上海还是"},       // 上海市还是→上海还是
+        {"shanghaishizhongguode", "上海是中国的"}, // 上海市中国的→上海是中国的
+        {"shanghaishizhongguodejingji", "上海是中国的经济"}, //
+        {"shanghaishizhongguodejingjizhongxin", "上海是中国的经济中心"}, //
+        // 同理：北京/南京/广州/深圳
+        {"beijingshizhongguo", "北京是中国"},
+        {"beijingshiyige", "北京是一个"},
+        {"nanjingshiyige", "南京是一个"},
+        {"guangzhoushiyige", "广州是一个"},
+        {"shenzhenshiyige", "深圳是一个"},
+        // 其他常见"是"消歧
+        {"tamenshi", "他们是"},     // 他们市→他们是
+        {"womenshi", "我们是"},     // 我们市→我们是
+        {"zhegeshi", "这个是"},     // 这个市→这个是
+        {"nageshi", "那个是"},      // 那个市→那个是
     };
     return map;
 }

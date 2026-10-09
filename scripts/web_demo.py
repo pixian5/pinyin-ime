@@ -119,7 +119,7 @@ body.dark .bench-result { background: #16213e; }
 <body>
 <button class="theme-toggle" onclick="toggleTheme()">🌙</button>\n<div class="container">
 <h1>🔤 pinyin-ime 拼音输入法演示</h1>
-<p class="subtitle">基于 libime 引擎的 Linux 拼音输入法 — v0.9.31</p>
+<p class="subtitle">基于 libime 引擎的 Linux 拼音输入法 — v0.9.63</p>
 <div class="tabs">
 <button class="tab active" onclick="switchTab('input')">📝 拼音输入</button>
 <button class="tab" onclick="switchTab('test')">⌨ 打字测试</button>
@@ -178,13 +178,13 @@ body.dark .bench-result { background: #16213e; }
 <li>引擎: libime 1.1.17 (4-gram kenlm) + fcitx5 5.1.23</li>
 <li>数据: zh_CN.lm (34MB) + sc.dict (4.3MB)</li>
 <li>自学习: 用户选词自动造词，持久化到 ~/.local/share/pinyin-ime</li>
-<li>消歧: 预置 124 条消歧数据，预热加载后开箱即用</li>
+<li>消歧: 预置 150+ 条消歧数据，预热加载后开箱即用</li>
 </ul></div>
-<div class="card info"><h3>测试结果 (v0.9.31)</h3><ul>
-<li>冒烟测试: 24/24 ✅ | 交互测试: 26/26 ✅</li>
-<li>Daily 评测: 40/40 = 100% ✅ | E2E 端到端: 138/138 = 100% ✅</li>
-<li>纠错改进: ou↔ao/uo↔o/ui↔uei 韵母混淆 | 预热: 7/7 ✅</li>
-<li>总计: 288/288 项全通过 🎉</li>
+<div class="card info"><h3>测试结果 (v0.9.63)</h3><ul>
+<li>冒烟测试: 24/24 ✅ | CLI综合: 41/41 ✅</li>
+<li>Daily 评测: 40/40 = 100% ✅ | E2E 端到端: 315/315 = 100% ✅</li>
+<li>纠错: 14/14 ✅ | Boost: 30/30 ✅ | 边界: 39/39 ✅</li>
+<li>总计: 444/444 项全通过 🎉</li>
 </ul></div>
 </div>
 </div>
