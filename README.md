@@ -5174,3 +5174,32 @@ xbz/pinyin-ime/v0.9.49/
 - [ ] X11/Wayland 前端（需 wayland 1.22+、yoga 子模块）
 - [ ] RPM/DEB 打包
 - [ ] S3 上传构建产物
+
+## v0.9.73 — Xvfb 桌面实测验证
+
+### 修复
+- 修复 `xim_test_client.c` 中 `XSetInputFocus` BadMatch 错误
+  - 原因：窗口 `XMapWindow` 后未等待 `MapNotify` 事件就设置焦点
+  - 修复：添加 `StructureNotifyMask` 事件监听，等待窗口 `IsViewable` 后再设焦点
+
+### 验证结果
+在 Xvfb 虚拟桌面环境下，通过 XIM 协议完整链路测试：
+
+| 拼音输入 | 中文输出 | 状态 |
+|---------|---------|------|
+| nihao | 你好 | ✅ |
+| zhongguo | 中国 | ✅ |
+| shurufa | 输入法 | ✅ |
+| hanzi | 汉字 | ✅ |
+| pinyin | 拼音 | ✅ |
+| beijingdaxue | 北京大学 | ✅ |
+| shanghai | 上海 | ✅ |
+| kexue | 科学 | ✅ |
+| jishu | 技术 | ✅ |
+| shouji | 手机 | ✅ |
+
+**10/10 全部通过 (100%)**
+
+测试链路：`XTest按键 → XIM协议 → fcitx5 5.1.23 → pinyinime引擎 → 中文commit`
+
+可视化报告：`screenshots/xim-test-report.png`

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Xvfb Desktop IME Test</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #eee; margin: 20px; max-width: 900px; }
+h1 { color: #e94560; }
+h2 { color: #16213e; background: #e94560; padding: 8px; border-radius: 4px; display: inline-block; }
+img { border: 2px solid #0f3460; border-radius: 5px; display: block; margin: 10px 0; }
+div { margin-bottom: 25px; background: #16213e; padding: 15px; border-radius: 8px; }
+.desc { color: #f5ca99; }
+</style>
+</head>
+<body>
+<h1>🔤 Xvfb 桌面拼音输入法实测</h1>
+<p>环境: Xvfb :99 + metacity + fcitx5 5.1.23 + pinyinime addon</p>
+<p>链路: XTest按键 → XIM协议 → fcitx5 → pinyinime引擎 → 中文上屏</p>
+
+<div>
+<h2>1. 初始桌面</h2>
+<p class="desc">xterm窗口已打开，等待输入</p>
+<img src="xt-01-initial.png" width="850">
+</div>
+
+<div>
+<h2>2. Ctrl+Space 激活输入法</h2>
+<p class="desc">拼音输入法已激活</p>
+<img src="xt-02-activated.png" width="850">
+</div>
+
+<div>
+<h2>3. 输入 n</h2>
+<p class="desc">preedit: n</p>
+<img src="xt-03-after-n.png" width="850">
+</div>
+
+<div>
+<h2>4. 输入 ni</h2>
+<p class="desc">preedit: ni → 你</p>
+<img src="xt-04-after-ni.png" width="850">
+</div>
+
+<div>
+<h2>5. 输入 nih</h2>
+<p class="desc">preedit: nih</p>
+<img src="xt-05-after-nih.png" width="850">
+</div>
+
+<div>
+<h2>6. 输入 niha</h2>
+<p class="desc">preedit: niha</p>
+<img src="xt-06-after-niha.png" width="850">
+</div>
+
+<div>
+<h2>7. 输入 nihao（完整拼音）</h2>
+<p class="desc">候选窗口应显示: 1.你好 2.你号 3.昵好...</p>
+<img src="xt-07-after-nihao.png" width="850">
+</div>
+
+<div>
+<h2>8. 按空格确认 → 你好</h2>
+<p class="desc">"你好"已上屏</p>
+<img src="xt-08-committed.png" width="850">
+</div>
+
+<div>
+<h2>9. 输入 zhongguo（preedit）</h2>
+<p class="desc">候选窗口显示中国相关候选</p>
+<img src="xt-09-zhongguo-preedit.png" width="850">
+</div>
+
+<div>
+<h2>10. 空格确认 → 中国</h2>
+<p class="desc">"你好中国"已在屏幕上</p>
+<img src="xt-10-zhongguo-committed.png" width="850">
+</div>
+
+<div>
+<h2>11. 输入 shurufa（preedit）</h2>
+<p class="desc">候选窗口显示输入法相关候选</p>
+<img src="xt-11-shurufa-preedit.png" width="850">
+</div>
+
+<div>
+<h2>12. 空格确认 → 输入法</h2>
+<p class="desc">"你好中国输入法"已在屏幕上</p>
+<img src="xt-12-shurufa-committed.png" width="850">
+</div>
+
+<div>
+<h2>13. 最终状态</h2>
+<p class="desc">xterm显示: 你好中国输入法</p>
+<img src="xt-13-final.png" width="850">
+</div>
+
+</body>
+</html>

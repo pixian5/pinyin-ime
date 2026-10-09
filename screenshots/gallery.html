@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Pinyin IME Visual Test Gallery</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #eee; margin: 20px; }
+h1 { color: #e94560; }
+h2 { color: #0f3460; background: #eee; padding: 5px; border-radius: 3px; }
+img { border: 2px solid #e94560; border-radius: 5px; max-width: 100%; }
+div { margin-bottom: 30px; }
+.desc { color: #f5ca99; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h1>🔤 Pinyin IME Visual Test — Xvfb Desktop Screenshots</h1>
+<p>Test: Ctrl+Space → n i h a o → Space → 你好</p>
+
+<div>
+<h2>1. Initial Desktop (before activation)</h2>
+<p class="desc">Xvfb :99 + metacity + fcitx5 + test window</p>
+<img src="vime-01-initial.png" width="800">
+</div>
+
+<div>
+<h2>2. After Ctrl+Space (IME Activated)</h2>
+<p class="desc">Pinyin input method activated</p>
+<img src="vime-02-activated.png" width="800">
+</div>
+
+<div>
+<h2>3. After typing 'n'</h2>
+<p class="desc">Preedit should show n</p>
+<img src="vime-03-1-after-n.png" width="800">
+</div>
+
+<div>
+<h2>4. After typing 'ni'</h2>
+<p class="desc">Preedit should show ni → 你</p>
+<img src="vime-03-2-after-i.png" width="800">
+</div>
+
+<div>
+<h2>5. After typing 'nih'</h2>
+<p class="desc">Preedit should show nih</p>
+<img src="vime-03-3-after-h.png" width="800">
+</div>
+
+<div>
+<h2>6. After typing 'niha'</h2>
+<p class="desc">Preedit should show niha</p>
+<img src="vime-03-4-after-a.png" width="800">
+</div>
+
+<div>
+<h2>7. After typing 'nihao' (full pinyin)</h2>
+<p class="desc">Candidate window should show 你好</p>
+<img src="vime-03-5-after-o.png" width="800">
+</div>
+
+<div>
+<h2>8. After Space (committed)</h2>
+<p class="desc">你好 should be committed to the window</p>
+<img src="vime-04-committed.png" width="800">
+</div>
+
+<div>
+<h2>9. Final state</h2>
+<p class="desc">Window after 5 seconds</p>
+<img src="vime-05-final.png" width="800">
+</div>
+
+</body>
+</html>

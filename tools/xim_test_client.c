@@ -168,8 +168,17 @@ int main(int argc, char **argv) {
     int screen = DefaultScreen(dpy);
     win = XCreateSimpleWindow(dpy, RootWindow(dpy, screen), 0, 0, 400, 200, 0,
                               BlackPixel(dpy, screen), WhitePixel(dpy, screen));
-    XSelectInput(dpy, win, KeyPressMask | FocusChangeMask);
+    XSelectInput(dpy, win, KeyPressMask | FocusChangeMask | StructureNotifyMask);
     XMapWindow(dpy, win);
+    XFlush(dpy);
+    for (int i = 0; i < 100; ++i) {
+        XEvent mev;
+        if (XCheckWindowEvent(dpy, win, StructureNotifyMask, &mev) && mev.type == MapNotify) break;
+        usleep(10000);
+    }
+    XWindowAttributes attr;
+    XGetWindowAttributes(dpy, win, &attr);
+    fprintf(stderr, "# Window mapped: viewable=%d map_state=%d\n", attr.map_state == IsViewable, attr.map_state);
 
     im = XOpenIM(dpy, NULL, NULL, NULL);
     if (!im) {
