@@ -1,12 +1,43 @@
 {
-  "version": "0.9.64",
-  "date": "2026-10-09",
-  "corpus": {
-    "daily":    {"sentences": 70,  "sent_acc": 98.6, "char_acc": 99.7},
-    "dialogue": {"sentences": 113, "sent_acc": 74.3, "char_acc": 95.4},
-    "news":     {"sentences": 200, "sent_acc": 38.5, "char_acc": 89.8},
-    "wiki":     {"sentences": 200, "sent_acc": 27.0, "char_acc": 77.7},
-    "baike":    {"sentences": 200, "sent_acc": 36.5, "char_acc": 86.3},
-    "recent":   {"sentences": 200, "sent_acc": 35.0, "char_acc": 86.4}
-  }
+    "version": "0.9.67",
+    "date": "2026-10-09",
+    "description": "CLI + post-correction (smart.py)",
+    "corpus": {
+        "daily": {
+            "sentences": 49,
+            "sent_acc": 100.0,
+            "char_acc": 100.0
+        },
+        "dialogue": {
+            "sentences": 113,
+            "sent_acc": 73.5,
+            "char_acc": 95.3
+        },
+        "news": {
+            "sentences": 200,
+            "sent_acc": 40.5,
+            "char_acc": 88.4
+        },
+        "wiki": {
+            "sentences": 200,
+            "sent_acc": 25.0,
+            "char_acc": 76.7
+        },
+        "baike": {
+            "sentences": 200,
+            "sent_acc": 35.5,
+            "char_acc": 86.5
+        },
+        "recent": {
+            "sentences": 200,
+            "sent_acc": 38.0,
+            "char_acc": 87.6
+        }
+    },
+    "improvement_vs_v0.9.66": {
+        "daily": "+2.0%",
+        "dialogue": "+0.9%",
+        "news": "+1.0%",
+        "baike": "+1.0%"
+    }
 }
