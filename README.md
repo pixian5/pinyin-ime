@@ -1,6 +1,66 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-09 v0.9.69）
+## 当前进度（截至 2026-10-09 v0.9.70）
+
+### v0.9.70（2026-10-09）：E2E 端到端测试构建成功 — 315/315 全通过
+
+**核心成果：fcitx5 E2E 打字测试从源码构建并运行，315/315 全通过**
+
+**E2E 构建：**
+- fcitx5-full 重新编译（启用 testing addons + server + keyboard）
+- E2E 测试二进制：`test/e2e_typing_test.cpp` → 723KB
+- 测试通过 fcitx5 真实 API：按键 → preedit → 候选 → commit
+
+**E2E 测试结果：315/315 = 100%**
+
+| 测试类别 | 数量 | 说明 |
+|---|---|---|
+| 基本输入 | 15 | nihao→你好, zhongguo→中国 等 |
+| 模糊音 | 6 | ci→chi, ze→zhe, l→n 等 |
+| 纠错 | 3 | senme→什么, shengri→生日 等 |
+| 简拼 | 2 | bjdx→北京大学, zg→中国 |
+| 常用词 | 12 | woaini→我爱你, pengyou→朋友 等 |
+| 句子 | 10 | woaixuexi→我爱学习 等 |
+| 长句 | 7 | woxianzaiyaochifanle→我现在要吃饭了 等 |
+| daily | 40 | 日常用语 |
+| weather | 5 | 天气相关 |
+| time | 8 | 时间相关 |
+| family | 8 | 家庭称谓 |
+| boost | 3 | 上下文 boost |
+| 消歧 | 多项 | 上下文覆盖 |
+| 其他 | ~196 | 各类场景 |
+
+**全量测试汇总：**
+| 测试 | 结果 |
+|---|---|
+| 冒烟 | 24/24 ✅ |
+| CLI综合 | 41/41 ✅ |
+| daily 40句 | 40/40 = 100% ✅ |
+| E2E端到端 | 315/315 = 100% ✅ |
+| 健康检查 | 14/15 ✅ |
+
+**未来优化方向：**
+- [ ] fcitx5 桌面集成（Xvfb + DBus 实际桌面环境）
+- [ ] RPM 打包 + tarball 分发
+- [ ] S3 分发上传
+- [ ] 优化启动速度
+- [ ] 扩展用户词典和自学习功能
+
+**待办事项：**
+- [ ] fcitx5 桌面集成测试（Xvfb + DBus）
+- [ ] RPM 打包
+- [ ] S3 分发上传
+
+**所需依赖：**
+- 系统：cmake, ninja, make, gcc, g++
+- Python：pypinyin, pyyaml, jieba
+- conda-forge：gcc, gxx, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, gettext, libuuid, cmake, ninja, pkg-config, make, expat, jsoncpp, iso-codes, nlohmann_json
+- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm
+- 代理：mihomo 7890 端口
+
+---
+
+### v0.9.69（2026-10-09）：全量从源码构建成功 — CLI + fcitx5 addon + 全功能验证
 
 ### v0.9.69（2026-10-09）：全量从源码构建成功 — CLI + fcitx5 addon + 全功能验证
 
