@@ -172,7 +172,7 @@ echo ""
 echo "--- 13. 拼音消歧 ---"
 check "xianbeijing→西安北京" "$(run xianbeijing)" "西安北京"
 check "xianyou→西安有" "$(run xianyou)" "西安有"
-check "xianshi→现实" "$(run xianshi)" "现实"
+check "xianshi→显示" "$(run xianshi)" "显示"
 check "xiandaishishiyong→现代史使用" "$(run xiandaishishiyong)" "现代史使用"
 check "xian→西安" "$(run xian)" "西安"
 

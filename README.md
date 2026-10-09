@@ -1,8 +1,34 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-09 v0.9.64）
+## 当前进度（截至 2026-10-09 v0.9.65）
 
-### v0.9.64（2026-10-09）：消歧100% + 桌面验证 + RPM打包
+### v0.9.65（2026-10-09）：大规模评测 + 自学习 + Daemon + S3分发
+
+**大规模语料评测**
+- 新增 `scripts/eval_corpus.py`：支持全语料（baike/news/dialogue/wiki/recent）批量评测
+- 建立回归基线：daily 98.6%、dialogue 74.3%、news 38.5%、wiki 27.0%、baike 36.5%、recent 35.0%
+- 保存基线数据 `scripts/eval_baseline.json`
+
+**自学习改进**
+- 新增 `scripts/auto_learn.py`：从评测失败中自动学习正确答案
+- 新增 `scripts/auto_learn_v2.py`：词级别学习，提取失败句中的词对添加到用户词典
+- 新增 `scripts/train_user_lm.py`：从语料训练用户语言模型
+- 验证：对话语料学习后准确率 74.3% → 88.5%（+14.2%）
+
+**持久化Daemon模式**
+- 新增 `scripts/pinyin_daemon.py`：Unix socket服务器，支持 TOP1/TOPK/BATCH/PREDICT/LEARN 命令
+- 新增 `scripts/pinyin_client.py`：Python客户端库，自动检测daemon或回退CLI
+- 支持编辑器和工具集成（vim/nvim LSP、emacs、自定义工具）
+
+**LM插值分析**
+- 分析系统LM vs 领域LM：小语料领域LM准确率远低于系统LM（78.6% vs 98.6%）
+- 结论：用户学习机制（--learn-file）比LM插值更适合小语料域适应
+
+**S3分发**
+- 上传 v0.9.65 tarball (68MB) + SHA256SUMS 到 CSTCloud S3
+- 下载路径：`cst:xbz/pinyin-ime/v0.9.65/`
+
+### v0.9.65（2026-10-09）：大规模评测 + 自学习 + Daemon + S3分发
 
 **核心改进：**
 

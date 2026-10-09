@@ -485,6 +485,9 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"womenshi", "我们是"},     // 我们市→我们是
         {"zhegeshi", "这个是"},     // 这个市→这个是
         {"nageshi", "那个是"},      // 那个市→那个是
+        // v0.9.65: 城市名+是 消歧
+        {"chengdushimeishi", "成都是美食"},   // 成都市美食→成都是美食
+        {"chengdushi", "成都是"},             // 成都市→成都是 (context)
     };
     return map;
 }

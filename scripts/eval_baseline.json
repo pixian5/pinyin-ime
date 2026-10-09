@@ -1,0 +1,12 @@
+{
+  "version": "0.9.64",
+  "date": "2026-10-09",
+  "corpus": {
+    "daily":    {"sentences": 70,  "sent_acc": 98.6, "char_acc": 99.7},
+    "dialogue": {"sentences": 113, "sent_acc": 74.3, "char_acc": 95.4},
+    "news":     {"sentences": 200, "sent_acc": 38.5, "char_acc": 89.8},
+    "wiki":     {"sentences": 200, "sent_acc": 27.0, "char_acc": 77.7},
+    "baike":    {"sentences": 200, "sent_acc": 36.5, "char_acc": 86.3},
+    "recent":   {"sentences": 200, "sent_acc": 35.0, "char_acc": 86.4}
+  }
+}
