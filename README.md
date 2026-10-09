@@ -61,12 +61,27 @@ fcitx5 加载的完整 addon 列表（17 个）：pinyinime, imselector, xcb, qu
   - baike.txt: 6129句，超长句解码超时（300s/进程），需 daemon 模式或并行化
 - 注：准确率受 pypinyin 无隔音符全拼转换影响，实际输入法有用户切分上下文。短句（daily 98.5%）接近完美，长句准确率低是因为连续全拼的切分组合爆炸——这是「无用户上下文的离线评测」的固有局限，不代表实际打字体验。
 
-**P1：打包分发**
+**P1：打包分发 + S3 上传**
 
 - 源码 tarball：`packaging/build/pinyin-ime-0.9.77.tar.gz`（64MB，297 文件）
 - 二进制发行包：`packaging/build/pinyin-ime-0.9.77-bin.tar.gz`（33MB，含 CLI + addon + LM + dict）
 - VERSION 文件更新至 0.9.77
 - rpmbuild 不可用（openEuler 沙箱未安装），tarball 已满足分发需求
+- **S3 上传成功**：`cst:xbz/pinyin-ime/v0.9.77/`（8 文件，136MB，25 秒上传完成）
+- 上传脚本：`scripts/upload_to_s3.sh`（`bash scripts/upload_to_s3.sh 0.9.77`）
+- 下载脚本已更新默认版本至 v0.9.77：`scripts/download_from_s3.sh`
+- INSTALL.md 已更新完整下载/校验/运行说明
+
+S3 产物清单：
+| 文件 | 大小 | SHA256 |
+|---|---|---|
+| pinyin-ime-0.9.77.tar.gz | 64MB | 0b7d837e... |
+| pinyin-ime-0.9.77-bin.tar.gz | 33MB | 6fa3fb76... |
+| pinyin_ime_cli_v0.9.77 | 750KB | 50c3ec0c... |
+| libpinyinime_v0.9.77.so | 831KB | 91f9acb7... |
+| fcitx5_v0.9.77 | 439KB | ddd3bfda... |
+| zh_CN.lm | 34MB | 3588b394... |
+| sc.dict | 4.3MB | 38b9ca9a... |
 
 **P4：Web 演示部署**
 

@@ -3,6 +3,7 @@
 ## 快速安装（从 S3 下载预构建产物）
 
 > 适用于 openEuler 22.03 aarch64，已预构建好的二进制可直接下载使用。
+> 最新版本：**v0.9.77**（含 fcitx5 桌面集成 + Web 演示 + 纠错模块）
 
 ### 1. 安装 rclone
 
@@ -31,30 +32,86 @@ CONF
 ### 3. 下载构建产物
 
 ```bash
-rclone copy cst:xbz/pinyin-ime/v0.9.49/ ./pinyin-ime/ \
+# 下载全部文件（源码包 + 二进制包 + CLI + addon + fcitx5 + LM + dict + SHA256）
+rclone copy cst:xbz/pinyin-ime/v0.9.77/ ./pinyin-ime/ \
     --user-agent "rclone/1.75.1 pinyin-ime"
+
+# 或使用一键下载脚本
+bash scripts/download_from_s3.sh cst v0.9.77
 ```
 
-### 4. 运行
+### 4. 校验完整性
 
 ```bash
 cd pinyin-ime
-# 需要 libime 和 fcitx5 的运行时库
-# 如从源码构建，见下方"从源码构建"章节
-export LD_LIBRARY_PATH=/path/to/libime/lib:/path/to/fcitx5/lib
-echo "nihao" | bin/pinyin_ime_cli data/zh_CN.lm data/sc.dict
-# 输出: 你好
+sha256sum -c SHA256SUMS_v0.9.77
 ```
 
-### 产物清单
+### 5. 运行
+
+```bash
+# 方式一：CLI 命令行（需要 libime 运行时库）
+export LD_LIBRARY_PATH=/path/to/libime/lib:/path/to/fcitx5/lib
+echo "nihao" | pinyin_ime_cli_v0.9.77 zh_CN.lm sc.dict
+# 输出: 你好
+
+# 方式二：解压二进制发行包（含 CLI + addon + LM + dict）
+tar xzf pinyin-ime-0.9.77-bin.tar.gz
+cd pinyin-ime-0.9.77-bin
+echo "zhongguo" | bin/pinyin_ime_cli share/libime/zh_CN.lm share/libime/sc.dict
+# 输出: 中国
+
+# 方式三：fcitx5 桌面输入法（需要 fcitx5 运行时 + X11 环境）
+# 将 addon 放入 fcitx5 addon 目录，配置 DataDir 指向 LM/dict 所在路径
+cp libpinyinime_v0.9.77.so ~/.local/share/fcitx5/addon/  # 或系统 addon 目录
+# 在 fcitx5 配置中添加 pinyinime 输入法
+
+# 方式四：Web 演示
+tar xzf pinyin-ime-0.9.77.tar.gz
+cd pinyin-ime
+python3 scripts/web_demo_v2.py --port 8080
+# 浏览器访问 http://localhost:8080
+```
+
+### 产物清单（v0.9.77）
 
 | 文件 | 大小 | 说明 |
 |------|------|------|
-| bin/pinyin_ime_cli | 765KB | CLI 前端 |
-| addon/libpinyinime.so | 848KB | fcitx5 输入法模块 |
-| data/zh_CN.lm | 33MB | 4-gram 语言模型 |
-| data/sc.dict | 4.3MB | 拼音词典 |
-| data/extb.dict | 152KB | 扩展词典 |
+| pinyin-ime-0.9.77.tar.gz | 64MB | 源码 tarball（297 文件） |
+| pinyin-ime-0.9.77-bin.tar.gz | 33MB | 二进制发行包（CLI + addon + LM + dict） |
+| pinyin_ime_cli_v0.9.77 | 750KB | CLI 前端二进制 |
+| libpinyinime_v0.9.77.so | 831KB | fcitx5 输入法 addon |
+| fcitx5_v0.9.77 | 439KB | fcitx5 服务（X11+DBus+Server 全功能） |
+| zh_CN.lm | 34MB | 4-gram 语言模型 |
+| sc.dict | 4.3MB | 拼音词典 |
+| SHA256SUMS_v0.9.77 | 595B | SHA256 校验文件 |
+
+### S3 路径结构
+
+```
+cst:xbz/pinyin-ime/
+  ├── v0.9.49/    （历史版本）
+  ├── v0.9.65/
+  ├── v0.9.66/
+  ├── v0.9.68/
+  ├── v0.9.71/
+  └── v0.9.77/    （最新版本）
+      ├── pinyin-ime-0.9.77.tar.gz        # 源码包
+      ├── pinyin-ime-0.9.77-bin.tar.gz    # 二进制包
+      ├── pinyin_ime_cli_v0.9.77          # CLI
+      ├── libpinyinime_v0.9.77.so         # fcitx5 addon
+      ├── fcitx5_v0.9.77                  # fcitx5 服务
+      ├── zh_CN.lm                        # 语言模型
+      ├── sc.dict                         # 词典
+      └── SHA256SUMS_v0.9.77             # 校验文件
+```
+
+### 上传新版本到 S3
+
+```bash
+# 构建完成后上传
+bash scripts/upload_to_s3.sh 0.9.77
+```
 
 ---
 

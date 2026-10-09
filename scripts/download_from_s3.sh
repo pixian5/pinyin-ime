@@ -4,7 +4,7 @@
 set -e
 
 DEST="${1:-./pinyin-ime-artifacts}"
-VERSION="${2:-v0.9.49}"
+VERSION="${2:-v0.9.77}"
 BUCKET="xbz"
 S3_PATH="cst:${BUCKET}/pinyin-ime/${VERSION}/"
 
