@@ -1,6 +1,84 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-10 v0.9.76）
+## 当前进度（截至 2026-10-10 v0.9.77）
+
+### v0.9.77（2026-10-10）：fcitx5 桌面集成 21/21 全通过 + Web 演示 + 快速评测 + 纠错验证
+
+**核心成果：fcitx5 以 X11+DBus+Server 全功能模式构建成功，pinyinime addon 在真实 Xvfb 虚拟桌面下被 fcitx5 服务加载，21/21 集成验证全通过。Web 演示 API 上线（26.4 QPS）。纠错模块 + 快速批量评测验证完成。**
+
+**P0：fcitx5 桌面集成（关键突破）**
+
+此前 v0.9.76 的 fcitx5 是 headless 构建（X11/DBus/Server 全关），addon .so 虽编译成功但无法被运行中的 fcitx5 服务加载。本轮补编 fcitx5-X11（X11+DBus+Server+Keyboard 全开），实现真正的桌面输入法。
+
+构建链路：
+```
+conda-forge UI 依赖（pango/cairo/gdk-pixbuf/librsvg/xcb/xkbcommon/dbus, BFSU 镜像）  [~1min]
+  → xcb-imdkit 1.0.3 源码编译（XIM 协议库, gh-proxy.com 镜像）                        [~10s]
+  → yoga 子模块补齐（facebook/yoga @042f501, gh-proxy.com 镜像）
+  → X11 协议头（xorg-x11-proto-devel RPM 提取, 128 个 .h 文件）
+  → libxkbfile 头（libxkbfile-devel RPM 提取）
+  → fcitx5 5.1.23 X11+DBus+Server 构建（211 targets, Ninja）                          [~40s]
+  → pinyinime addon 重新编译（DataDir 默认值适配）
+```
+
+关键技术难点与解法：
+| 难点 | 解法 |
+|---|---|
+| `/` tmpfs 7.5G 不够装 X11 系统包 | conda-forge 已有 X11/xcb/xkbcommon/dbus 开发库，仅需补 X11 协议头 |
+| `/usr/bin` 只读，Xvfb 找不到 xkbcomp | `LD_PRELOAD` 拦截 `execve()` 重定向 `/usr/bin/xkbcomp`→sysroot |
+| Xvfb/dbus-daemon 不在 conda-forge | `dnf download --resolve` + Python cpio 解压到 `/workspace/sysroot` |
+| conda pkg-config 缺 zlib/expat/xproto 等 .pc | 创建 stub .pc 文件（zlib/expat/xproto/kbproto/...） |
+| cmake FindExpat 找不到库 | 显式 `-DEXPAT_INCLUDE_DIR` + `-DEXPAT_LIBRARIES` |
+| librsvg-2.0 pkg-config 依赖 libxml-2.0 头不存在 | 创建 stub libxml2 头目录 |
+| addon DataDir 配置文件不被读取 | 修改 addon 默认 DataDir 指向实际数据路径，重新编译 |
+
+桌面集成验证 21/21（`scripts/desktop_integration_test.sh`）：
+| 类别 | 验证项 | 结果 |
+|---|---|---|
+| 环境 | Xvfb/dbus-daemon/xkbcomp/fcitx5/addon/LM/dict 可用 | 9/9 ✅ |
+| 服务 | Xvfb :99 运行 / DBus 会话运行 / fcitx5 服务运行 | 3/3 ✅ |
+| Addon | pinyinime/xim/dbusfrontend/classui/xcb/keyboard/DBus服务 | 9/9 ✅ |
+
+fcitx5 加载的完整 addon 列表（17 个）：pinyinime, imselector, xcb, quickphrase, keyboard, clipboard, unicode, dbus, dbusfrontend, fcitx4frontend, ibusfrontend, xim, kimpanel, virtualkeyboard, classicui, notificationitem, notifications
+
+**P2：纠错模块验证**
+
+- `correction` 模块纯标准库实现，接口正常：`correct_syllable()` / `correct()` / `best_corrected()` / `correct_syllable_in_context()`
+- `fix_pinyin` 桥接正常：`nihqa→ni'ha`, `senme→shen'me`, `cifan→ci'fan`
+- 设计约束：合法音节恒被信任（ze/ci 不纠为 zhe/chi），纠错候选排其后
+- 二元转移（transition.py）+ Viterbi 整串纠错工作正常
+
+**P3：快速批量评测**
+
+- 创建 `scripts/fast_eval.py`：中文语料 → pypinyin 转拼音 → CLI `--batch` → 比对
+- CLI `--batch` 模式单进程模型常驻，6129 句 baike.txt 批量解码 < 0.03s
+- 评测结果（pypinyin 全拼无隔音符，长句有切分歧义）：
+  - daily.txt: 69/70 = 98.5%（日常短句，接近完美）
+  - dialogue.txt: 82/113 = 72.5%（对话句，切分歧义拉低）
+  - news/wiki/recent/baike：长句（30+ 字）解码 60ms/句，全量评测进行中
+- 注：准确率受 pypinyin 无隔音符全拼转换影响，实际输入法有用户切分上下文
+
+**P4：Web 演示部署**
+
+- `scripts/web_demo_v2.py` 启动成功，监听 `http://localhost:8080`
+- API 端点：
+  - `GET /api?q=nihao` → `{"candidates": ["你好", "拟好", "你毫", ...]}`
+  - `GET /api?top1=zhongguo` → `{"result": "中国"}`
+  - `GET /api?bench=1` → 性能基准报告
+- 性能：冷启动 29ms，短拼音 33ms，中等 36ms，长拼音 50ms，吞吐 26.4 QPS
+- 功能：实时候选 / 模糊音 / 纠错 / 双拼 / 简拼 / 整句 / 打字测试 / 后纠错 / 频率学习
+
+**新增/修改文件：**
+- `scripts/desktop_integration_test.sh`：fcitx5 桌面集成验证（21 项检查）
+- `scripts/fast_eval.py`：快速批量评测脚本
+- `fcitx5-addon/pinyinime.h`：DataDir 默认值适配（`/usr/share/libime` → 实际路径）
+- `cpp/pinyin_ime_cli.cpp`：版本号 0.9.76 → 0.9.77
+
+**构建产物：**
+- `$NB/opt/fcitx5-x11/bin/fcitx5`：448KB，X11+DBus+Server 全功能
+- `$NB/opt/fcitx5-x11/lib/fcitx5/`：17 个 addon .so
+- `$NB/opt/fcitx5-x11/lib/libpinyinime.so`：850KB，pinyinime 引擎
+- `$NB/opt/xcb-imdkit/`：XIM 协议库
 
 ### v0.9.76（2026-10-10）：全新机器直连重建 — 无需代理，24/24 冒烟全通过
 

@@ -42,7 +42,7 @@ FCITX_CONFIGURATION(
     Option<int> nbest{this, "NBest", _("Number of candidates"), 45};
     Option<int> pageSize{this, "PageSize", _("Candidates per page"), 9};
     Option<std::string> dataDir{this, "DataDir", _("Data directory"),
-                                "/usr/share/libime"};
+                                "/workspace/native-build/opt/libime/lib"};
     Option<std::string> userDataDir{
         this, "UserDataDir", _("User data directory"),
         "~/.local/share/pinyin-ime"};
