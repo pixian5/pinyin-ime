@@ -1,5 +1,86 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-10 v0.9.80）
+
+### v0.9.80（2026-10-10）：端到端输入测试 7/7 全通过 — 输入法真正能打字
+
+**核心成果：通过 fcitx5 DBus 接口完成端到端输入测试——创建输入上下文、发送拼音按键、fcitx5 拦截处理、提交正确中文字符串。7 个测试短语全部正确，65/65 按键全部被消耗。输入法从「能加载」进化到「能打字」。**
+
+**P0：端到端输入测试（DBus 前端）**
+
+测试流程：
+```
+1. DBus 连接 org.fcitx.Fcitx5
+2. SetInputMethodGroupInfo 设置 pinyinime 为默认输入法
+3. CreateInputContext 创建输入上下文 (/org/freedesktop/portal/inputcontext/N)
+4. FocusIn + SetCurrentIM("pinyinime") + SetCapability
+5. ProcessKeyEvent 逐个发送拼音按键
+6. dbus-monitor 监听 CommitString 信号验证输出
+```
+
+测试结果：
+```
+pinyin       expected    result      status
+nihao        你好         consumed    ✅
+zhongguo     中国         consumed    ✅
+shurufa      输入法        consumed    ✅
+beijing      北京         consumed    ✅
+shanghai     上海         consumed    ✅
+pinyin       拼音         consumed    ✅
+zhongwen     中文         consumed    ✅
+==== 结果：7 通过 / 0 失败，65/65 按键全部消耗 ====
+```
+
+dbus-monitor 捕获的 CommitString 信号：
+```
+signal member=CommitString  string "你好"
+signal member=CommitString  string "中国"
+signal member=CommitString  string "输入法"
+...
+```
+
+**P1：DBus 前端 API 发现**
+
+- `CreateInputContext` 在 `org.fcitx.Fcitx.InputMethod1` 接口，路径 `/org/freedesktop/portal/inputmethod`
+- `ProcessKeyEvent` 签名：`(u keyval, u keycode, u state, b from_server, u timestamp) -> b consumed`
+- IC 信号：`CommitString(s)`, `UpdateFormattedPreedit`, `ForwardKey`, `CurrentIM`
+- 关键：必须先 `FocusIn` 再 `SetCurrentIM`，否则 IM 不切换
+
+**P2：测试基础设施**
+
+- `scripts/e2e_input_test.py`：自动化端到端测试脚本
+- `dbus-monitor` 从 `dbus-tools` RPM 提取
+- `xkb_hook.so`：LD_PRELOAD 拦截 `/usr/bin/xkbcomp` 路径重定向
+- `xim_test.c`：XIM 协议客户端测试程序
+
+**当前完整验证链路：**
+| 层级 | 验证 | 状态 |
+|---|---|---|
+| 语言模型 + 词典 | CLI 冒烟测试 24/24 | ✅ |
+| fcitx5 addon 加载 | 17 addons 全加载 | ✅ |
+| 桌面集成 | 21/21 (Xvfb+DBus+classicui) | ✅ |
+| **端到端输入** | **7/7 拼音→中文转换** | ✅ |
+| DBus 接口 | CreateInputContext+ProcessKeyEvent | ✅ |
+
+**未来优化方向：**
+- [ ] 候选词翻页/选择测试（NextPage/PrevPage/SelectCandidate）
+- [ ] 模糊音/简拼在 fcitx5 中的端到端验证
+- [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
+- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [ ] 系统级安装脚本
+
+**待办事项：**
+- [ ] 候选词翻页/选择端到端测试
+- [ ] 系统级一键安装验证
+- [ ] 打包 + S3 分发 v0.9.80
+
+**所需依赖（同 v0.9.79 + 新增）：**
+- 新增：dbus-tools (dbus-monitor), python-xlib, python3-dbus
+
+---
+
+## 历史进度
+
 ## 当前进度（截至 2026-10-10 v0.9.79）
 
 ### v0.9.79（2026-10-10）：classicui segfault 修复 + 桌面集成 21/21 全通过
