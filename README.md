@@ -1,5 +1,85 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-10 v0.9.82）
+
+### v0.9.82（2026-10-10）：SelectCandidate + 简拼测试 6/6 通过 + 系统级安装脚本
+
+**核心成果：精确选词、简拼转换、翻页选择全部验证通过。新增系统级一键安装脚本，支持 openEuler/CentOS/RHEL/Ubuntu/Debian。**
+
+**P0：SelectCandidate + 简拼测试（6项）**
+
+| 测试项 | 描述 | 结果 |
+|--------|------|------|
+| Test 1 | SelectCandidate 精确选词（选第2候选） | ✅ |
+| Test 2 | 简拼 zg → 中国 | ✅ |
+| Test 3 | 简拼 shjf → 世间法 | ✅ |
+| Test 4 | 翻页导航 + SelectCandidate | ✅ |
+| Test 5 | 多次连续选词 | ✅ |
+| Test 6 | Escape 取消当前输入 | ✅ |
+
+**P1：系统级安装脚本 `scripts/install.sh`**
+
+功能：
+- 自动检测 OS（openEuler/CentOS/RHEL/Ubuntu/Debian）
+- 检测并安装依赖（X11、DBus、字体）
+- 下载预构建产物（S3 或本地 dist/）
+- 安装 fcitx5 + pinyinime addon + 数据文件
+- 配置输入法环境变量（GTK_IM_MODULE、QT_IM_MODULE、XMODIFIERS）
+- 创建 fcitx5 profile
+- 验证安装
+
+用法：
+```bash
+# 完整安装
+bash scripts/install.sh
+
+# 跳过依赖安装（已安装）
+bash scripts/install.sh --skip-deps
+
+# 自定义安装路径
+bash scripts/install.sh --prefix=/opt/pinyin-ime
+```
+
+**P2：Escape 取消功能验证**
+
+- Escape keyval = 0xFF1B（不是 0x1B）
+- Escape 可以取消当前拼音输入
+- 取消后可以继续输入新拼音
+
+**当前完整验证链路：**
+| 层级 | 验证 | 状态 |
+|---|---|---|
+| 语言模型 + 词典 | CLI 冒烟测试 24/24 | ✅ |
+| fcitx5 addon 加载 | 17 addons 全加载 | ✅ |
+| 桌面集成 | 21/21 (Xvfb+DBus+classicui) | ✅ |
+| 端到端输入 | 7/7 拼音→中文转换 | ✅ |
+| 用户交互 | 6/6 退格/选词/翻页 | ✅ |
+| **SelectCandidate** | **6/6 精确选词/简拼** | ✅ |
+| **系统安装** | **install.sh 一键安装** | ✅ |
+
+**新增测试脚本：**
+- `scripts/select_test.py`：SelectCandidate + 简拼测试
+- `scripts/install.sh`：系统级一键安装脚本
+
+**未来优化方向：**
+- [ ] Wayland 支持（fcitx5-wayland）
+- [ ] 模糊音端到端测试
+- [ ] XIM 协议完整客户端实现
+- [ ] 用户词典持久化验证
+- [ ] 性能优化（延迟、内存）
+
+**待办事项：**
+- [ ] Wayland 端到端测试
+- [ ] 模糊音端到端测试
+- [ ] 打包 + S3 分发 v0.9.82
+
+**所需依赖（同 v0.9.81）：**
+- dbus-tools, python-xlib, python3-dbus
+
+---
+
+## 历史进度
+
 ## 当前进度（截至 2026-10-10 v0.9.81）
 
 ### v0.9.81（2026-10-10）：用户交互测试 6/6 全通过 — 退格、选词、翻页全部工作
