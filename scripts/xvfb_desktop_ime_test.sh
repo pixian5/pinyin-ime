@@ -18,6 +18,10 @@ export LD_LIBRARY_PATH="$NB/opt/fcitx5-x11/lib:$NB/opt/libime/lib"
 export FCITX_ADDON_DIRS="$NB/opt/fcitx5-x11/lib/fcitx5"
 export FCITX_ADDON_CONFIG_DIRS="$NB/opt/fcitx5-x11/share/fcitx5/addon"
 export FCITX_DATA_DIR="$NB/opt/fcitx5-x11/share/fcitx5"
+# GTK3 靠 immodules.cache 发现 im module；真实机器写在 /usr/lib64/gtk-3.0/...
+# 只读 /usr 沙箱里缓存落在前缀内，用 GTK_IM_MODULE_FILE 指过去（文件不存在时此变量无害）。
+IMCACHE="$NB/opt/fcitx5-x11/lib/gtk-3.0/3.0.0/immodules.cache"
+[ -f "$IMCACHE" ] && export GTK_IM_MODULE_FILE="$IMCACHE"
 
 # ---------- 用户配置（数据路径 + 隔离用户目录 + 开纠错）----------
 mkdir -p ~/.config/fcitx5/conf

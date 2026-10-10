@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# 沙箱 wrapper：Xvfb 需要 RPM 前缀里的 libGL 等库
+export LD_LIBRARY_PATH="/workspace/xroot/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /workspace/xroot/usr/bin/Xvfb "$@"

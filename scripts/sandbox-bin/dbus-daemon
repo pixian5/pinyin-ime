@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# 沙箱 wrapper：xroot 的 dbus-daemon 编译期配置路径指向只读的 /usr/share/dbus-1，
+# 这里显式指到 RPM 前缀里的 session.conf，并剥掉 --session（与 --config-file 互斥）。
+# 同时补 LD_LIBRARY_PATH：它要链 RPM 前缀里的 libdbus（系统版私有符号不兼容）。
+export LD_LIBRARY_PATH="/workspace/xroot/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+args=()
+for a in "$@"; do [ "$a" = "--session" ] || args+=("$a"); done
+exec /workspace/xroot/usr/bin/dbus-daemon \
+    --config-file=/workspace/xroot/usr/share/dbus-1/session.conf "${args[@]}"

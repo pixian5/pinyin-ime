@@ -26,6 +26,15 @@ OPT="$NB/opt"
 BUILD="$NB/build"
 SRC="$NB/src"
 
+# 只读 /usr 的沙箱（本机即此形态）：dnf 装不了 -devel，把 RPM 解到本地前缀 $SYSROOT。
+# 系统头（X11/extensions/XKBrules.h 等）与 .pc（xkbfile/libxml2 等 conda 没有的包）从这里找。
+SYSROOT="${SYSROOT:-}"
+if [ -z "$SYSROOT" ]; then
+    for _r in "$NB/xroot" /workspace/xroot; do
+        [ -d "$_r/usr/include" ] && SYSROOT="$_r" && break
+    done
+fi
+
 export PATH="$ENV/bin:$PATH"
 export CC="$ENV/bin/aarch64-conda-linux-gnu-cc"
 export CXX="$ENV/bin/aarch64-conda-linux-gnu-c++"
@@ -33,11 +42,33 @@ export CXX="$ENV/bin/aarch64-conda-linux-gnu-c++"
 export CMAKE_PREFIX_PATH="$ENV:$OPT/xcb-imdkit"
 # pkg-config：系统 X11/cairo/pango 等 .pc 在前，conda 的在后（避免 conda pkg-config 只搜自己）
 export PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/share/pkgconfig:$ENV/lib/pkgconfig:$ENV/share/pkgconfig:$OPT/xcb-imdkit/lib64/pkgconfig"
-# 系统头/库兜底：conda gcc 不搜 /usr/include、/usr/lib64
+if [ -n "$SYSROOT" ]; then
+    for _pcd in "$SYSROOT/usr/lib64/pkgconfig" "$SYSROOT/usr/share/pkgconfig"; do
+        [ -d "$_pcd" ] && export PKG_CONFIG_PATH="$_pcd:$PKG_CONFIG_PATH"
+    done
+fi
+# 系统头兜底：conda gcc 不搜 /usr/include、/usr/lib64
 export CFLAGS="-idirafter /usr/include"
 export CXXFLAGS="-idirafter /usr/include"
-export LIBRARY_PATH="/usr/lib64:$ENV/lib"
+if [ -n "$SYSROOT" ]; then
+    export CFLAGS="$CFLAGS -idirafter $SYSROOT/usr/include"
+    export CXXFLAGS="$CXXFLAGS -idirafter $SYSROOT/usr/include"
+    echo "[env] SYSROOT=$SYSROOT（系统头兜底）"
+fi
+export LIBRARY_PATH="/usr/lib64:$ENV/lib${SYSROOT:+:$SYSROOT/usr/lib64}"
 export LD_LIBRARY_PATH="$ENV/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+# iso-codes 的 iso_639-3.json 路径：优先系统路径，只读 /usr 的沙箱回退到 conda env
+ISO639_JSON="${ISO639_JSON:-}"
+if [ -z "$ISO639_JSON" ]; then
+    for _p in /usr/share/iso-codes/json/iso_639-3.json "$ENV/share/iso-codes/json/iso_639-3.json"; do
+        [ -f "$_p" ] && ISO639_JSON="$_p" && break
+    done
+fi
+# XKB 数据：系统 /usr/share/X11/xkb 缺失时用 conda env 里的 xkeyboard-config
+if [ ! -d /usr/share/X11/xkb ] && [ -d "$ENV/share/X11/xkb" ]; then
+    export XKB_CONFIG_ROOT="$ENV/share/X11/xkb"
+fi
 
 FCITX_BUILD="$BUILD/fcitx5-x11"
 mkdir -p "$FCITX_BUILD"
@@ -64,7 +95,7 @@ cmake -S "$SRC/fcitx5-5.1.23" -B "$FCITX_BUILD" -G Ninja \
     -DENABLE_LIBUUID=On \
     -DENABLE_DL=On \
     -DUSE_SYSTEM_YOGA=Off \
-    -DISOCODES_ISO639_JSON=/usr/share/iso-codes/json/iso_639-3.json \
+    -DISOCODES_ISO639_JSON="$ISO639_JSON" \
     > "$BUILD/fcitx5-x11-configure.log" 2>&1
 echo "=== build fcitx5-x11 ==="
 ninja -C "$FCITX_BUILD" > "$BUILD/fcitx5-x11-build.log" 2>&1

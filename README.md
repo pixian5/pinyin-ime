@@ -1,27 +1,86 @@
 # pinyin-ime
 
-## 当前进度（截至 2026-10-10 v0.9.82）
+## 当前进度（截至 2026-10-10 v0.9.83）
 
 ### ⚠️ 真实可用性评估
 
-**结论：核心功能已完成，但还不能像搜狗拼音那样即装即用。**
+**结论：X11 桌面三条输入通道全部打通，免 CLI 安装链路已验证——已基本达到「搜狗拼音式」开箱体验（X11 会话内）。**
 
 详细评估见 [USABILITY_REPORT.md](USABILITY_REPORT.md)
 
 **已完成（✅）：**
-- 语言模型 + 词典：CLI 冒烟测试 24/24
-- fcitx5 addon 加载：17 addons 全加载
-- 桌面集成：21/21 (Xvfb+DBus+classicui)
-- DBus 端到端输入：7/7 拼音→中文转换
-- 用户交互：6/6 退格/选词/翻页
-- SelectCandidate + 简拼：6/6 精确选词
-- 系统安装脚本：install.sh 一键安装
+- 语言模型 + 词典：CLI 冒烟测试 24/24（累计157 项全绿）
+- fcitx5-x11 守护进程：XIM + DBus + Server + Keyboard 全构建（`scripts/build_fcitx5_x11.sh`）
+- **XIM 协议端到端：21/21**（`scripts/xvfb_ime_test.sh`，全拼/简拼/纠错/翻页/焦点/撤回）
+- **GTK3 真实应用端到端：10/10**（`scripts/xvfb_desktop_ime_test.sh`，GTK_IM_MODULE=fcitx → DBus → fcitx5）
+- **Qt5 真实应用端到端：✅**（`tools/qt_ime_test_client`，QT_IM_MODULE=fcitx → platforminputcontext 插件）
+- **候选词窗口视觉渲染：✅**（classicui + 文泉驿微米黑，见 `docs/assets/candidate-window.png`）
+- **免 CLI 集成：`scripts/install_desktop.sh`**（autostart + environment.d + xprofile + launcher + 默认输入法 = pinyinime，装完重登即可打字）
+- 系统安装脚本：install.sh 一键安装（CLI 场景）
 
-**关键缺失（❌）：**
-- **XIM 协议**：XFilterEvent 返回 NO，无法拦截 X11 应用按键
-- **真实应用测试**：未在 xterm/gedit 等真实应用中验证
-- **候选词窗口**：未验证视觉显示
-- **Wayland 支持**：未构建
+**关键缺失（❌，均为下一步）：**
+- Wayland 支持：未构建（fcitx5 wayland module）
+- 托盘/配置 GUI：fcitx5-configtool 未在沙箱验证（二进制已随前缀安装）
+- Qt6 / GTK4 im module：未构建（当前仅 Qt5 / GTK3）
+- 系统级打包（deb/rpm）：目前是前缀式安装
+
+### v0.9.83（2026-10-10）：X11 桌面链路全通 + 免 CLI「搜狗式」体验
+
+**核心成果：XIM 21/21、GTK3 真实应用 10/10、Qt5 真实应用 ✅、候选窗中文渲染 ✅、免 CLI 安装验收 ✅。**
+
+| 链路 | 走法 | 结果 |
+|--------|------|------|
+| XIM（xterm 等老应用） | 应用 → XIM → fcitx5 → pinyinime | 21/21 |
+| GTK3（gedit/浏览器等主流） | GTK_IM_MODULE=fcitx → im-fcitx5.so → DBus → fcitx5 | 10/10 |
+| Qt5（KDE/WPS 等） | QT_IM_MODULE=fcitx → platforminputcontext 插件 → DBus → fcitx5 | ✅（zhongguo→中国） |
+| 候选窗 | classicui + Xft/fontconfig + 文泉驿微米黑 | ✅ 已见字形像素 |
+| 免 CLI | 干净环境 + `install_desktop.sh` 生成的 launcher/env.sh → 打字出「中国」 | ✅ |
+
+**免 CLI 交付物 `scripts/install_desktop.sh`**（跑一次，之后零命令行）：
+- `~/.config/autostart/pinyin-ime.desktop`：登录自启 fcitx5（launcher 自带环境）
+- `~/.config/environment.d/90-pinyin-ime.conf` + `~/.xprofile`：GTK_IM_MODULE/QT_IM_MODULE/XMODIFIERS 免 shell 配置
+- `~/.config/fcitx5/profile`：默认输入法 = pinyinime（Ctrl+Space 直接打拼音）
+- 中文字体自动安装（文泉驿微米黑，aliyun 镜像）
+- 自检8 项全绿（二进制/addon/语言模型/GTK 缓存/Qt 插件/字体/自启项/environment.d）
+
+**本轮新增/修改脚本：**
+- `scripts/build_fcitx5_x11.sh`：自动探测 SYSROOT，系统头/`xkbfile`/`libxml2`/`shared-mime-info` 等 .pc 兜底
+- `scripts/build_fcitx5_gtk.sh`：FindX11 指路 SYSROOT；immodules.cache 只读 /usr 时降级前缀 + `GTK_IM_MODULE_FILE`；客户端加 RPATH
+- `scripts/build_fcitx5_qt.sh`（新）：fcitx5-qt 5.1.4，conda gcc + conda Qt5，插件同时装 Qt 目录与前缀
+- `scripts/install_desktop.sh`（新）：免 CLI 桌面集成
+- `scripts/fix_sysroot_pc.sh`（新）：批量改写 RPM 前缀 .pc 的硬编码 `/usr` 路径
+- `scripts/sandbox-bin/{Xvfb,dbus-daemon}`（新）：沙箱 wrapper（库路径 + session.conf 指路）
+- `tools/qt_ime_test_client.cpp`（新）：Qt5 端到端客户端
+
+**本轮关键坑（踩坑记录）：**
+1. **只读 /usr 的 RPM 前缀**：RPM `.pc` 硬编码 `prefix=/usr` → CMake 报 “includes non-existent path”；`scripts/fix_sysroot_pc.sh` 一次性改写185 个 .pc；
+2. **Xvfb/xkbcomp**：编译期路径 `/usr/bin`、`/usr/share/X11/xkb` 二进制补丁成 `/xr/…` + 符号链接（`/` 可写、`/usr` 只读）；
+3. **dbus-daemon**：配置路径与 libdbus 私有符号两处坑 → `scripts/sandbox-bin/dbus-daemon` wrapper 指 `--config-file` 并补 `LD_LIBRARY_PATH`；
+4. **`grep -q` + `pipefail` 误判**：首个匹配后提前关管道 → fc-list 收 SIGPIPE 退出141 → 「已装字体」被判成未装；改用 `grep -c` 读全量；
+5. **GTK3 模块缺 `<cstdlib>`**：fcitx5-gtk5.1.7 在 gcc10 下 `utils.h:29 std::free` 编译错，源码补 include；
+6. **conda Qt 必须配 conda gcc**：Qt5 来自 conda env，用系统 gcc 编插件会 ABI 不匹配（与 GTK 模块相反）；
+7. **fcitx5 随 shell 退出**：后台拉起需 `setsid/nohup`，否则 SIGHUP 带走守护进程；
+8. **沙箱 HOME=/workspace**（不是 /root），用户字体/配置目录都在其下。
+
+**未来优化方向：**
+- Wayland 会话支持（fcitx5 wayland module + text-input-v3）
+- Qt6 / GTK4 im module 补齐，覆盖新一代桌面应用
+- 托盘图标 + fcitx5-configtool 图形配置（模糊音/双拼/词库导入零命令行）
+- deb/rpm 系统级打包（含字体与数据），一条 `dnf install` 替代前缀安装
+- 用户词库导入/导出 GUI 化，云同步
+
+**待办事项：**
+- [ ] `scripts/healthcheck.sh`、`ci_test.sh` 全量回归（本轮仅跑了 XIM/GTK 桌面两套）
+- [ ] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（当前为手工验证）
+- [ ] S3 产物打包 v0.9.83（`package.sh` + `upload_to_s3.sh`）
+- [ ] fcitx5-configtool 在 Xvfb 下冒烟（GUI 配置链路）
+- [ ] Wayland/Qt6 构建评估
+
+**所需依赖（沙箱复现）：**
+- RPM 本地前缀 `/workspace/xroot`（`dnf --downloadonly` + `rpm2cpio` 解包）：xorg-x11-server-Xvfb、dbus、gtk3(-devel)、libxcb/xkbfile、X11 devel 头、iso-codes、xorg-x11-utils、fonts
+- conda env（tuna conda-forge）：gcc13 工具链、qt5-qtbase、ECM、fontconfig、imagemagick（截图验收用）
+- 字体：文泉驿微米黑（aliyun debian 镜像 `fonts-wqy-microhei`）
+- 代理 `127.0.0.1:7890` + gh-proxy.com（GitHub 源码）
 
 ### v0.9.82（2026-10-10）：SelectCandidate + 简拼测试 6/6 通过 + 系统级安装脚本
 

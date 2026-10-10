@@ -38,8 +38,11 @@ ensure_display() {
     if ! ps -eo args | grep -q "[d]bus-daemon --syslog.*--session"; then
         echo "[env] 启动 dbus session"
         dbus-launch --sh-syntax 2>/dev/null > /tmp/dbus-env.sh || dbus-daemon --session --fork 2>/dev/null
-        [ -f /tmp/dbus-env.sh ] && . /tmp/dbus-env.sh
     fi
+    # 无论本脚本是否新起了 dbus，都从文件恢复会话地址：
+    # start 是被 xvfb_ime_test.sh 以子进程调用的，export 无法传回父进程，
+    # fcitx5 只有读到 DBUS_SESSION_BUS_ADDRESS 才能加载 dbus addon。
+    [ -f /tmp/dbus-env.sh ] && . /tmp/dbus-env.sh
 }
 
 start_fcitx5() {
