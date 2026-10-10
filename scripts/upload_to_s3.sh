@@ -57,6 +57,10 @@ cp "$PROJ_DIR/fcitx5-addon/build/libpinyinime.so" "$STAGE/libpinyinime_v${VERSIO
 cp "$OPT/fcitx5-x11/bin/fcitx5" "$STAGE/fcitx5_v${VERSION}" 2>/dev/null || echo "  覦 fcitx5-x11 不存在"
 cp "$OPT/libime/lib/libime/zh_CN.lm" "$STAGE/zh_CN.lm" 2>/dev/null || echo "  覦 zh_CN.lm 不存在"
 cp "$OPT/libime/share/libime/sc.dict" "$STAGE/sc.dict" 2>/dev/null || echo "  覦 sc.dict 不存在"
+# 桌面自包含 bundle（v0.9.83 起）：整套 fcitx5-x11 前缀 + GTK/Qt im module + deps-lib
+# （含 conda 运行时库，目标容器无需 conda）+ libime 数据 + env.sh + 启动器，
+# 解压 $HOME/.local 即用，详见 bundle 内 README-DEPLOY.txt
+cp "$PROJ_DIR/packaging/build/pinyin-ime-desktop-v${VERSION}.tar.gz" "$STAGE/" 2>/dev/null || echo "  覦 桌面 bundle 不存在（先 bash scripts/install_desktop.sh 后手工 tar，见 README）"
 
 # 生成 SHA256SUMS
 echo "--- 生成 SHA256SUMS ---"

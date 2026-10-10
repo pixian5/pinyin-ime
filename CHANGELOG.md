@@ -9,7 +9,11 @@
 - **Qt5 真实应用 ✅**：`tools/qt_ime_test_client` + fcitx5-qt 5.1.4 platforminputcontext 插件
 - **候选窗中文渲染 ✅**：classicui + 文泉驿微米黑（截图 `docs/assets/candidate-window.png`）
 - **免 CLI 安装 `scripts/install_desktop.sh`**：登录自启（.desktop）、environment.d/xprofile 免配环境变量、
-  默认输入法 = pinyinime、中文字体自动安装、自检 8 项；装完重登即可打字
+  默认输入法 = pinyinime、中文字体自动安装、自检 8 项；装完重登即可打字；
+  **自包含 deps-lib**（conda 运行时库随前缀分发，目标机无需 conda）
+- **S3 产物 `cst:xbz/pinyin-ime/v0.9.83/`**：新增 91MB 桌面自包含 bundle
+  `pinyin-ime-desktop-v0.9.83.tar.gz`（解压 `$HOME/.local` 即用），+ 常规 CLI/addon/LM/dict，
+  部署用法见 README「S3 产物与部署到其它容器」
 
 ### 新增脚本/工具
 - `scripts/build_fcitx5_qt.sh`：fcitx5-qt 5.1.4（conda gcc + conda Qt5）

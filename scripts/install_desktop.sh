@@ -37,6 +37,18 @@ mkdir -p "$PREFIX"
 # fcitx5-x11（含 pinyinime addon + GTK im module + Qt im module）整体复制
 mkdir -p "$PREFIX/opt"
 cp -a "$OPT/fcitx5-x11" "$PREFIX/opt/"
+# 自包含：把 fcitx5 前缀在 conda env 里用到的运行时库一并带上（conda gcc 编的二进制
+# 需要新版 libstdc++ 等，目标容器若无 conda 会起不来）→ 放 $PREFIX/opt/deps-lib，
+# env.sh 里前置到 LD_LIBRARY_PATH。
+DEPS_LIB="$PREFIX/opt/deps-lib"
+mkdir -p "$DEPS_LIB"
+if [ -d "$ENV/lib" ]; then
+    for f in $(find "$OPT/fcitx5-x11" \( -name '*.so*' -o -type f -perm -u+x \) -type f 2>/dev/null); do
+        ldd "$f" 2>/dev/null | awk -v env="$ENV" '$3 ~ "^"env"/lib/" {print $3}'
+    done | sort -u | while read -r lib; do
+        cp -Ln "$lib" "$DEPS_LIB/" 2>/dev/null || true
+    done || true   # while 读到 EOF 返回 1，不能触发 set -e
+fi
 # libime 数据：复制（自包含、可拷走）
 mkdir -p "$PREFIX/share/libime/libime"
 cp -a "$LIBIME_SRC/lib/libime/." "$PREFIX/share/libime/libime/"
@@ -75,7 +87,7 @@ cat > "$PREFIX/env.sh" <<EOF
 # pinyin-ime 桌面环境（由 install_desktop.sh 生成，勿手改——重新安装会覆盖）
 export PINYIN_IME_PREFIX="$PREFIX"
 export PATH="\$PINYIN_IME_PREFIX/opt/fcitx5-x11/bin:\$PATH"
-export LD_LIBRARY_PATH="\$PINYIN_IME_PREFIX/opt/fcitx5-x11/lib${ENV:+:$ENV/lib}\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="\$PINYIN_IME_PREFIX/opt/deps-lib:\$PINYIN_IME_PREFIX/opt/fcitx5-x11/lib${ENV:+:$ENV/lib}\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 export XMODIFIERS=@im=fcitx
 export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx

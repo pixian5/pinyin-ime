@@ -24,6 +24,47 @@
 - Qt6 / GTK4 im module：未构建（当前仅 Qt5 / GTK3）
 - 系统级打包（deb/rpm）：目前是前缀式安装
 
+### 📦 S3 产物与「部署到其它容器」用法（v0.9.83）
+
+S3 路径：`cst:xbz/pinyin-ime/v0.9.83/`（endpoint `https://s3.cstcloud.cn`，bucket `xbz`）
+
+| 文件 | 用途 |
+|---|---|
+| `pinyin-ime-desktop-v0.9.83.tar.gz` (91MB) | **桌面自包含 bundle**：整套 fcitx5-x11 前缀（含 XIM/DBus/GTK3/Qt5 im module + pinyinime addon）+ libime 数据 + `opt/deps-lib`（conda 运行时库，目标机**无需 conda**）+ env.sh + 启动器 |
+| `pinyin_ime_cli_v0.9.83` / `libpinyinime_v0.9.83.so` / `fcitx5_v0.9.83` | CLI / addon / fcitx5 核心（单独替换用） |
+| `zh_CN.lm` / `sc.dict` | libime 语言模型 + 词典 |
+| `SHA256SUMS_v0.9.83` | 校验清单 |
+
+**1) 下载与校验（任意容器）**
+```bash
+mkdir -p pinyin-ime-s3 && cd pinyin-ime-s3
+rclone copy cst:xbz/pinyin-ime/v0.9.83/ ./ --user-agent "rclone/1.75.1 pinyin-ime"
+sha256sum -c SHA256SUMS_v0.9.83        # 全部 OK 即完整
+```
+
+**2) 桌面容器（有 X11 会话）——解压即用，全程免 CLI**
+```bash
+mkdir -p $HOME/.local
+tar xzf pinyin-ime-desktop-v0.9.83.tar.gz -C $HOME/.local
+mkdir -p $HOME/.config/autostart $HOME/.config/environment.d
+cp $HOME/.local/pinyin-ime/autostart.desktop $HOME/.config/autostart/pinyin-ime.desktop
+cp $HOME/.local/pinyin-ime/xdg-env.conf      $HOME/.config/environment.d/90-pinyin-ime.conf
+# 重新登录即自动拉起 fcitx5，Ctrl+Space 打中文；中文字体已含在 bundle 内
+```
+> bundle 内附 `README-DEPLOY.txt`；**必须解压到 `$HOME/.local`**（env.sh 路径按此生成）。
+> 运行时依赖已在 `opt/deps-lib`，容器**不需要** conda；GTK3/X11 系统库仍需容器自带（桌面镜像一般都有）。
+
+**3) 无头容器（Xvfb 验证，同本沙箱方案）**
+```bash
+# 桌面 bundle 同上解压；另需 Xvfb/dbus 环境（RPM 解到 /workspace/xroot：
+# scripts/setup_x11_deps.sh + scripts/fix_sysroot_pc.sh），运行测试前：
+export PATH=$PWD/scripts/sandbox-bin:$PATH    # Xvfb/dbus-daemon wrapper（库路径+session.conf）
+bash scripts/xvfb_ime_test.sh                  # XIM 21 项
+bash scripts/xvfb_desktop_ime_test.sh          # GTK3 10 项
+```
+
+**4) 仅 CLI 场景**：下载 `pinyin_ime_cli_v0.9.83` + `zh_CN.lm` + `sc.dict`，用法见 [QUICKSTART.md](QUICKSTART.md)。
+
 ### v0.9.83（2026-10-10）：X11 桌面链路全通 + 免 CLI「搜狗式」体验
 
 **核心成果：XIM 21/21、GTK3 真实应用 10/10、Qt5 真实应用 ✅、候选窗中文渲染 ✅、免 CLI 安装验收 ✅。**
@@ -47,7 +88,8 @@
 - `scripts/build_fcitx5_x11.sh`：自动探测 SYSROOT，系统头/`xkbfile`/`libxml2`/`shared-mime-info` 等 .pc 兜底
 - `scripts/build_fcitx5_gtk.sh`：FindX11 指路 SYSROOT；immodules.cache 只读 /usr 时降级前缀 + `GTK_IM_MODULE_FILE`；客户端加 RPATH
 - `scripts/build_fcitx5_qt.sh`（新）：fcitx5-qt 5.1.4，conda gcc + conda Qt5，插件同时装 Qt 目录与前缀
-- `scripts/install_desktop.sh`（新）：免 CLI 桌面集成
+- `scripts/install_desktop.sh`（新）：免 CLI 桌面集成；**自包含**——自动把 conda 运行时库
+  收进 `$PREFIX/opt/deps-lib`（目标容器无需 conda），并随 bundle 分发
 - `scripts/fix_sysroot_pc.sh`（新）：批量改写 RPM 前缀 .pc 的硬编码 `/usr` 路径
 - `scripts/sandbox-bin/{Xvfb,dbus-daemon}`（新）：沙箱 wrapper（库路径 + session.conf 指路）
 - `tools/qt_ime_test_client.cpp`（新）：Qt5 端到端客户端
