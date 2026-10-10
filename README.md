@@ -3310,7 +3310,7 @@ LM**；语料多样性对纠错模块有限，真正的杠杆在 Route A 的 LM 
 | 对话（留出） | 15.3% | 33.3% | 73.0% | 62.2% | **46.0%** |
 | 新闻（哨兵） | 8.9% | 33.0% | 67.0% | 63.4% | 43.1% |
 
-补口语语料前后（同一评测协议，详见 `docs/corpus-ladder-report.md`）：
+补口语语料前后（同一评测协议，详见 `docs/20260925-1853-口语语料配比阶梯实验报告-未标注.md`）：
 
 | 训练配比 | 对话（留出集） | 新闻（哨兵） |
 |---|---|---|
@@ -4352,7 +4352,7 @@ bash scripts/xvfb_ime_test.sh        # 起环境 + 写 conf(EnableCorrect=True) 
 1. **addon 与 CLI 的候选人排序并不总是一致**（⚠️ 第 11 轮曾误判、第 12 轮已彻底更正）：
    真实根因是**默认用户目录污染**（`~/.local/share/pinyin-ime` 里残留的 `user.history`/`user.dict`），
    并非 libime/addon 缺陷，addon 的候选排序本身确定且与 CLI 完全一致。详见
-   `docs/2026年09月29日12时30分根因更正_候选排序问题实为默认用户目录污染.md`。
+   `docs/20260929-1230-根因更正_候选排序问题实为默认用户目录污染-未标注.md`。
 2. **XIM 单次翻页选字结果漂移**（⚠️ 第 12 轮更正：同样是默认用户目录污染所致，非键竞态、非非确定
    排序）；隔离用户数据目录后 `=` 翻页选字的 `idx=9` 恒为「亿」，可加回确定性断言。
 
@@ -4390,7 +4390,7 @@ bash scripts/xvfb_ime_test.sh           # 15 例
 ## 开发进度（2026-09-29 · 第11轮：根因定位 addon 单音节候选排序随进程随机旋转）
 
 > ⚠️【本节结论已被第 12 轮推翻，请直接看第 12 轮】本节归档当时的排查证据，但「ASLR 旋转」结论错误。
-> 真实根因见 `docs/2026年09月29日12时30分根因更正_候选排序问题实为默认用户目录污染.md`。
+> 真实根因见 `docs/20260929-1230-根因更正_候选排序问题实为默认用户目录污染-未标注.md`。
 
 本轮对上轮遗留的「addon 与 CLI 候选排序不一致 + 翻页选字漂移」做**根因定位**。结论：两者是
 同一个问题——**addon 在 Fcitx5 进程内，libime 单音节候选排序随进程（ASLR）随机旋转**；CLI/独立
@@ -4409,7 +4409,7 @@ bash scripts/xvfb_ime_test.sh           # 15 例
 - **更正上一轮**：翻页选字漂移不是键竞态，是候选排序本身在变（`idx=9` 稳定、idx 上那个字会变）。
 
 ### 产物
-- `docs/2026年09月29日11时50分addon单音节候选排序随进程随机旋转问题.md`：完整证据表 + 下一步。
+- `docs/20260929-1150-addon单音节候选排序随进程随机旋转问题-未标注.md`：完整证据表 + 下一步。
 - 本轮为纯根因定位 + 文档（无引擎功能改动）；按规约版本号仍递增 `0.6.2 → 0.6.3`。
 
 ### 未来优化方向（下一轮按优先级聚焦）
@@ -4440,7 +4440,7 @@ bash scripts/xvfb_ime_test.sh           # 15 例
 - CLI 探测/测试**一律显式 `--user-data`**（测试脚本本已隔离，探测时易忘）。
 
 ### 产物
-- `docs/2026年09月29日12时30分根因更正_候选排序问题实为默认用户目录污染.md`（更正主文档）。
+- `docs/20260929-1230-根因更正_候选排序问题实为默认用户目录污染-未标注.md`（更正主文档）。
 - 旧文档 `...11时50分...随机旋转问题.md` 顶部加「已更正」标注。
 - **补回 addon 单音节翻页选字确定性断言**：`xvfb_ime_test.sh` 从 15 例 → **17 例**（新增
   `=` 翻页选字「亿」、PageDown 翻页选字「其」），连跑 3 次全稳定；reset 顺带防御性清空默认目录。
@@ -4645,7 +4645,7 @@ DBus 前端 + `fcitx5-gtk` 的 GTK3 im module，用真实 GTK3 应用（GtkEntry
 - **GTK3 实测客户端**（`tools/gtk_ime_test_client.c`）：带 GtkEntry 的应用，每次上屏打印
   `GTK_COMMIT:<text>`；按键经 `tools/keysend_target`（XTest）注入；每个用例先 `Ctrl+Space`
   激活输入法。
-- 完整路线与踩坑见 `docs/2026年09月29日14时58分真桌面终验_DBus加fcitx5gtk打通.md`。
+- 完整路线与踩坑见 `docs/20260929-1458-真桌面终验_DBus加fcitx5gtk打通-未标注.md`。
 
 ### 实测结果（Xvfb :99 · DBus 会话 · GTK3 3.24.30 · fcitx5 5.1.23 · addon）
 
@@ -4727,7 +4727,7 @@ bash scripts/xvfb_desktop_ime_test.sh          # DBus+GTK  10/10（本轮新增�
   `cc` 命令在第 16 轮合并复现块时被漏掉。全新环境复现时真桌面测试 **0/10**（按键从未送达 → 客户端
   `inserted-text` 永不触发 → 输出恒空）。**修复**：`build_fcitx5_gtk.sh` 尾部补编译 `keysend_target`
   （与 `gtk_ime_test_client` 一起固化，加中文注释说明其硬依赖地位），修完重跑 **10/10**。
-- 完整排查与教训见 `docs/2026年09月29日17时01分真桌面复现缺口_keysend_target未纳入构建脚本.md`：
+- 完整排查与教训见 `docs/20260929-1701-真桌面复现缺口_keysend_target未纳入构建脚本-未标注.md`：
   「0/N 且输出全空」先怀疑输入没送达（注入器缺失），再查 im module/DBus/引擎解码。
 
 ### 本轮复现命令（固化，可一键重跑）
@@ -4869,7 +4869,7 @@ CLI 与 addon 共用同一 `pinyin_corrector.cpp`，行为一致。
 - **conda-forge 通道用清华 tuna 镜像**（`mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge`）：
   实测华为云 anaconda 镜像只覆盖 `repo.anaconda.com` main 通道、**不含** conda-forge 云通道（返回
   HTML，刷 repodata 报 ZSTD 解压错）；阿里云/腾讯云该路径 404。详见
-  `docs/2026年09月29日19时51分第20轮复现踩坑_conda-forge镜像选择与NB默认值split-brain修复.md`。
+  `docs/20260929-1951-第20轮复现踩坑_conda-forge镜像选择与NB默认值split-brain修复-未标注.md`。
 - micromamba / fcitx5 / libime / kenlm / xcb-imdkit / yoga / fcitx5-gtk 等国外源统一走 mihomo 代理
   `http://127.0.0.1:7890`；X11/Xvfb/DBus/GTK3 系统库走 dnf（openEuler 源）。
 - 引擎产物**逐字节复现基线**：`zh_CN.lm` 34,736,327 B、`sc.dict` 4,489,669 B；
