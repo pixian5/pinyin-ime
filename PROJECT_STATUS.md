@@ -1,6 +1,6 @@
 # pinyin-ime 项目状态
 
-> 更新时间：2026-09-30 v0.9.50（端到端打字验证通过）
+> 更新时间：2026-10-10 v0.9.83（X11 桌面三通道全通 + 免 CLI 安装）
 
 ## 项目概述
 
@@ -54,6 +54,11 @@
 | 编译验证 | ✅ | libpinyinime.so + 符号导出通过 |
 | 实机加载 | ✅ | fcitx5 server 成功加载 addon + LM + dict |
 | 输入法注册 | ✅ | fcitx5 注册 1 个输入法（pinyinime） |
+| **XIM 端到端** | ✅ 21/21 | Xvfb + 自研 XIM 客户端（xvfb_ime_test.sh） |
+| **GTK3 应用端到端** | ✅ 10/10 | im-fcitx5.so + DBus（xvfb_desktop_ime_test.sh） |
+| **Qt5 应用端到端** | ✅ | fcitx5-qt platforminputcontext 插件 + qt_ime_test_client |
+| **候选窗渲染** | ✅ | classicui + 中文字体（docs/assets/candidate-window.png） |
+| **免 CLI 桌面集成** | ✅ | install_desktop.sh（autostart + environment.d + launcher） |
 
 ### 领域 LM 训练
 

@@ -1,6 +1,27 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.83 (2026-10-10)
+
+### 新增：X11 桌面链路全通 + 免 CLI「搜狗式」体验
+- **XIM 端到端 21/21**（`scripts/xvfb_ime_test.sh`）：全拼/简拼/M3纠错/翻页/焦点/撤回
+- **GTK3 真实应用 10/10**（`scripts/xvfb_desktop_ime_test.sh`）：GTK_IM_MODULE=fcitx → DBus → fcitx5
+- **Qt5 真实应用 ✅**：`tools/qt_ime_test_client` + fcitx5-qt 5.1.4 platforminputcontext 插件
+- **候选窗中文渲染 ✅**：classicui + 文泉驿微米黑（截图 `docs/assets/candidate-window.png`）
+- **免 CLI 安装 `scripts/install_desktop.sh`**：登录自启（.desktop）、environment.d/xprofile 免配环境变量、
+  默认输入法 = pinyinime、中文字体自动安装、自检 8 项；装完重登即可打字
+
+### 新增脚本/工具
+- `scripts/build_fcitx5_qt.sh`：fcitx5-qt 5.1.4（conda gcc + conda Qt5）
+- `scripts/fix_sysroot_pc.sh`：只读 /usr 沙箱下批量改写 RPM 前缀 .pc 的硬编码路径
+- `scripts/sandbox-bin/{Xvfb,dbus-daemon}`：沙箱 wrapper（库路径 + session.conf 指路）
+- `tools/qt_ime_test_client.cpp`：Qt5 端到端输入验证客户端
+
+### 修复/改进
+- `build_fcitx5_x11.sh`：自动探测 SYSROOT，系统头与 xkbfile/libxml2/shared-mime-info .pc 兜底
+- `build_fcitx5_gtk.sh`：FindX11 指路 SYSROOT；只读 /usr 时 immodules.cache 降级前缀 + GTK_IM_MODULE_FILE
+- `xvfb_test_env.sh`：dbus 会话地址从文件恢复（子进程 export 无法传回父进程）
+
 ## v0.9.67 (2026-10-09)
 
 ### 改进

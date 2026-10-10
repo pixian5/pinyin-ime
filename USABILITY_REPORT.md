@@ -1,30 +1,36 @@
 # pinyin-ime 真实可用性评估报告
 
+> 更新：2026-10-10 v0.9.83 —— X11 桌面三条输入通道全通，免 CLI 安装链路已验证。
+
 ## 当前状态总结
 
-### ✅ 已完成（核心功能）
+### ✅ 已完成（核心功能 + 桌面链路）
 
 | 功能 | 状态 | 验证方式 |
 |------|------|----------|
 | 语言模型 + 词典 | ✅ 24/24 | CLI 冒烟测试 |
 | fcitx5 addon 加载 | ✅ 17 addons | fcitx5 启动日志 |
-| 桌面集成 | ✅ 21/21 | Xvfb + DBus + classicui |
+| **XIM 协议端到端** | ✅ **21/21** | `scripts/xvfb_ime_test.sh`（Xvfb 虚拟桌面 + 自研 XIM 客户端） |
+| **GTK3 真实应用端到端** | ✅ **10/10** | `scripts/xvfb_desktop_ime_test.sh`（GTK_IM_MODULE=fcitx → DBus → fcitx5） |
+| **Qt5 真实应用端到端** | ✅ | `tools/qt_ime_test_client`（QT_IM_MODULE=fcitx → platforminputcontext 插件） |
 | DBus 端到端输入 | ✅ 7/7 | 拼音→中文转换 |
 | 用户交互 | ✅ 6/6 | 退格/选词/翻页 |
 | SelectCandidate | ✅ 6/6 | 精确选词/简拼 |
-| 系统安装脚本 | ✅ | install.sh 一键安装 |
+| **候选词窗口视觉渲染** | ✅ | classicui + 文泉驿微米黑，截图存 `docs/assets/candidate-window.png` |
+| **免 CLI 桌面集成** | ✅ | `scripts/install_desktop.sh`：autostart + environment.d + launcher + 默认输入法 |
+| 系统安装脚本 | ✅ | install.sh 一键安装（CLI 场景） |
 
-### ❌ 关键缺失（距离搜狗拼音的差距）
+### ❌ 关键缺失（距离完整搜狗体验的差距）
 
 | 功能 | 状态 | 问题描述 |
 |------|------|----------|
-| **XIM 协议** | ❌ | XFilterEvent 返回 NO，无法拦截 X11 应用按键 |
-| **真实应用测试** | ❌ | 未在 xterm/gedit 等真实应用中验证 |
-| **候选词窗口** | ⚠️ | "Fcitx5 Input Window" 存在但未验证视觉显示 |
-| **系统托盘图标** | ⚠️ | notificationitem addon 已加载但未验证 |
-| **用户词典持久化** | ⚠️ | CLI 支持但 fcitx5 中未验证 |
-| **模糊音端到端** | ⚠️ | CLI 支持但 fcitx5 中未验证 |
-| **Wayland 支持** | ❌ | 未构建 |
+| **Wayland 支持** | ❌ | 未构建（fcitx5 wayland module / text-input-v3） |
+| **Qt6 / GTK4 im module** | ❌ | 仅构建 Qt5 / GTK3 |
+| **系统托盘图标** | ⚠️ | notificationitem addon 已加载，未在真实桌面会话验证 |
+| **fcitx5-configtool 图形配置** | ⚠️ | 二进制已随前缀安装，未在 Xvfb 下冒烟 |
+| **用户词典持久化（fcitx5 内）** | ⚠️ | CLI 已验证，fcitx5 addon 侧未专项验证 |
+| **模糊音端到端** | ⚠️ | CLI 支持，fcitx5 中未专项验证 |
+| **系统级打包（deb/rpm）** | ❌ | 目前为前缀式安装（`install_desktop.sh`） |
 
 ## 技术分析
 

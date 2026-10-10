@@ -10,6 +10,20 @@ echo "nihao" | ./run.sh
 # 输出: 你好
 ```
 
+## 桌面打字（免 CLI，对标搜狗拼音）
+
+先构建（或从 S3 取产物），再跑一次安装脚本：
+
+```bash
+bash scripts/install_desktop.sh          # 用户级；系统级: sudo bash scripts/install_desktop.sh /usr/local/pinyin-ime
+```
+
+之后**无需任何命令行**：重新登录桌面（或运行 `~/.local/pinyin-ime/bin/fcitx5-pinyin`），
+fcitx5 自启、默认输入法就是 pinyinime，Ctrl+Space 即可打中文。
+- GTK/Qt/XIM 三类应用全支持（X11 会话）
+- 候选窗中文渲染已就位（自动装文泉驿微米黑）
+- 无显示服务器验证：`bash scripts/xvfb_ime_test.sh`（XIM 21 项）、`bash scripts/xvfb_desktop_ime_test.sh`（GTK 10 项）
+
 ## 常用命令
 
 ### 基本输入
