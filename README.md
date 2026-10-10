@@ -1,5 +1,78 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-10 v0.9.79）
+
+### v0.9.79（2026-10-10）：classicui segfault 修复 + 桌面集成 21/21 全通过
+
+**核心成果：修复 classicui 在 Xvfb 下的 segfault（根因：静态/动态 xcb 库混链导致结构体布局不匹配），桌面集成测试 21/21 全部通过。fcitx5 完整加载 17 个 addon（含 pinyinime + classicui + dbus + XIM + DBus前端）。**
+
+**P0：classicui segfault 根因分析与修复**
+
+- **根因**：fcitx5 classicui 链接行同时包含 `/workspace/sysroot/usr/lib64/libxcb.a`（静态 openEuler xcb 1.13）和 `/workspace/native-build/mamba-env/lib/libxcb.so`（动态 conda xcb 1.14+）
+- 静态 xcb 的 `xcb_get_extension_data` 内部访问 `xcb_connection_t` 结构体，但该连接由动态 xcb 创建 → 结构体布局不匹配 → SIGSEGV
+- **修复**：删除 sysroot 中所有 `libxcb*.a` 静态库（移到 `disabled-static/`），强制 CMake 使用动态 libxcb.so
+- 修复后 classicui 正常加载：`Created classicui for x11 display::99`，无崩溃
+
+**P1：桌面集成 21/21 全部通过**
+
+```
+--- 环境检查 ---          9/9 ✅
+--- Xvfb 虚拟显示 ---     1/1 ✅
+--- DBus 会话 ---         1/1 ✅
+--- fcitx5 服务 ---       1/1 ✅
+--- addon 加载 ---        9/9 ✅
+  ✅ pinyinime addon 已加载
+  ✅ 语言模型已加载 (zh_CN.lm)
+  ✅ 词典已加载 (sc.dict)
+  ✅ XIM 前端已加载
+  ✅ DBus 前端已加载
+  ✅ Classic UI 已加载
+  ✅ XCB 模块已加载
+  ✅ Keyboard 已加载
+  ✅ DBus 服务已注册 (org.fcitx.Fcitx5)
+==== 结果：21 通过 / 0 失败 ====
+🎉 全部通过！fcitx5 桌面集成验证成功
+```
+
+**P2：DBus 会话修复**
+
+- 问题：sysroot 的 `dbus-daemon` 需要 `LD_LIBRARY_PATH` 优先指向 sysroot 的 `libdbus-1.so.3`（含私有符号 `LIBDBUS_PRIVATE_1.12.20`）
+- 修复：自定义 `session.conf`（`/tmp/opencode/dbus/session.conf`），启动时设置 `LD_LIBRARY_PATH="$SYSROOT/usr/lib64:..."`
+- 更新 `scripts/desktop_integration_test.sh` 使用正确的 DBus 配置路径
+
+**P3：CLI 冒烟测试 24/24 持续通过**
+
+**构建产物：**
+| 产物 | 路径 | 说明 |
+|---|---|---|
+| fcitx5-x11 | `$OPT/fcitx5-x11/bin/fcitx5` | 无静态 xcb，全动态链接 |
+| pinyinime addon | `$OPT/fcitx5-x11/lib/fcitx5/libpinyinime.so` | 链接 fcitx5-x11 |
+| classicui | `$OPT/fcitx5-x11/lib/fcitx5/libclassicui.so` | 修复后正常工作 |
+
+**未来优化方向：**
+- [ ] 实际 X11 客户端输入测试（xdotool 模拟键盘输入 → 验证候选词上屏）
+- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [ ] 系统级安装脚本（`scripts/install.sh`）
+- [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
+- [ ] M3 纠错深度集成进 libime 解码管线
+
+**待办事项：**
+- [ ] X11 客户端输入端到端测试
+- [ ] 系统级一键安装验证
+- [ ] 打包 + S3 分发 v0.9.79
+
+**所需依赖（同 v0.9.78）：**
+- 系统：cmake 3.22, make, gcc/g++ 10.3（构建用 conda-forge 工具链）
+- conda-forge：gcc 16.2, gxx, boost-cpp 1.85, fmt 12.2, zstd 1.5.7, libuv, extra-cmake-modules 6.12, cmake 4.2.3, ninja 1.13.2, pkg-config, nlohmann_json, pango, cairo, gdk-pixbuf, librsvg, xcb-util, xcb-keysyms, xcb-wm
+- X11 开发头（RPM → /workspace/sysroot）：xorg-x11-proto-devel, libxcb-devel, libxkbcommon-devel, libX11-devel, dbus-devel, expat-devel, libxml2-devel, libxkbfile-devel
+- 运行时（RPM → /workspace/sysroot）：Xvfb, dbus-daemon, xkbcomp, libXfont2, pixman, libfontenc
+- 源码：fcitx5 5.1.23, libime 1.1.17, kenlm, xcb-imdkit 1.0.3, yoga, GoogleTest 1.12.1
+- S3 预构建数据：zh_CN.lm(34MB), sc.dict(4.3MB)
+
+---
+
+## 历史进度
+
 ## 当前进度（截至 2026-10-10 v0.9.78）
 
 ### v0.9.78（2026-10-10）：S3 预构建产物加速重建 + fcitx5-x11 桌面集成 + pinyinime addon 成功加载

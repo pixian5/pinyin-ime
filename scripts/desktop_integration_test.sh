@@ -51,22 +51,42 @@ check "Xvfb 运行在 :99" "pgrep -x Xvfb > /dev/null 2>&1"
 echo ""
 echo "--- 启动 DBus 会话 ---"
 pkill -9 dbus-daemon 2>/dev/null; sleep 1
-"$SYSROOT/usr/bin/dbus-daemon" --config-file="$SYSROOT/usr/share/dbus-1/session.conf" \
-    --fork --print-address=1 --print-pid=1 > /tmp/dbus-info 2>/dev/null
+export LD_LIBRARY_PATH="$SYSROOT/usr/lib64:$SYSROOT/usr/lib:$ENV/lib:/usr/lib64"
+mkdir -p /tmp/opencode/dbus
+cat > /tmp/opencode/dbus/session.conf << 'DBUSCONF'
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <type>session</type>
+  <listen>unix:path=/tmp/opencode/dbus/session_bus_socket</listen>
+  <auth>EXTERNAL</auth>
+  <policy context="default">
+    <allow send_destination="*" eavesdrop="true"/>
+    <allow eavesdrop="true"/>
+    <allow own="*"/>
+    <allow user="*"/>
+  </policy>
+</busconfig>
+DBUSCONF
+rm -f /tmp/opencode/dbus/session_bus_socket
+"$SYSROOT/usr/bin/dbus-daemon" --config-file=/tmp/opencode/dbus/session.conf \
+    --fork --print-address=1 > /tmp/dbus-info 2>/dev/null
 sleep 1
 DBUS_ADDR="$(grep -m1 '^unix:' /tmp/dbus-info)"
-check "DBus 会话运行" "test -n '$DBUS_ADDR'"
+check "DBus 会话运行" "test -S '/tmp/opencode/dbus/session_bus_socket'"
 
 # ---------- 4. 启动 fcitx5 ----------
 echo ""
 echo "--- 启动 fcitx5 服务 ---"
 pkill -9 fcitx5 2>/dev/null; sleep 1
 export LD_LIBRARY_PATH="$OPT/fcitx5-x11/lib:$OPT/libime/lib:$ENV/lib:$SYSROOT/usr/lib64:$SYSROOT/usr/lib"
+export LD_PRELOAD="/tmp/opencode/xkb_hook.so"
 export DISPLAY=:99 XMODIFIERS=@im=fcitx LANG=zh_CN.utf8 LC_ALL=zh_CN.utf8
 export FCITX_ADDON_DIRS="$OPT/fcitx5-x11/lib/fcitx5"
 export FCITX_ADDON_CONFIG_DIRS="$OPT/fcitx5-x11/share/fcitx5/addon"
 export FCITX_DATA_DIR="$OPT/fcitx5-x11/share/fcitx5"
-export DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/tmp/opencode/dbus/session_bus_socket"
+export XKB_BINDIR="$SYSROOT/usr/bin"
 export HOME=/workspace
 rm -rf /tmp/pinyin-ime-test-ud
 nohup "$OPT/fcitx5-x11/bin/fcitx5" > /tmp/fcitx5.log 2>&1 &
@@ -100,3 +120,6 @@ fi
 
 # 清理
 pkill -9 fcitx5 2>/dev/null
+pkill -9 Xvfb 2>/dev/null
+pkill -9 dbus-daemon 2>/dev/null
+unset LD_PRELOAD
