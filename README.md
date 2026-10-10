@@ -2,6 +2,27 @@
 
 ## 当前进度（截至 2026-10-10 v0.9.82）
 
+### ⚠️ 真实可用性评估
+
+**结论：核心功能已完成，但还不能像搜狗拼音那样即装即用。**
+
+详细评估见 [USABILITY_REPORT.md](USABILITY_REPORT.md)
+
+**已完成（✅）：**
+- 语言模型 + 词典：CLI 冒烟测试 24/24
+- fcitx5 addon 加载：17 addons 全加载
+- 桌面集成：21/21 (Xvfb+DBus+classicui)
+- DBus 端到端输入：7/7 拼音→中文转换
+- 用户交互：6/6 退格/选词/翻页
+- SelectCandidate + 简拼：6/6 精确选词
+- 系统安装脚本：install.sh 一键安装
+
+**关键缺失（❌）：**
+- **XIM 协议**：XFilterEvent 返回 NO，无法拦截 X11 应用按键
+- **真实应用测试**：未在 xterm/gedit 等真实应用中验证
+- **候选词窗口**：未验证视觉显示
+- **Wayland 支持**：未构建
+
 ### v0.9.82（2026-10-10）：SelectCandidate + 简拼测试 6/6 通过 + 系统级安装脚本
 
 **核心成果：精确选词、简拼转换、翻页选择全部验证通过。新增系统级一键安装脚本，支持 openEuler/CentOS/RHEL/Ubuntu/Debian。**
