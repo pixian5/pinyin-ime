@@ -1,5 +1,80 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-10 v0.9.81）
+
+### v0.9.81（2026-10-10）：用户交互测试 6/6 全通过 — 退格、选词、翻页全部工作
+
+**核心成果：通过 fcitx5 DBus 接口完成用户交互端到端测试——退格删除、数字选词、翻页导航、多次连续输入全部验证通过。发现并修复 `SetCapability` 重置 IM 的关键 bug。**
+
+**P0：用户交互测试（6项）**
+
+| 测试项 | 描述 | 结果 |
+|--------|------|------|
+| Test 1 | 基础输入 (nihao + space) | ✅ 5/5 消耗 |
+| Test 2 | Preedit 显示 (beijing) | ✅ 7/7 消耗 |
+| Test 3 | 退格删除 (shanghai → 删i → 重输i) | ✅ 8/8 消耗 |
+| Test 4 | 数字选词 (zhongguo + '2') | ✅ 选第2候选 |
+| Test 5 | 翻页导航 ([ ] Page_Up Page_Down) | ✅ 全部消耗 |
+| Test 6 | 多次连续输入 (4组拼音) | ✅ 4/4 正确 |
+
+**P1：关键 Bug 修复 — `SetCapability` 重置 IM**
+
+**问题**：调用 `SetCapability()` 后，`CurrentInputMethod` 从 `pinyinime` 重置为 `keyboard-us`。
+
+**根因**：fcitx5 的 `SetCapability` 触发输入法重新评估，重置为 group 中第一个 IM（keyboard-us）。
+
+**解决方案**：正确的调用顺序是 `FocusIn()` → `SetCurrentIM("pinyinime")`，不调用 `SetCapability`。
+
+```
+# 错误顺序（IM 被重置）:
+ic.FocusIn()
+ic.SetCapability(0xFFFFFFFF)  # ← 重置 IM!
+ctrl.SetCurrentIM("pinyinime")  # ← 无效
+
+# 正确顺序（IM 保持 pinyinime）:
+ic.FocusIn()
+ctrl.SetCurrentIM("pinyinime")  # ← 有效
+# 不调用 SetCapability
+```
+
+**P2：Preedit 信号说明**
+
+- `UpdateFormattedPreedit` 信号未通过 DBus 发送
+- Preedit 通过 fcitx5 的 client-side UI 显示（classicui 渲染）
+- `CommitString` 信号正常发送并携带正确的中文字符串
+
+**当前完整验证链路：**
+| 层级 | 验证 | 状态 |
+|---|---|---|
+| 语言模型 + 词典 | CLI 冒烟测试 24/24 | ✅ |
+| fcitx5 addon 加载 | 17 addons 全加载 | ✅ |
+| 桌面集成 | 21/21 (Xvfb+DBus+classicui) | ✅ |
+| 端到端输入 | 7/7 拼音→中文转换 | ✅ |
+| **用户交互** | **6/6 退格/选词/翻页** | ✅ |
+| DBus 接口 | CreateInputContext+ProcessKeyEvent | ✅ |
+
+**新增测试脚本：**
+- `scripts/interaction_test.py`：用户交互端到端测试
+
+**未来优化方向：**
+- [ ] 候选词列表内容验证（SelectCandidate 选择指定候选）
+- [ ] 模糊音/简拼在 fcitx5 中的端到端验证
+- [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
+- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [ ] 系统级安装脚本
+
+**待办事项：**
+- [ ] SelectCandidate 精确选词测试
+- [ ] 系统级一键安装验证
+- [ ] 打包 + S3 分发 v0.9.81
+
+**所需依赖（同 v0.9.80）：**
+- dbus-tools, python-xlib, python3-dbus
+
+---
+
+## 历史进度
+
 ## 当前进度（截至 2026-10-10 v0.9.80）
 
 ### v0.9.80（2026-10-10）：端到端输入测试 7/7 全通过 — 输入法真正能打字

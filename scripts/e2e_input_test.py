@@ -101,10 +101,11 @@ def run_e2e_test():
     ic = dbus.Interface(ic_obj, "org.fcitx.Fcitx.InputContext1")
 
     # Focus and set IM
+    # Order: FocusIn -> SetCurrentIM (SetCapability resets IM!)
     ic.FocusIn()
+    time.sleep(0.1)
     ctrl.SetCurrentIM("pinyinime")
-    ic.SetCapability(dbus.UInt64(0x20001))
-    time.sleep(0.2)
+    time.sleep(0.1)
 
     current_im = str(ctrl.CurrentInputMethod())
     if current_im != "pinyinime":
