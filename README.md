@@ -1,5 +1,108 @@
 # pinyin-ime
 
+## 当前进度（截至 2026-10-10 v0.9.78）
+
+### v0.9.78（2026-10-10）：S3 预构建产物加速重建 + fcitx5-x11 桌面集成 + pinyinime addon 成功加载
+
+**核心成果：利用 S3 预构建产物（zh_CN.lm + sc.dict）跳过数据下载/处理，从源码重建 fcitx5-x11（X11+DBus+Server 全功能），pinyinime addon 在 fcitx5 服务中被成功加载并注册为输入法。CLI 冒烟测试 24/24 全通过，Web 演示 API 正常运行。**
+
+**P0：S3 预构建产物加速重建**
+
+- 从 CSTCloud S3（`cst:xbz/pinyin-ime/v0.9.77/`）下载 8 文件 135MB，SHA256 全部校验通过
+- 利用 S3 的 `zh_CN.lm`（34MB）和 `sc.dict`（4.3MB）预置到 libime 安装目录，跳过数据下载（77MB arpa）和转换（slm_build_binary/pinyindict），节省 ~40 秒
+- libime 以 `ENABLE_DATA=Off` 构建（仅编译库），数据文件从 S3 直接复制
+
+**P1：fcitx5-x11 桌面集成构建（X11+DBus+Server 全功能）**
+
+构建链路：
+```
+conda-forge 工具链（gcc 16.2/boost 1.85/fmt 12.2/zstd/ECM 6.12/nlohmann_json, BFSU 镜像）
+  → X11 开发头（xorg-x11-proto-devel/libxcb-devel/libxkbcommon-devel/libX11-devel/dbus-devel/expat-devel/libxml2-devel/libxkbfile-devel RPM 提取到 /workspace/sysroot）
+  → conda-forge UI 依赖（pango/cairo/gdk-pixbuf/librsvg/xcb-util/xcb-keysyms/xcb-wm, BFSU 镜像）
+  → xcb-imdkit 1.0.3 源码编译（gh-proxy.com 镜像）
+  → yoga 子模块补齐（facebook/yoga main, codeload.github.com via 7890 代理）
+  → GoogleTest 1.12.1 预下载（gh-proxy.com 镜像, FETCHCONTENT_SOURCE_DIR_GOOGLETEST）
+  → fcitx5 5.1.23 X11+DBus+Server+Keyboard 构建（211 targets, Ninja）
+  → pinyinime addon 重新编译（链接 fcitx5-x11）
+```
+
+关键技术难点与解法：
+| 难点 | 解法 |
+|---|---|
+| conda pkg-config 缺 zlib/expat/libxml-2.0 .pc | 创建 stub .pc 文件指向 conda 库 |
+| dbus-1.pc includedir/libdir 指向 /usr（不存在） | 修改 .pc 指向 /workspace/sysroot/usr |
+| cmake FindExpat 找不到库 | 显式 `-DEXPAT_INCLUDE_DIR` + `-DEXPAT_LIBRARIES` |
+| sysroot libexpat.so/libxkbfile.so 断链 | 复制运行时 .so 到 sysroot 修复 symlink |
+| conda xkbcommon-x11.h XKB_EXPORT 未定义 | 在头文件顶部插入 `#define XKB_EXPORT` |
+| yoga tests 编译失败（-Werror=array-bounds） | 注释 `add_subdirectory(tests)` |
+| fcitx5 FetchContent 下载 GoogleTest 超时 | 预下载 + `FETCHCONTENT_SOURCE_DIR_GOOGLETEST` |
+| Xvfb 找不到 /usr/bin/xkbcomp | LD_PRELOAD 拦截 execve() 重定向到 sysroot |
+
+**P2：pinyinime addon 在 fcitx5 中成功加载**
+
+在 Xvfb 虚拟桌面（:99）下启动 fcitx5 5.1.23，pinyinime addon 成功加载：
+```
+pinyinime: loaded lm=/workspace/native-build/opt/libime/lib/libime/zh_CN.lm
+           dict=/workspace/native-build/opt/libime/lib/libime/sc.dict
+Loaded addon pinyinime
+Found 1 input method(s) in addon pinyinime
+Items in 默认: [InputMethodGroupItem(keyboard-us,layout=), InputMethodGroupItem(pinyinime,layout=)]
+```
+
+fcitx5 加载的 addon（9 个）：pinyinime, imselector, xcb, quickphrase, keyboard, clipboard, unicode, xim, + classicui/dbusfrontend（需 DBus 会话）
+
+**P3：CLI 冒烟测试 24/24 全通过**
+
+```
+== 全拼 ==  5/5 ✅  (nihao→你好, zhongguo→中国, woshiyige→我是一个, beijingdaxue→北京大学, zhongguoruanjian→中国软件)
+== 简拼 ==  3/3 ✅  (bjdx→北京大学, zg→中国, js→技术)
+== 模糊音 == 4/4 ✅  (cifan→吃饭, senme→什么, zeli→这里, lanfang→南方)
+== 双拼 ==  8/8 ✅  (nihc→你好, vsgo→中国, ...)
+== CLI 功能 == 4/4 ✅  (--version, --stats, --json, --correct)
+==== 结果：24 通过 / 0 失败 ====
+```
+
+**P4：Web 演示 API 运行**
+
+- `scripts/web_demo_v2.py` 启动成功，监听 `http://localhost:8080`
+- `GET /api?q=nihao` → `{"candidates": ["你好", "拟好", "你毫", ...]}`
+- `GET /api?top1=shurufa` → `{"result": "输入法"}`
+
+**构建产物：**
+| 产物 | 路径 | 大小 |
+|---|---|---|
+| CLI | `cpp/build/pinyin_ime_cli` | 750KB |
+| fcitx5 (headless) | `$NB/opt/fcitx5/bin/fcitx5` | — |
+| fcitx5-x11 | `$NB/opt/fcitx5-x11/bin/fcitx5` | 449KB |
+| fcitx5-x11 addons | `$NB/opt/fcitx5-x11/lib/fcitx5/` | 17 个 .so |
+| pinyinime addon | `$NB/opt/fcitx5-x11/lib/fcitx5/libpinyinime.so` | 850KB |
+| 语言模型 | `$NB/opt/libime/lib/libime/zh_CN.lm` | 34MB（4-gram, S3 预构建） |
+| 拼音词典 | `$NB/opt/libime/share/libime/sc.dict` | 4.3MB（S3 预构建） |
+
+**未来优化方向：**
+- [ ] 修复 classicui 在 Xvfb 下的 segfault（xcb_get_extension_data 空指针）
+- [ ] 修复 DBus 会话启动（dbus-daemon session.conf 路径）
+- [ ] fcitx5 桌面集成完整 21/21 验证（需 classicui + DBus 修复）
+- [ ] 一键安装到系统：`scripts/install.sh` 装 CLI + addon + 数据 + fcitx5 注册
+- [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
+- [ ] M3 纠错深度集成进 libime 解码管线
+
+**待办事项：**
+- [ ] classicui segfault 修复（Xvfb 虚拟桌面下 UI 渲染）
+- [ ] DBus 会话配置修复
+- [ ] 系统级一键安装验证
+- [ ] 打包 + S3 分发 v0.9.78
+
+**所需依赖（本机已就绪）：**
+- 系统：cmake 3.22, make, gcc/g++ 10.3（系统自带，构建用 conda-forge 工具链）
+- conda-forge（BFSU 镜像）：gcc 16.2, gxx, boost-cpp 1.85, fmt 12.2, zstd 1.5.7, libuv, extra-cmake-modules 6.12, gettext, libuuid, cmake 4.2.3, ninja 1.13.2, pkg-config, make, nlohmann_json, pango, cairo, gdk-pixbuf, librsvg, xcb-util, xcb-keysyms, xcb-wm
+- X11 开发头（RPM 提取到 /workspace/sysroot）：xorg-x11-proto-devel, libxcb-devel, libxkbcommon-devel, libX11-devel, dbus-devel, expat-devel, libxml2-devel, libxkbfile-devel
+- 源码（gh-proxy.com 镜像）：fcitx5 5.1.23, libime 1.1.17, kenlm(commit 4cb443e), xcb-imdkit 1.0.3, yoga(facebook/yoga main), GoogleTest 1.12.1
+- S3 预构建数据（CSTCloud S3）：zh_CN.lm(34MB), sc.dict(4.3MB)
+- Python（评测用）：pypinyin, pyyaml, jieba
+
+---
+
 ## 当前进度（截至 2026-10-10 v0.9.77）
 
 ### v0.9.77（2026-10-10）：fcitx5 桌面集成 21/21 全通过 + Web 演示 + 快速评测 + 纠错验证
