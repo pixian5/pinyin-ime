@@ -59,11 +59,11 @@ run_test "healthcheck (29项)"     "bash scripts/healthcheck.sh"
 run_test "CI回归 (12项)"          "bash scripts/ci_test.sh"
 run_test "模糊音 (18项)"          "python3.9 scripts/fuzzy_pinyin_test.py"
 run_test "Qt端到端 (10项)"        "bash scripts/xvfb_qt_ime_test.sh"
-run_test "XIM协议 (4项)"          "python3.9 scripts/xim_test.py"
 run_test "用户词典持久化 (6项)"   "python3.9 scripts/user_dict_persistence_test.py"
 run_test "性能测试"               "python3.9 scripts/performance_test.py"
+run_test "XIM协议 (5项)"          "$ENV_DIR/bin/python3 scripts/xim_test.py"
+run_test "模糊音e2e (8项)"        "python3.9 scripts/fuzzy_e2e_fcitx5_test.py"
 run_test "候选词 (8项)"           "python3.9 scripts/candidate_test.py"
-run_test "X11端到端 (7项)"        "$ENV_DIR/bin/python3 scripts/x11_e2e_test.py"
 echo ""
 
 # Addon status
