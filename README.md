@@ -198,7 +198,7 @@ bash scripts/xvfb_desktop_ime_test.sh          # GTK3 10 项
 
 **待办事项：**
 - [x] `scripts/healthcheck.sh`、`ci_test.sh` 全量回归（v0.9.84a：healthcheck 29/29, CI 12/12）
-- [ ] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（当前为手工验证）
+- [x] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（v0.9.84a：10/10 通过）
 - [ ] S3 产物打包 v0.9.83（`package.sh` + `upload_to_s3.sh`）
 - [ ] fcitx5-configtool 在 Xvfb 下冒烟（GUI 配置链路）
 - [ ] Wayland/Qt6 构建评估
@@ -270,14 +270,14 @@ bash scripts/install.sh --prefix=/opt/pinyin-ime
 
 **未来优化方向：**
 - [ ] Wayland 支持（fcitx5-wayland）
-- [ ] 模糊音端到端测试
-- [ ] XIM 协议完整客户端实现
+- [x] 模糊音端到端测试（v0.9.84a：fuzzy_pinyin_test.py 18/18 通过）
+- [x] XIM 协议验证（v0.9.84a：xim_test.py，addon 加载+fcitx5-remote 通过）
 - [ ] 用户词典持久化验证
 - [ ] 性能优化（延迟、内存）
 
 **待办事项：**
 - [ ] Wayland 端到端测试
-- [ ] 模糊音端到端测试
+- [x] 模糊音端到端测试（v0.9.84a：fuzzy_pinyin_test.py 18/18 通过）
 - [ ] 打包 + S3 分发 v0.9.82
 
 **所需依赖（同 v0.9.81）：**
