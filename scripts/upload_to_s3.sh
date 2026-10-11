@@ -1,82 +1,76 @@
-#!/usr/bin/env bash
-# 上传 pinyin-ime 构建产物到 CSTCloud S3
+#!/bin/bash
+# pinyin-ime S3 上传脚本
+# 将打包好的 tarball 上传到 S3 (CSTCloud)
 #
-# 用法：bash scripts/upload_to_s3.sh [version]
-#   不指定 version 则从 VERSION 文件读取
-#
-# 上传内容：
-#   - 源码 tarball（packaging/build/pinyin-ime-{ver}.tar.gz）
-#   - 二进制发行包（packaging/build/pinyin-ime-{ver}-bin.tar.gz）
-#   - CLI 二进制（cpp/build/pinyin_ime_cli）
-#   - fcitx5 addon（fcitx5-addon/build/libpinyinime.so）
-#   - fcitx5 服务（$OPT/fcitx5-x11/bin/fcitx5，桌面集成版）
-#   - 语言模型（zh_CN.lm, 34MB）
-#   - 词典（sc.dict, 4.3MB）
-#   - SHA256SUMS 校验文件
-#
-# S3 路径：cst:xbz/pinyin-ime/{version}/
-# rclone 配置见 scripts/download_from_s3.sh 或 INSTALL.md
+# 用法:
+#   bash scripts/upload_to_s3.sh                    # 上传最新打包
+#   bash scripts/upload_to_s3.sh /path/to/file.tar.gz  # 上传指定文件
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
-PROJ_DIR="$(dirname "${SCRIPT_DIR}")"
-NB="${NB:-/workspace/native-build}"
-OPT="$NB/opt"
-ENV="$NB/mamba-env"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-# 版本号
-if [ $# -ge 1 ]; then
-    VERSION="$1"
-elif [ -f "$PROJ_DIR/VERSION" ]; then
-    VERSION=$(cat "$PROJ_DIR/VERSION")
+VERSION=$(cat VERSION 2>/dev/null || echo "unknown")
+S3_BUCKET="pinyin-ime"
+S3_PREFIX="releases"
+
+log() { echo -e "\033[32m[s3]\033[0m $*"; }
+err() { echo -e "\033[31m[error]\033[0m $*" >&2; }
+
+# Determine file to upload
+if [ -n "${1:-}" ]; then
+    TARBALL="$1"
 else
-    VERSION="0.9.77"
+    TARBALL="/tmp/pinyin-ime-v${VERSION}.tar.gz"
 fi
-echo "=== 上传 pinyin-ime v${VERSION} 到 CSTCloud S3 ==="
 
-# 检查 rclone
+if [ ! -f "$TARBALL" ]; then
+    err "文件不存在: $TARBALL"
+    err "请先运行: bash scripts/package.sh"
+    exit 1
+fi
+
+# Check rclone
 if ! command -v rclone &>/dev/null; then
-    echo "错误：rclone 未安装。请先安装：curl -O https://downloads.rclone.org/rclone-current-linux-arm64.zip"
-    exit 1
-fi
-if ! rclone listremotes 2>/dev/null | grep -q '^cst:'; then
-    echo "错误：rclone 未配置 cst 远程。请参考 INSTALL.md 配置 ~/.config/rclone/rclone.conf"
+    err "rclone 未安装"
     exit 1
 fi
 
-# 准备临时目录
-STAGE=$(mktemp -d)
-trap "rm -rf $STAGE" EXIT
+# Check rclone remote
+if ! rclone listremotes 2>/dev/null | grep -q "s3:"; then
+    err "rclone 未配置 s3 remote"
+    err "请运行: rclone config create s3 s3 ..."
+    exit 1
+fi
 
-# 收集文件
-echo "--- 收集构建产物 ---"
-cp "$PROJ_DIR/packaging/build/pinyin-ime-${VERSION}.tar.gz" "$STAGE/" 2>/dev/null || echo "  警 源码 tarball 不存在"
-cp "$PROJ_DIR/packaging/build/pinyin-ime-${VERSION}-bin.tar.gz" "$STAGE/" 2>/dev/null || echo "  覦 二进制包不存在"
-cp "$PROJ_DIR/cpp/build/pinyin_ime_cli" "$STAGE/pinyin_ime_cli_v${VERSION}" 2>/dev/null || echo "  覦 CLI 不存在"
-cp "$PROJ_DIR/fcitx5-addon/build/libpinyinime.so" "$STAGE/libpinyinime_v${VERSION}.so" 2>/dev/null || echo "  覦 addon 不存在"
-cp "$OPT/fcitx5-x11/bin/fcitx5" "$STAGE/fcitx5_v${VERSION}" 2>/dev/null || echo "  覦 fcitx5-x11 不存在"
-cp "$OPT/libime/lib/libime/zh_CN.lm" "$STAGE/zh_CN.lm" 2>/dev/null || echo "  覦 zh_CN.lm 不存在"
-cp "$OPT/libime/share/libime/sc.dict" "$STAGE/sc.dict" 2>/dev/null || echo "  覦 sc.dict 不存在"
-# 桌面自包含 bundle（v0.9.83 起）：整套 fcitx5-x11 前缀 + GTK/Qt im module + deps-lib
-# （含 conda 运行时库，目标容器无需 conda）+ libime 数据 + env.sh + 启动器，
-# 解压 $HOME/.local 即用，详见 bundle 内 README-DEPLOY.txt
-cp "$PROJ_DIR/packaging/build/pinyin-ime-desktop-v${VERSION}.tar.gz" "$STAGE/" 2>/dev/null || echo "  覦 桌面 bundle 不存在（先 bash scripts/install_desktop.sh 后手工 tar，见 README）"
+SHA256_FILE="${TARBALL}.sha256"
+if [ ! -f "$SHA256_FILE" ]; then
+    log "生成校验和..."
+    sha256sum "$TARBALL" > "$SHA256_FILE"
+fi
 
-# 生成 SHA256SUMS
-echo "--- 生成 SHA256SUMS ---"
-cd "$STAGE"
-sha256sum * > "SHA256SUMS_v${VERSION}"
-cat "SHA256SUMS_v${VERSION}"
-
-# 上传
+log "上传 pinyin-ime v${VERSION} 到 S3..."
+echo "  文件: $TARBALL"
+echo "  大小: $(du -h "$TARBALL" | cut -f1)"
 echo ""
-echo "--- 上传到 cst:xbz/pinyin-ime/v${VERSION}/ ---"
-rclone copy "$STAGE/" "cst:xbz/pinyin-ime/v${VERSION}/" \
-    --user-agent "rclone/1.75.1 pinyin-ime" \
-    --progress
+
+# Upload tarball
+log "Step 1: 上传 tarball..."
+rclone copy "$TARBALL" "s3:${S3_BUCKET}/${S3_PREFIX}/v${VERSION}/" --progress
+echo ""
+
+# Upload checksum
+log "Step 2: 上传 SHA256..."
+rclone copy "$SHA256_FILE" "s3:${S3_BUCKET}/${S3_PREFIX}/v${VERSION}/"
+echo ""
+
+# Verify
+log "Step 3: 验证上传..."
+rclone ls "s3:${S3_BUCKET}/${S3_PREFIX}/v${VERSION}/" | while read size path; do
+    echo "  ✅ $path ($size bytes)"
+done
 
 echo ""
-echo "=== 上传完成 ==="
-echo "下载路径：cst:xbz/pinyin-ime/v${VERSION}/"
-echo "文件列表："
-rclone ls "cst:xbz/pinyin-ime/v${VERSION}/"
+log "上传完成！"
+log "下载地址: s3://${S3_BUCKET}/${S3_PREFIX}/v${VERSION}/$(basename "$TARBALL")"

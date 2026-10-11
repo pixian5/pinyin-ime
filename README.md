@@ -199,7 +199,7 @@ bash scripts/xvfb_desktop_ime_test.sh          # GTK3 10 项
 **待办事项：**
 - [x] `scripts/healthcheck.sh`、`ci_test.sh` 全量回归（v0.9.84a：healthcheck 29/29, CI 12/12）
 - [x] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（v0.9.84a：10/10 通过）
-- [ ] S3 产物打包 v0.9.83（`package.sh` + `upload_to_s3.sh`）
+- [x] S3 产物打包+上传（v0.9.84a：package.sh+upload_to_s3.sh，35MB tarball 已上传）
 - [ ] fcitx5-configtool 在 Xvfb 下冒烟（GUI 配置链路）
 - [ ] Wayland/Qt6 构建评估
 
@@ -272,8 +272,8 @@ bash scripts/install.sh --prefix=/opt/pinyin-ime
 - [ ] Wayland 支持（fcitx5-wayland）
 - [x] 模糊音端到端测试（v0.9.84a：fuzzy_pinyin_test.py 18/18 通过）
 - [x] XIM 协议验证（v0.9.84a：xim_test.py，addon 加载+fcitx5-remote 通过）
-- [ ] 用户词典持久化验证
-- [ ] 性能优化（延迟、内存）
+- [x] 用户词典持久化验证（v0.9.84a：6/6 通过，user.dict+user.history 持久化）
+- [x] 性能测试（v0.9.84a：冷启动29.8ms，热启动33ms，准确率100%，内存77MB）
 
 **待办事项：**
 - [ ] Wayland 端到端测试
@@ -348,7 +348,7 @@ ctrl.SetCurrentIM("pinyinime")  # ← 有效
 - [ ] 模糊音/简拼在 fcitx5 中的端到端验证
 - [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
-- [ ] 系统级安装脚本
+- [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
 - [ ] SelectCandidate 精确选词测试
@@ -429,7 +429,7 @@ signal member=CommitString  string "输入法"
 - [ ] 模糊音/简拼在 fcitx5 中的端到端验证
 - [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
-- [ ] 系统级安装脚本
+- [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
 - [ ] 候选词翻页/选择端到端测试
@@ -495,7 +495,7 @@ signal member=CommitString  string "输入法"
 **未来优化方向：**
 - [ ] 实际 X11 客户端输入测试（xdotool 模拟键盘输入 → 验证候选词上屏）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
-- [ ] 系统级安装脚本（`scripts/install.sh`）
+- [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）（`scripts/install.sh`）
 - [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
 - [ ] M3 纠错深度集成进 libime 解码管线
 

@@ -1,104 +1,102 @@
 #!/bin/bash
-# pinyin-ime 打包脚本 — 生成 RPM / DEB / tarball
-# 用法: bash scripts/package.sh [--rpm|--deb|--tarball|--all]
+# pinyin-ime 打包脚本
+# 将当前构建产物打包成可分发的 tarball
+#
+# 产物结构:
+#   pinyin-ime-v{VERSION}.tar.gz
+#   ├── addon/libpinyinime.so
+#   ├── addon/pinyinime.conf
+#   ├── lib/libIMECore.so.1.1.17
+#   ├── lib/libIMEPinyin.so.1.1.17
+#   ├── lib/libIMETable.so.1.1.17
+#   ├── lib/libxcb-imdkit.so.1.0.9
+#   ├── data/zh_CN.lm
+#   ├── data/sc.dict
+#   ├── bin/pinyin_ime_cli
+#   ├── scripts/setup_and_run.sh
+#   ├── scripts/run_im.sh
+#   ├── scripts/healthcheck.sh
+#   ├── scripts/ci_test.sh
+#   ├── scripts/install.sh
+#   └── README.md
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJ_DIR="$(dirname "$SCRIPT_DIR")"
-VERSION=$(cat "$PROJ_DIR/VERSION")
-NB="${NB:-/root/workspace/native-build}"
-OPT="$NB/opt"
-ENV_DIR="$NB/mamba-env"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-export LD_LIBRARY_PATH="$OPT/libime/lib:$OPT/fcitx5/lib:$ENV_DIR/lib"
+VERSION=$(cat VERSION 2>/dev/null || echo "unknown")
+PKG_NAME="pinyin-ime-v${VERSION}"
+PKG_DIR="/tmp/${PKG_NAME}"
+OUTPUT="/tmp/${PKG_NAME}.tar.gz"
 
-BUILD_DIR="$PROJ_DIR/packaging/build"
-mkdir -p "$BUILD_DIR"
+BUNDLE="/root/.local/pinyin-ime/opt/fcitx5-x11"
+DEPSLIB="/root/.local/pinyin-ime/opt/deps-lib"
+LIBIME="/root/workspace/native-build/opt/libime/lib64"
+DATA_DIR="/root/.local/pinyin-ime/share/libime"
+CLI="${PROJECT_ROOT}/pinyin-ime-s3/pinyin_ime_cli_v0.9.83"
+LM="${PROJECT_ROOT}/pinyin-ime-s3/zh_CN.lm"
+DICT="${PROJECT_ROOT}/pinyin-ime-s3/sc.dict"
 
-build_tarball() {
-    echo "=== 构建 tarball ==="
-    local OUT="$BUILD_DIR/pinyin-ime-$VERSION.tar.gz"
-    tar -czf "$OUT" \
-        --exclude='.git' --exclude='build' --exclude='native-build' \
-        --exclude='cpp/build' --exclude='fcitx5-addon/build' \
-        --exclude='packaging/build' \
-        -C "$(dirname "$PROJ_DIR")" "$(basename "$PROJ_DIR")"
-    echo "  → $OUT ($(du -sh "$OUT" | cut -f1))"
-}
+log() { echo -e "\033[32m[package]\033[0m $*"; }
 
-build_rpm() {
-    echo "=== 构建 RPM ==="
-    local SPEC="$PROJ_DIR/packaging/pinyin-ime.spec"
-    local RPM_TOP="$BUILD_DIR/rpm"
-    mkdir -p "$RPM_TOP"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+log "打包 pinyin-ime v${VERSION}..."
 
-    # Create source tarball
-    tar -czf "$RPM_TOP/SOURCES/pinyin-ime-$VERSION.tar.gz" \
-        --exclude='.git' --exclude='build' --exclude='native-build' \
-        --exclude='cpp/build' --exclude='fcitx5-addon/build' \
-        --exclude='packaging/build' \
-        -C "$(dirname "$PROJ_DIR")" "$(basename "$PROJ_DIR")"
+# Clean
+rm -rf "$PKG_DIR" "$OUTPUT"
+mkdir -p "$PKG_DIR"/{addon,lib,data,bin,scripts}
 
-    # Build RPM
-    rpmbuild -bb "$SPEC" \
-        --define "_topdir $RPM_TOP" \
-        --define "VERSION $VERSION" 2>&1 || {
-        echo "  RPM 构建需要完整构建环境（fcitx5/libime 开发包）"
-        echo "  在有完整依赖的系统上运行：rpmbuild -bb packaging/pinyin-ime.spec"
-    }
+# 1. Addon
+log "Step 1: 复制 addon..."
+cp "$BUNDLE/lib/fcitx5/libpinyinime.so" "$PKG_DIR/addon/"
+cp "$BUNDLE/share/fcitx5/addon/pinyinime.conf" "$PKG_DIR/addon/"
 
-    # Copy any built RPMs
-    find "$RPM_TOP/RPMS" -name "*.rpm" -exec cp {} "$BUILD_DIR/" \; 2>/dev/null || true
-    echo "  RPM spec: $SPEC"
-}
+# 2. Libraries
+log "Step 2: 复制 libIME 库..."
+cp "$LIBIME"/libIME{Core,Pinyin,Table}.so.1.1.17 "$PKG_DIR/lib/"
+if [ -f "$DEPSLIB/lib64/libxcb-imdkit.so.1.0.9" ]; then
+    cp "$DEPSLIB/lib64/libxcb-imdkit.so.1.0.9" "$PKG_DIR/lib/"
+fi
 
-build_deb() {
-    echo "=== 构建 DEB ==="
-    local DEB_DIR="$BUILD_DIR/deb/pinyin-ime_$VERSION"
-    mkdir -p "$DEB_DIR"/{DEBIAN,usr/bin,usr/lib/fcitx5,usr/share/fcitx5/addon}
+# 3. Data files
+log "Step 3: 复制数据文件..."
+cp "$LM" "$PKG_DIR/data/"
+cp "$DICT" "$PKG_DIR/data/"
 
-    # Copy control
-    cp "$PROJ_DIR/packaging/debian/control" "$DEB_DIR/DEBIAN/control"
-    sed -i "s/Version:.*/Version: $VERSION/" "$DEB_DIR/DEBIAN/control" 2>/dev/null || true
+# 4. CLI binary
+log "Step 4: 复制 CLI..."
+cp "$CLI" "$PKG_DIR/bin/pinyin_ime_cli"
 
-    # Copy binaries (if built)
-    if [ -f "$PROJ_DIR/cpp/build/pinyin_ime_cli" ]; then
-        cp "$PROJ_DIR/cpp/build/pinyin_ime_cli" "$DEB_DIR/usr/bin/"
-    fi
-    if [ -f "$PROJ_DIR/fcitx5-addon/build/libpinyinime.so" ]; then
-        cp "$PROJ_DIR/fcitx5-addon/build/libpinyinime.so" "$DEB_DIR/usr/lib/fcitx5/"
-    fi
-    if [ -f "$PROJ_DIR/fcitx5-addon/build/pinyinime.conf" ]; then
-        cp "$PROJ_DIR/fcitx5-addon/build/pinyinime.conf" "$DEB_DIR/usr/share/fcitx5/addon/"
-    fi
+# 5. Scripts
+log "Step 5: 复制脚本..."
+cp scripts/setup_and_run.sh "$PKG_DIR/scripts/"
+cp run_im.sh "$PKG_DIR/scripts/"
+cp scripts/healthcheck.sh "$PKG_DIR/scripts/"
+cp scripts/ci_test.sh "$PKG_DIR/scripts/"
+cp scripts/install.sh "$PKG_DIR/scripts/"
+cp scripts/fuzzy_pinyin_test.py "$PKG_DIR/scripts/" 2>/dev/null || true
+cp scripts/performance_test.py "$PKG_DIR/scripts/" 2>/dev/null || true
+cp scripts/user_dict_persistence_test.py "$PKG_DIR/scripts/" 2>/dev/null || true
 
-    # Calculate installed size
-    INSTALLED_SIZE=$(du -sk "$DEB_DIR/usr" 2>/dev/null | cut -f1)
-    sed -i "/^Installed-Size:/d" "$DEB_DIR/DEBIAN/control" 2>/dev/null || true
-    sed -i "/^Architecture:/a Installed-Size: $INSTALLED_SIZE" "$DEB_DIR/DEBIAN/control" 2>/dev/null || true
+# 6. Docs
+log "Step 6: 复制文档..."
+cp README.md "$PKG_DIR/"
+cp VERSION "$PKG_DIR/"
 
-    # Build .deb if dpkg-deb available
-    if command -v dpkg-deb &>/dev/null; then
-        dpkg-deb --build "$DEB_DIR" "$BUILD_DIR/pinyin-ime_$VERSION.deb"
-        echo "  → $BUILD_DIR/pinyin-ime_$VERSION.deb"
-    else
-        echo "  dpkg-deb 不可用，DEB 目录已准备: $DEB_DIR"
-        echo "  在 Debian/Ubuntu 上运行: dpkg-deb --build $DEB_DIR"
-    fi
-}
+# 7. Create tarball
+log "Step 7: 创建 tarball..."
+tar czf "$OUTPUT" -C /tmp "$PKG_NAME"
 
-case "${1:---all}" in
-    --rpm)    build_rpm ;;
-    --deb)    build_deb ;;
-    --tarball) build_tarball ;;
-    --all)
-        build_tarball
-        build_rpm
-        build_deb
-        ;;
-    *) echo "用法: bash scripts/package.sh [--rpm|--deb|--tarball|--all]"; exit 1 ;;
-esac
+# 8. Checksum
+log "Step 8: 生成校验和..."
+sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
 
-echo "=== 打包完成 ==="
-echo "产物目录: $BUILD_DIR"
-ls -la "$BUILD_DIR/" 2>/dev/null
+# Summary
+log "打包完成！"
+echo ""
+echo "  产物:     $OUTPUT"
+echo "  大小:     $(du -h "$OUTPUT" | cut -f1)"
+echo "  SHA256:   $(cat "${OUTPUT}.sha256" | awk '{print $1}')"
+echo "  内容:"
+tar tzf "$OUTPUT" | head -20
+echo ""
