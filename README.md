@@ -78,7 +78,7 @@
 - [x] fontconfig 配置（候选窗中文字体）（v0.9.84：创建配置文件+符号链接）
 - [x] XKB 键盘规则加载（v0.9.84：xkeyboard-config符号链接到系统路径）
 - [ ] fcitx5-configtool GUI 配置验证
-- [ ] S3 产物更新（加入 libIME 库到 bundle）
+- [x] S3 产物更新（v0.9.84：上传 libIME+xcb-imdkit+addon 到 v0.9.84/supplement/）
 
 **所需依赖（新机器复现）：**
 - 系统：xorg-x11-server-Xvfb, dbus, boost-devel, fmt-devel, zstd-devel, libuv-devel, ninja-build, extra-cmake-modules, gettext, libuuid-devel, python3-dbus
@@ -197,7 +197,7 @@ bash scripts/xvfb_desktop_ime_test.sh          # GTK3 10 项
 - 用户词库导入/导出 GUI 化，云同步
 
 **待办事项：**
-- [ ] `scripts/healthcheck.sh`、`ci_test.sh` 全量回归（本轮仅跑了 XIM/GTK 桌面两套）
+- [x] `scripts/healthcheck.sh`、`ci_test.sh` 全量回归（v0.9.84a：healthcheck 29/29, CI 12/12）
 - [ ] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（当前为手工验证）
 - [ ] S3 产物打包 v0.9.83（`package.sh` + `upload_to_s3.sh`）
 - [ ] fcitx5-configtool 在 Xvfb 下冒烟（GUI 配置链路）

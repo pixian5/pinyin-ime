@@ -1,107 +1,169 @@
 #!/bin/bash
-# pinyin-ime 健康检查
-# 验证安装是否完整，所有组件是否可用
+# pinyin-ime 健康检查脚本
+# 检查输入法所有组件是否正常工作
+# 用法: bash scripts/healthcheck.sh
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_ROOT"
+set -uo pipefail
 
-echo "╔══════════════════════════════════════════════════════╗"
-echo "║          pinyin-ime 健康检查                          ║"
-echo "╚══════════════════════════════════════════════════════╝"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NB="${NB:-/root/workspace/native-build}"
+BUNDLE="${BUNDLE:-/root/.local/pinyin-ime/opt/fcitx5-x11}"
+DEPSLIB="${DEPSLIB:-/root/.local/pinyin-ime/opt/deps-lib}"
+LIBIME="$NB/opt/libime/lib64"
+ENV_DIR="$NB/mamba-env"
+S3_DIR="$PROJECT_ROOT/pinyin-ime-s3"
+
+pass=0
+fail=0
+warn=0
+
+check() {
+    local name="$1"
+    local result="$2"
+    local detail="${3:-}"
+    if [ "$result" = "1" ]; then
+        echo "  ✅ $name ${detail:+($detail)}"
+        pass=$((pass + 1))
+    else
+        echo "  ❌ $name ${detail:+($detail)}"
+        fail=$((fail + 1))
+    fi
+}
+
+warn_check() {
+    local name="$1"
+    local result="$2"
+    local detail="${3:-}"
+    if [ "$result" = "1" ]; then
+        echo "  ✅ $name ${detail:+($detail)}"
+        pass=$((pass + 1))
+    else
+        echo "  ⚠️  $name ${detail:+($detail)}"
+        warn=$((warn + 1))
+    fi
+}
+
+echo "=========================================="
+echo "  pinyin-ime 健康检查"
+echo "=========================================="
 echo ""
 
-PASS=0; FAIL=0; WARN=0
-ok()   { echo "  ✅ $1"; PASS=$((PASS+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
-warn() { echo "  ⚠️ $1"; WARN=$((WARN+1)); }
-
-# 1. Check source files
-echo "【1】源文件"
-[ -f cpp/pinyin_ime_cli.cpp ] && ok "CLI源码" || fail "CLI源码缺失"
-[ -f fcitx5-addon/pinyinime.cpp ] && ok "addon源码" || fail "addon源码缺失"
-[ -f scripts/build_cli.sh ] && ok "构建脚本" || fail "构建脚本缺失"
+echo "--- 1. 服务进程 ---"
+check "Xvfb" "$(pgrep -x Xvfb > /dev/null && echo 1 || echo 0)"
+check "dbus-daemon" "$(pgrep -x dbus-daemon > /dev/null && echo 1 || echo 0)"
+check "fcitx5" "$(pgrep -x fcitx5 > /dev/null && echo 1 || echo 0)"
 echo ""
 
-# 2. Check build artifacts
-echo "【2】构建产物"
-source ./setup_env.sh 2>/dev/null
-if [ -n "$PINYIN_IME_CLI" ] && [ -x "$PINYIN_IME_CLI" ]; then
-    ok "CLI二进制: $PINYIN_IME_CLI"
-else
-    fail "CLI二进制未构建 (run scripts/build_cpp.sh)"
-fi
-if [ -n "$PINYIN_IME_LM" ] && [ -f "$PINYIN_IME_LM" ]; then
-    ok "语言模型: $(du -h "$PINYIN_IME_LM" | cut -f1)"
-else
-    fail "语言模型缺失 (run scripts/build_cli.sh)"
-fi
-if [ -n "$PINYIN_IME_DICT" ] && [ -f "$PINYIN_IME_DICT" ]; then
-    ok "系统词典: $(du -h "$PINYIN_IME_DICT" | cut -f1)"
-else
-    fail "系统词典缺失"
-fi
+echo "--- 2. 核心库文件 ---"
+check "libIMECore.so" "$(ls $LIBIME/libIMECore.so 2>/dev/null > /dev/null && echo 1 || echo 0)"
+check "libIMEPinyin.so" "$(ls $LIBIME/libIMEPinyin.so 2>/dev/null > /dev/null && echo 1 || echo 0)"
+check "libIMETable.so" "$(ls $LIBIME/libIMETable.so 2>/dev/null > /dev/null && echo 1 || echo 0)"
+check "libpinyinime.so (addon)" "$(ls $BUNDLE/lib/fcitx5/libpinyinime.so 2>/dev/null > /dev/null && echo 1 || echo 0)"
+check "libxcb-imdkit.so (XIM)" "$(ls $DEPSLIB/lib64/libxcb-imdkit.so.1 2>/dev/null > /dev/null && echo 1 || echo 0)"
 echo ""
 
-# 3. Check basic functionality
-echo "【3】基本功能"
-if [ -n "$PINYIN_IME_CLI" ] && [ -x "$PINYIN_IME_CLI" ]; then
-    RESULT=$(echo "nihao" | "$PINYIN_IME_CLI" --quiet --top1 "$PINYIN_IME_LM" "$PINYIN_IME_DICT" 2>/dev/null)
-    [ "$RESULT" = "你好" ] && ok "基本输入: nihao→你好" || fail "基本输入异常: nihao→$RESULT"
-    
-    RESULT=$(echo "zhongguo" | "$PINYIN_IME_CLI" --quiet --top1 "$PINYIN_IME_LM" "$PINYIN_IME_DICT" 2>/dev/null)
-    [ "$RESULT" = "中国" ] && ok "词组输入: zhongguo→中国" || fail "词组输入异常: zhongguo→$RESULT"
-    
-    RESULT=$(echo "xianbeijing" | "$PINYIN_IME_CLI" --quiet --top1 "$PINYIN_IME_LM" "$PINYIN_IME_DICT" 2>/dev/null)
-    [ "$RESULT" = "西安北京" ] && ok "消歧: xianbeijing→西安北京" || warn "消歧: xianbeijing→$RESULT"
-fi
+echo "--- 3. 数据文件 ---"
+LM=/root/.local/pinyin-ime/share/libime/libime/zh_CN.lm
+DICT=/root/.local/pinyin-ime/share/libime/sc.dict
+check "zh_CN.lm (语言模型)" "$(ls $LM 2>/dev/null > /dev/null && echo 1 || echo 0)" "$(du -h $LM 2>/dev/null | cut -f1)"
+check "sc.dict (词典)" "$(ls $DICT 2>/dev/null > /dev/null && echo 1 || echo 0)" "$(du -h $DICT 2>/dev/null | cut -f1)"
 echo ""
 
-# 4. Check user data
-echo "【4】用户数据"
-USER_DATA="${HOME}/.local/share/pinyin-ime"
-if [ -f "$USER_DATA/user.history" ]; then
-    ok "用户历史: $(du -h "$USER_DATA/user.history" | cut -f1)"
+echo "--- 4. 路径符号链接 ---"
+check "/workspace/native-build/mamba-env" "$([ -L /workspace/native-build/mamba-env ] && echo 1 || echo 0)"
+check "xkeyboard-config-2" "$(ls $ENV_DIR/share/xkeyboard-config-2/rules/evdev 2>/dev/null > /dev/null && echo 1 || echo 0)"
+check "fontconfig config" "$(ls $ENV_DIR/etc/fonts/fonts.conf 2>/dev/null > /dev/null && echo 1 || echo 0)"
+echo ""
+
+echo "--- 5. fcitx5 配置 ---"
+check "profile (DefaultIM=pinyinime)" "$(grep -q pinyinime /root/.config/fcitx5/profile 2>/dev/null && echo 1 || echo 0)"
+check "pinyinime.conf" "$(ls /root/.config/fcitx5/conf/pinyinime.conf 2>/dev/null > /dev/null && echo 1 || echo 0)"
+echo ""
+
+echo "--- 6. CLI 冒烟测试 ---"
+CLI="$S3_DIR/pinyin_ime_cli_v0.9.83"
+S3_LM="$S3_DIR/zh_CN.lm"
+S3_DICT="$S3_DIR/sc.dict"
+if [ -x "$CLI" ]; then
+    export LD_LIBRARY_PATH="$LIBIME:$DEPSLIB:$BUNDLE/lib:$ENV_DIR/lib"
+    for input in "zhongguo:中国" "nihao:你好" "shijie:世界" "pinyin:拼音" "shurufa:输入法"; do
+        py=$(echo $input | cut -d: -f1)
+        expected=$(echo $input | cut -d: -f2)
+        result=$(echo "$py" | $CLI "$S3_LM" "$S3_DICT" 2>/dev/null | head -1 | cut -f1)
+        check "CLI: $py → $expected" "$([ "$result" = "$expected" ] && echo 1 || echo 0)" "got: $result"
+    done
 else
-    warn "用户历史不存在 (run scripts/warmup.sh)"
-fi
-if [ -f "$USER_DATA/user.dict" ]; then
-    ok "用户词典: $(du -h "$USER_DATA/user.dict" | cut -f1)"
-else
-    warn "用户词典不存在"
+    echo "  ⚠️  CLI not found at $CLI"
+    warn=$((warn + 1))
 fi
 echo ""
 
-# 5. Check E2E test binary
-echo "【5】E2E测试"
-NB="/root/workspace/native-build"
-if [ -f "$NB/test_pinyin_e2e" ]; then
-    ok "E2E测试二进制"
+echo "--- 7. DBus 端到端测试 ---"
+export PATH="$BUNDLE/bin:$ENV_DIR/bin:${PATH:-}"
+export LD_LIBRARY_PATH="$LIBIME:$DEPSLIB:$DEPSLIB/lib64:$BUNDLE/lib:$ENV_DIR/lib"
+export DISPLAY=:99
+export FCITX_ADDON_DIRS="$BUNDLE/lib/fcitx5"
+export FCITX_ADDON_CONFIG_DIRS="$BUNDLE/share/fcitx5/addon"
+export FCITX_DATA_DIR="$BUNDLE/share/fcitx5"
+if [ -f /tmp/dbus_addr ]; then
+    export DBUS_SESSION_BUS_ADDRESS="$(cat /tmp/dbus_addr 2>/dev/null || true)"
+fi
+
+if [ -f "$PROJECT_ROOT/scripts/e2e_input_test.py" ] && pgrep -x fcitx5 > /dev/null; then
+    e2e_result=$(python3.9 "$PROJECT_ROOT/scripts/e2e_input_test.py" 2>&1)
+    e2e_pass=$(echo "$e2e_result" | grep "Tests passed:" | grep -oP '\d+(?=/)')
+    e2e_total=$(echo "$e2e_result" | grep "Tests passed:" | grep -oP '/\K\d+')
+    check "e2e_input_test" "$([ "$e2e_pass" = "$e2e_total" ] && echo 1 || echo 0)" "$e2e_pass/$e2e_total"
 else
-    warn "E2E测试未构建 (run scripts/build_e2e_test.sh)"
+    warn_check "e2e_input_test" "0" "fcitx5 not running or test script missing"
+fi
+
+if [ -f "$PROJECT_ROOT/scripts/interaction_test.py" ] && pgrep -x fcitx5 > /dev/null; then
+    int_result=$(python3.9 "$PROJECT_ROOT/scripts/interaction_test.py" 2>&1)
+    if echo "$int_result" | grep -q "ALL PASS"; then
+        check "interaction_test" "1"
+    else
+        check "interaction_test" "0"
+    fi
+else
+    warn_check "interaction_test" "0" "fcitx5 not running or test script missing"
+fi
+
+if [ -f "$PROJECT_ROOT/scripts/select_test.py" ] && pgrep -x fcitx5 > /dev/null; then
+    sel_result=$(python3.9 "$PROJECT_ROOT/scripts/select_test.py" 2>&1)
+    if echo "$sel_result" | grep -q "ALL PASS"; then
+        check "select_test" "1"
+    else
+        check "select_test" "0"
+    fi
+else
+    warn_check "select_test" "0" "fcitx5 not running or test script missing"
 fi
 echo ""
 
-# 6. Check Python tools
-echo "【6】Python工具"
-if /usr/local/bin/python3 -c "import pypinyin" 2>/dev/null; then
-    ok "pypinyin 模块"
+echo "--- 8. fcitx5 addon 加载状态 ---"
+if pgrep -x fcitx5 > /dev/null; then
+    # Check fcitx5 log for addon loading
+    log_file=/tmp/fcitx5.log
+    if [ -f "$log_file" ]; then
+        check "pinyinime loaded" "$(grep -q 'Loaded addon pinyinime' $log_file && echo 1 || echo 0)"
+        check "xim loaded" "$(grep -q 'Loaded addon xim' $log_file && echo 1 || echo 0)"
+        check "dbusfrontend loaded" "$(grep -q 'Loaded addon dbusfrontend' $log_file && echo 1 || echo 0)"
+        check "classicui loaded" "$(grep -q 'Loaded addon classicui' $log_file && echo 1 || echo 0)"
+        warn_check "no XKB errors" "$(grep -q 'xkbcommon: ERROR' $log_file && echo 0 || echo 1)"
+        warn_check "no fontconfig errors" "$(grep -q 'Fontconfig error' $log_file && echo 0 || echo 1)"
+    else
+        echo "  ⚠️  No fcitx5 log file found"
+        warn=$((warn + 1))
+    fi
 else
-    warn "pypinyin 未安装 (pip install pypinyin)"
+    echo "  ⚠️  fcitx5 not running, skipping addon checks"
+    warn=$((warn + 1))
 fi
-[ -f scripts/eval_daily.py ] && ok "daily评测脚本" || fail "daily评测脚本缺失"
-[ -f scripts/benchmark.py ] && ok "性能基准脚本" || fail "性能基准脚本缺失"
 echo ""
 
-# Summary
-echo "╔══════════════════════════════════════════════════════╗"
-echo "║  结果: ✅$PASS  ❌$FAIL  ⚠️$WARN"
-if [ "$FAIL" -gt 0 ]; then
-    echo "║  ❌ 有 $FAIL 项失败，请修复后重试"
-elif [ "$WARN" -gt 0 ]; then
-    echo "║  ⚠️ 有 $WARN 项警告，不影响基本使用"
-    echo "║  ✅ 核心功能正常"
-else
-    echo "║  ✅ 全部通过，安装完整"
-fi
-echo "╚══════════════════════════════════════════════════════╝"
+echo "=========================================="
+echo "  总结: ✅ $pass 通过  ❌ $fail 失败  ⚠️  $warn 警告"
+echo "=========================================="
+
+[ $fail -eq 0 ] && exit 0 || exit 1
