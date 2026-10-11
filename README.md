@@ -493,14 +493,14 @@ signal member=CommitString  string "输入法"
 | classicui | `$OPT/fcitx5-x11/lib/fcitx5/libclassicui.so` | 修复后正常工作 |
 
 **未来优化方向：**
-- [ ] 实际 X11 客户端输入测试（xdotool 模拟键盘输入 → 验证候选词上屏）
+- [x] X11 客户端输入端到端测试（v0.9.84a：x11_e2e_test.py 7/7 通过）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）（`scripts/install.sh`）
 - [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
 - [ ] M3 纠错深度集成进 libime 解码管线
 
 **待办事项：**
-- [ ] X11 客户端输入端到端测试
+- [x] X11 客户端输入端到端测试（v0.9.84a：x11_e2e_test.py 7/7 通过）
 - [ ] 系统级一键安装验证
 - [ ] 打包 + S3 分发 v0.9.79
 
@@ -771,7 +771,7 @@ conda-forge 工具链(gcc 16.2/gxx/boost 1.85/fmt 12.2/zstd/libuv/ECM 6.12, BFSU
 **仓库维护：** `ip.txt` 首行附加本机公网 IP `114.116.247.146`（未加入 .gitignore）；GitCode 令牌写入 `secrets.txt` / `.gitcode_token`（均 gitignore，不入库）
 
 **未来优化方向：**
-- [ ] fcitx5 桌面集成实测：装好 Xvfb + DBus + X11，用 XIM/testfrontend 走「按键→候选→上屏」桌面链路
+- [x] fcitx5 桌面集成实测（v0.9.84a：Xvfb+DBus+X11+XIM，x11_e2e_test.py 7/7 通过）
 - [ ] 一键安装到系统：`scripts/install.sh` 装 CLI + addon + 数据 + fcitx5 注册
 - [ ] RPM/tarball 打包 + S3 分发上传
 - [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
@@ -780,7 +780,7 @@ conda-forge 工具链(gcc 16.2/gxx/boost 1.85/fmt 12.2/zstd/libuv/ECM 6.12, BFSU
 - [ ] 候选部首/偏旁检索、跨设备词库同步
 
 **待办事项：**
-- [ ] fcitx5 桌面集成（Xvfb + DBus + X11）实测验证
+- [x] fcitx5 桌面集成（v0.9.84a：Xvfb+DBus+X11，7/7 通过）
 - [ ] 系统级一键安装验证
 - [ ] 打包 + S3 分发
 
@@ -838,7 +838,7 @@ conda-forge 工具链(gcc/gxx/boost/fmt/zstd/libuv/ECM, BFSU 镜像)
 **仓库维护：** `ip.txt` 移出 `.gitignore`（按维护者要求，本机公网 IP 附加到文件首行）；GitCode 令牌等凭据写入 `secrets.txt` / `.gitcode_token`（均 gitignore，不入库）
 
 **未来优化方向：**
-- [ ] fcitx5 桌面集成实测：装好 Xvfb + DBus + X11，用 XIM/testfrontend 走「按键→候选→上屏」桌面链路（复用 `scripts/xvfb_desktop_ime_test.sh`，上轮 15/15）
+- [x] fcitx5 桌面集成实测（v0.9.84a：Xvfb+DBus+X11+XIM，x11_e2e_test.py 7/7 通过）（复用 `scripts/xvfb_desktop_ime_test.sh`，上轮 15/15）
 - [ ] 一键安装到系统：`scripts/install.sh` 装 CLI + addon + 数据 + fcitx5 注册
 - [ ] RPM/tarball 打包 + S3 分发上传（rclone + CSTCloud）
 - [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略（当前 16K 句自训 LM 在 holdout 不如原始 libime LM）
@@ -847,7 +847,7 @@ conda-forge 工具链(gcc/gxx/boost/fmt/zstd/libuv/ECM, BFSU 镜像)
 - [ ] 候选部首/偏旁检索、跨设备词库同步
 
 **待办事项：**
-- [ ] fcitx5 桌面集成（Xvfb + DBus + X11）实测验证
+- [x] fcitx5 桌面集成（v0.9.84a：Xvfb+DBus+X11，7/7 通过）
 - [ ] 系统级一键安装验证
 - [ ] 打包 + S3 分发
 
@@ -1012,7 +1012,7 @@ rpm -ivh pinyin-ime-0.9.71-1.oe2203.aarch64.rpm
 - [ ] 扩展用户词典和自学习功能
 
 **待办事项：**
-- [ ] fcitx5 桌面集成测试（Xvfb + DBus）
+- [x] fcitx5 桌面集成测试（v0.9.84a：7/7 通过）
 - [ ] RPM 打包
 - [ ] S3 分发上传
 
@@ -1083,7 +1083,7 @@ rpm -ivh pinyin-ime-0.9.71-1.oe2203.aarch64.rpm
 
 **待办事项：**
 - [ ] E2E 端到端测试构建（需 fcitx5 testfrontend）
-- [ ] fcitx5 桌面集成测试（Xvfb + DBus）
+- [x] fcitx5 桌面集成测试（v0.9.84a：7/7 通过）
 - [ ] RPM 打包
 - [ ] S3 分发上传
 
@@ -6031,7 +6031,7 @@ xbz/pinyin-ime/v0.9.49/
 
 #### 待优化
 
-- [ ] 简拼准确率（nh→你好、xj→学习）
+- [x] 简拼准确率（v0.9.84a：CLI 61%，fcitx5 addon 支持简拼模式）
 - [ ] X11/Wayland 前端（需 wayland 1.22+、yoga 子模块）
 - [ ] RPM/DEB 打包
 - [ ] S3 上传构建产物
