@@ -114,3 +114,17 @@ dist/*.deb
 
 # S3 v0.9.122 prebuilt runtime (use rclone to download)
 pinyin-ime-s3/v0.9.122/
+
+# 本地补充：编辑器 / IDE / Python 缓存（本机开发环境，不入库）
+Thumbs.db
+node_modules/
+*.pyc
+.idea/
+.vscode/
+*.log
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
