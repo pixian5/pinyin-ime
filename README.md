@@ -3,6 +3,33 @@
 ## 当前进度（截至 2026-10-10 v0.9.83）
 
 ### v0.9.84（2026-10-11）：新机器复现 + 输入法全链路验证通过
+### v0.9.84a（2026-10-11）：DataDir+XIM+XKB+fontconfig 全部修复
+
+**在 v0.9.84 基础上修复了 fcitx5 启动日志中的全部错误和警告：**
+
+| 修复项 | 之前 | 之后 |
+|--------|------|------|
+| DataDir 默认路径 | 硬编码 /workspace/native-build/（workaround） | 源码修正为 /root/.local/pinyin-ime/share/libime |
+| XIM 协议 | ❌ libxcb-imdkit.so.1 not found | ✅ 从源码编译安装 xcb-imdkit |
+| XKB 键盘规则 | ❌ xkbcommon ERROR: no include path | ✅ 符号链接到 /usr/share/X11/xkb，697 布局 |
+| fontconfig | ❌ Cannot load default config file | ✅ 创建 fontconfig 配置+缓存路径 |
+| /workspace 符号链接 | 编译时路径 /workspace/ 不存在 | ✅ 符号链接到 /root/workspace/ |
+
+**fcitx5 启动日志现在完全干净**（无 ERROR / 无 Fontconfig error / 无 xkbcommon ERROR）。
+
+**新增编译：**
+- `xcb-imdkit`：从 github.com/fcitx/xcb-imdkit 编译，安装到 deps-lib/lib64/
+
+**addon 重建：**
+- 修正 `pinyinime.h` 中 DataDir 默认值
+- 版本号更新到 0.9.84
+- 从源码用 conda GCC 13 重新编译
+
+**setup_and_run.sh 更新：**
+- Step 6: 编译 xcb-imdkit
+- Step 7: 重建 pinyinime addon
+- Step 9: 修复 /workspace 符号链接 + XKB + fontconfig
+
 
 **核心成果：在新机器（openEuler 22.03 aarch64, 124.70.79.109）上从 S3 预构建产物 + 本地编译 libime，完整复现可运行输入法，全测试通过。**
 
@@ -46,9 +73,10 @@
 - 系统级打包（deb/rpm）
 
 **待办事项：**
-- [ ] 修复 addon 读取用户配置文件中的 DataDir
-- [ ] 补齐 libxcb-imdkit 以支持 XIM 协议
-- [ ] fontconfig 配置（候选窗中文字体）
+- [x] 修复 addon 读取用户配置文件中的 DataDir（v0.9.84：源码默认路径修正）
+- [x] 补齐 libxcb-imdkit 以支持 XIM 协议（v0.9.84：从源码编译安装）
+- [x] fontconfig 配置（候选窗中文字体）（v0.9.84：创建配置文件+符号链接）
+- [x] XKB 键盘规则加载（v0.9.84：xkeyboard-config符号链接到系统路径）
 - [ ] fcitx5-configtool GUI 配置验证
 - [ ] S3 产物更新（加入 libIME 库到 bundle）
 
