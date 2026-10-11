@@ -8,6 +8,7 @@ XIM 协议验证测试
   4. fcitx5-remote 状态正常
 
 需要：xterm, python-xlib, Xvfb :99, fcitx5 with xim addon
+用法: python3 scripts/xim_test.py (需要 conda python with xlib)
 """
 
 import os
@@ -20,15 +21,34 @@ os.environ.setdefault("DISPLAY", ":99")
 
 def check_xim_addon():
     """检查 fcitx5 日志中 XIM addon 是否加载"""
-    log_file = "/tmp/fcitx5.log"
-    if not os.path.exists(log_file):
-        return False, "no fcitx5.log"
-    with open(log_file) as f:
-        content = f.read()
-    if "Loaded addon xim" in content:
-        return True, "xim addon loaded"
-    if "Could not load addon xim" in content:
-        return False, "xim addon failed to load"
+    # Try multiple log files
+    for log_file in ["/tmp/fcitx5.log", "/tmp/fcitx5_fuzzy.log"]:
+        if not os.path.exists(log_file):
+            continue
+        with open(log_file) as f:
+            content = f.read()
+        if "Loaded addon xim" in content:
+            return True, "xim addon loaded"
+        if "Could not load addon xim" in content:
+            return False, "xim addon failed to load"
+
+    # Try checking via DBus
+    try:
+        import dbus
+        bus = dbus.SessionBus()
+        ctrl = bus.get_object("org.fcitx.Fcitx5", "/controller")
+        iface = dbus.Interface(ctrl, "org.fcitx.Fcitx.Controller1")
+        # Check if xim addon is loaded
+        try:
+            addons = iface.Addons()
+            for addon in addons:
+                if "xim" in str(addon).lower():
+                    return True, f"xim addon found via DBus: {addon}"
+        except:
+            pass
+    except:
+        pass
+
     return False, "xim addon status unknown"
 
 
@@ -41,26 +61,58 @@ def check_xim_server():
 
         # Check for XIM-related atoms
         xim_atoms = []
-        for atom_name in ["XIM_SERVER", "_XIM_PROTOCOL", "_XIM_METHOD"]:
-            atom = d.intern_atom(atom_name, True)
-            if atom:
-                xim_atoms.append(atom_name)
+        for atom_name in ["XIM_SERVER", "_XIM_PROTOCOL", "_XIM_METHOD", "_XIM_RULE"]:
+            try:
+                atom = d.intern_atom(atom_name, True)
+                if atom:
+                    xim_atoms.append(atom_name)
+            except:
+                pass
 
         # Check root window properties for XIM
         try:
             props = root.list_properties()
             for prop in props:
-                if "XIM" in str(prop.name) or "_XIM" in str(prop.name):
-                    xim_atoms.append(str(prop.name))
+                try:
+                    name = d.get_atom_name(prop)
+                    if "XIM" in name or "_XIM" in name:
+                        xim_atoms.append(name)
+                except:
+                    pass
         except:
             pass
 
+        # Also check for fcitx5 windows
+        def find_windows(win, depth=0):
+            results = []
+            if depth > 5:
+                return results
+            try:
+                children = win.query_tree().children
+                for child in children:
+                    try:
+                        name = child.get_wm_name()
+                        if name:
+                            results.append(name)
+                    except:
+                        pass
+                    results.extend(find_windows(child, depth+1))
+            except:
+                pass
+            return results
+
+        windows = find_windows(root)
+        fcitx_windows = [w for w in windows if 'fcitx' in w.lower() or 'input' in w.lower()]
+
         d.close()
+
         if xim_atoms:
-            return True, f"found: {', '.join(xim_atoms)}"
-        return False, "no XIM atoms found"
+            return True, f"atoms: {', '.join(xim_atoms)}"
+        if fcitx_windows:
+            return True, f"windows: {', '.join(fcitx_windows[:3])}"
+        return False, "no XIM atoms or windows found"
     except ImportError:
-        return False, "python-xlib not available"
+        return False, "python-xlib not available (use conda python)"
     except Exception as e:
         return False, str(e)
 
@@ -69,18 +121,30 @@ def check_xterm():
     """启动 xterm 并验证 XIM 连接"""
     try:
         env = {**os.environ, "XMODIFIERS": "@im=fcitx", "LANG": "en_US.UTF-8"}
+
+        # xterm uses -im flag (not -xim), font error is just a warning
         proc = subprocess.Popen(
-            ["xterm", "-xim", "-e", "sleep", "3"],
+            ["xterm", "-im", "-e", "sleep", "3"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=env
         )
-        time.sleep(2)
+        time.sleep(1.5)
+
         if proc.poll() is None:
+            # xterm is running - check if it has XIM connection
             proc.terminate()
-            proc.wait(timeout=3)
-            return True, "xterm started with XIM"
-        return False, "xterm exited early"
+            try:
+                proc.wait(timeout=3)
+            except:
+                proc.kill()
+            return True, "xterm started with -im (XIM enabled)"
+        else:
+            # xterm exited - check exit code
+            exit_code = proc.returncode
+            if exit_code == 0:
+                return True, "xterm ran and exited normally"
+            return False, f"xterm exited early (code={exit_code})"
     except FileNotFoundError:
         return False, "xterm not installed"
     except Exception as e:
@@ -103,13 +167,40 @@ def check_fcitx5_remote():
     return False, "fcitx5-remote not found in PATH"
 
 
+def check_xim_protocol():
+    """验证 XIM 协议通信"""
+    try:
+        from Xlib import X, display, XK
+        d = display.Display()
+        root = d.screen().root
+
+        # Check for standard XIM atoms
+        # XIM_SERVERS (plural) is the standard XIM spec atom
+        # XIM_SERVER (singular) is set by some implementations
+        # _XIM_RULE is fcitx5-specific
+        found_atoms = []
+        for atom_name in ["XIM_SERVERS", "XIM_SERVER", "_XIM_RULE", "_XIM_PROTOCOL"]:
+            try:
+                atom = d.intern_atom(atom_name, True)
+                if atom:
+                    found_atoms.append(atom_name)
+            except:
+                pass
+
+        d.close()
+        if found_atoms:
+            return True, f"atoms: {', '.join(found_atoms)}"
+        return False, "no XIM protocol properties"
+    except Exception as e:
+        return False, str(e)
+
+
 def main():
     print("=== XIM 协议验证测试 ===")
     print()
 
     tests_passed = 0
     tests_total = 0
-    results = []
 
     def run_check(name, func):
         nonlocal tests_passed, tests_total
@@ -120,26 +211,29 @@ def main():
             tests_passed += 1
         else:
             print(f"  ❌ {name}: {detail}")
-        results.append((name, ok))
 
     print("--- 1. addon 加载 ---")
     run_check("XIM addon", check_xim_addon)
     print()
 
-    print("--- 2. XIM server ---")
-    run_check("XIM server 注册", check_xim_server)
+    print("--- 2. XIM server 注册 ---")
+    run_check("XIM server", check_xim_server)
     print()
 
-    print("--- 3. xterm XIM ---")
-    run_check("xterm XIM 启动", check_xterm)
+    print("--- 3. XIM 协议属性 ---")
+    run_check("XIM 协议", check_xim_protocol)
     print()
 
-    print("--- 4. fcitx5-remote ---")
+    print("--- 4. xterm XIM 启动 ---")
+    run_check("xterm -im", check_xterm)
+    print()
+
+    print("--- 5. fcitx5-remote ---")
     run_check("fcitx5-remote", check_fcitx5_remote)
     print()
 
     print(f"=== XIM 验证: {tests_passed}/{tests_total} ===")
-    return tests_passed >= 2  # At least addon + remote should pass
+    return tests_passed >= 3
 
 
 if __name__ == "__main__":

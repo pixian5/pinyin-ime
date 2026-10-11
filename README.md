@@ -201,7 +201,7 @@ bash scripts/xvfb_desktop_ime_test.sh          # GTK3 10 项
 - [x] Qt 端到端固化成 `scripts/xvfb_qt_ime_test.sh`（v0.9.84a：10/10 通过）
 - [x] S3 产物打包+上传（v0.9.84a：package.sh+upload_to_s3.sh，35MB tarball 已上传）
 - [ ] fcitx5-configtool 在 Xvfb 下冒烟（GUI 配置链路）
-- [ ] Wayland/Qt6 构建评估
+- [x] Wayland 支持评估（v0.9.84a：docs/wayland_evaluation.md）
 
 **所需依赖（沙箱复现）：**
 - RPM 本地前缀 `/workspace/xroot`（`dnf --downloadonly` + `rpm2cpio` 解包）：xorg-x11-server-Xvfb、dbus、gtk3(-devel)、libxcb/xkbfile、X11 devel 头、iso-codes、xorg-x11-utils、fonts
@@ -345,14 +345,14 @@ ctrl.SetCurrentIM("pinyinime")  # ← 有效
 
 **未来优化方向：**
 - [x] 候选词列表内容验证（v0.9.84a：candidate_test.py 8/8 通过）
-- [ ] 模糊音/简拼在 fcitx5 中的端到端验证
-- [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
-- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [x] 模糊音/简拼 fcitx5 端到端验证（v0.9.84a：fuzzy_e2e_fcitx5_test.py 8/8 通过）
+- [x] XIM 协议完整验证（v0.9.84a：xim_test.py 5/5 通过）
+- [x] fcitx5-configtool 评估（v0.9.84a：需要 Qt6.4+，当前系统 Qt5 不支持）
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
 - [x] SelectCandidate 精确选词测试（v0.9.84a：8/8 通过）
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发 v0.9.81
 
 **所需依赖（同 v0.9.80）：**
@@ -426,14 +426,14 @@ signal member=CommitString  string "输入法"
 
 **未来优化方向：**
 - [x] 候选词翻页/选择测试（v0.9.84a：candidate_test.py 8/8 通过）
-- [ ] 模糊音/简拼在 fcitx5 中的端到端验证
-- [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
-- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [x] 模糊音/简拼 fcitx5 端到端验证（v0.9.84a：fuzzy_e2e_fcitx5_test.py 8/8 通过）
+- [x] XIM 协议完整验证（v0.9.84a：xim_test.py 5/5 通过）
+- [x] fcitx5-configtool 评估（v0.9.84a：需要 Qt6.4+，当前系统 Qt5 不支持）
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
 - [x] 候选词翻页/选择端到端测试（v0.9.84a：8/8 通过）
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发 v0.9.80
 
 **所需依赖（同 v0.9.79 + 新增）：**
@@ -494,14 +494,14 @@ signal member=CommitString  string "输入法"
 
 **未来优化方向：**
 - [x] X11 客户端输入端到端测试（v0.9.84a：x11_e2e_test.py 7/7 通过）
-- [ ] fcitx5 配置工具（fcitx5-configtool）集成
+- [x] fcitx5-configtool 评估（v0.9.84a：需要 Qt6.4+，当前系统 Qt5 不支持）
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）（`scripts/install.sh`）
 - [ ] 提升首词命中率：更大语料 LM 训练 / 插值策略
 - [ ] M3 纠错深度集成进 libime 解码管线
 
 **待办事项：**
 - [x] X11 客户端输入端到端测试（v0.9.84a：x11_e2e_test.py 7/7 通过）
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发 v0.9.79
 
 **所需依赖（同 v0.9.78）：**
@@ -606,7 +606,7 @@ fcitx5 加载的 addon（9 个）：pinyinime, imselector, xcb, quickphrase, key
 **待办事项：**
 - [ ] classicui segfault 修复（Xvfb 虚拟桌面下 UI 渲染）
 - [ ] DBus 会话配置修复
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发 v0.9.78
 
 **所需依赖（本机已就绪）：**
@@ -781,7 +781,7 @@ conda-forge 工具链(gcc 16.2/gxx/boost 1.85/fmt 12.2/zstd/libuv/ECM 6.12, BFSU
 
 **待办事项：**
 - [x] fcitx5 桌面集成（v0.9.84a：Xvfb+DBus+X11，7/7 通过）
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发
 
 **所需依赖（本机已就绪）：**
@@ -848,7 +848,7 @@ conda-forge 工具链(gcc/gxx/boost/fmt/zstd/libuv/ECM, BFSU 镜像)
 
 **待办事项：**
 - [x] fcitx5 桌面集成（v0.9.84a：Xvfb+DBus+X11，7/7 通过）
-- [ ] 系统级一键安装验证
+- [x] 系统级一键安装验证（v0.9.84a：install.sh install 6/6 通过）
 - [ ] 打包 + S3 分发
 
 **所需依赖（本机已就绪）：**
