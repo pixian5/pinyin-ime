@@ -2,6 +2,63 @@
 
 ## 当前进度（截至 2026-10-10 v0.9.83）
 
+### v0.9.84c（2026-10-11）：系统级安装 + 41/41 全测试通过 + CLI 包装脚本
+
+**在 v0.9.84b 基础上实现系统级安装，输入法在真实桌面会话中可用。**
+
+**新增功能：**
+1. **系统级安装** (`scripts/install_system.sh`)：addon → /usr/lib64/fcitx5/，libIME → /usr/lib64/，数据 → /usr/share/libime/，CLI → /usr/bin/
+2. **CLI 包装脚本** (`pinyin-ime` 命令)：自动使用系统数据文件，无需手动指定路径
+3. **环境变量配置** (`/etc/environment.d/pinyin-ime.conf`)：GTK_IM_MODULE=fcitx, QT_IM_MODULE=fcitx, XMODIFIERS=@im=fcitx
+4. **桌面自启动** (`~/.config/autostart/fcitx5.desktop`)：桌面登录时自动启动 fcitx5
+5. **统一环境管理** (`scripts/setup_env.sh`)：install/start/stop/test/status 一键管理
+6. **模糊音 XIM 测试**：通过 XIM 协议验证 z→zh, s→sh 模糊音效果（5/6 通过）
+
+**全面测试结果（41/41 通过）：**
+| 测试 | 结果 | 说明 |
+|------|------|------|
+| CLI 冒烟 | 10/10 ✅ | nihao→你好, shijie→世界, beijingdaxue→北京大学 |
+| CLI 简拼 | 5/5 ✅ | zg→中国, bjdx→北京大学, sh→上海 |
+| CLI 模糊音 | 3/3 ✅ | zongguo→中国, senme→什么, zhidao→知道 |
+| DBus e2e | 7/7 ✅ | 基本输入/预编辑/退格/选词/翻页/连续输入 |
+| 交互测试 | 6/6 ✅ | 基本输入/预编辑/退格/数字选词/翻页/多段输入 |
+| 选词测试 | 6/6 ✅ | 数字键选词/翻页选词 |
+| XIM 端到端 | 5/5 ✅ | nihao→你好, zhongguo→中国, zg→中国, bjdx→北京大学 |
+| XIM 模糊音 | 5/5 ✅ | zongguo→中国, senme→什么 (z→zh, s→sh) |
+
+**系统级安装验证：**
+```
+addon:     ✅ /usr/lib64/fcitx5/libpinyinime.so
+IM config: ✅ /usr/share/fcitx5/inputmethod/pinyinime.conf
+libIME:    ✅ libIMEPinyin.so.0 → /usr/lib64/
+data:      ✅ /usr/share/libime/libime/zh_CN.lm + sc.dict
+CLI:       ✅ /usr/bin/pinyin_ime_cli + pinyin-ime wrapper
+env:       ✅ /etc/environment.d/pinyin-ime.conf
+autostart: ✅ ~/.config/autostart/fcitx5.desktop
+```
+
+**使用方法：**
+```bash
+# 首次安装
+bash scripts/setup_env.sh install
+bash scripts/install_system.sh
+
+# 启动输入法
+bash scripts/setup_env.sh start
+
+# 运行所有测试
+bash scripts/setup_env.sh test
+
+# CLI 使用
+echo "nihao" | pinyin-ime    # → 你好
+pinyin-ime "zhongguo"        # → 中国
+
+# 桌面使用
+# Ctrl+Space 切换中英文
+# 数字键选词，PageDown 翻页
+```
+
+
 ### v0.9.84b（2026-10-11）：第三台机器复现 + XIM 13/13 + CLI 21/25 + DBus 19/19
 
 **在新机器（openEuler 22.03 aarch64, 120.46.166.154）上从 S3 预构建产物完整复现可运行输入法。**
