@@ -65,3 +65,8 @@ dist/*.tar.gz
 dist/zh_CN.lm
 dist/sc.dict
 dist/custom_full.lm
+.secrets.env
+
+# S3 v0.9.83 large binaries (use rclone to download)
+pinyin-ime-s3/pinyin-ime-desktop-v0.9.83.tar.gz
+pinyin-ime-s3/zh_CN.lm

@@ -2,6 +2,63 @@
 
 ## 当前进度（截至 2026-10-10 v0.9.83）
 
+### v0.9.84（2026-10-11）：新机器复现 + 输入法全链路验证通过
+
+**核心成果：在新机器（openEuler 22.03 aarch64, 124.70.79.109）上从 S3 预构建产物 + 本地编译 libime，完整复现可运行输入法，全测试通过。**
+
+**验证结果：**
+| 测试 | 结果 |
+|------|------|
+| CLI 冒烟测试（10词） | 10/10 ✅ |
+| DBus 端到端（e2e_input_test.py） | 7/7 ✅ |
+| 交互测试（interaction_test.py） | 6/6 ✅ |
+| 选词测试（select_test.py） | 6/6 ✅ |
+| fcitx5 addon 加载 | ✅ pinyinime loaded |
+| 语言模型 + 词典加载 | ✅ zh_CN.lm + sc.dict |
+
+**复现步骤（scripts/setup_and_run.sh）：**
+1. 下载 S3 v0.9.83 预构建产物（rclone cst:xbz/pinyin-ime/v0.9.83/）
+2. 解压桌面 bundle 到 ~/.local/pinyin-ime/
+3. 安装系统依赖（Xvfb, dbus, boost-devel, ...）
+4. micromamba + conda GCC 13 环境（libime 需要 C++20 source_location）
+5. 下载 libime 1.1.17 源码 + kenlm，修补 bit_cast 兼容性
+6. 编译 libime（用 conda GCC 13 + bundle 的 fcitx5 CMake 配置）
+7. 部署 libime 库到 bundle，数据文件到默认 DataDir
+8. 配置 fcitx5 profile（默认输入法 = pinyinime）
+9. 启动 Xvfb + dbus + fcitx5，运行测试
+
+**关键坑：**
+1. GCC 10 不够：libime 1.1.17 用 std::bit_cast（C++23）+ fcitx5 头用 <source_location>（C++20），系统 GCC 10.3 不支持 → 用 conda GCC 13
+2. bundle 缺 libIME 库：桌面 bundle 含 fcitx5 但不含 libIMEPinyin/libIMECore → 本地编译 libime 补齐
+3. 硬编码路径：fcitx5 CMake 配置中 FCITX_SYS_INSTALL_PREFIX=/workspace/native-build/opt/fcitx5-x11 → 创建符号链接
+4. DataDir 不生效：addon 默认 DataDir 硬编码在源码中，config 文件未覆盖 → 直接把数据放到默认路径
+5. sc.dict 符号链接断裂：bundle 内 libime/libime/sc.dict 是指向旧路径的 symlink → 替换为实体文件
+
+**新增文件：**
+- scripts/setup_and_run.sh：一键设置与启动脚本（setup/start/stop/test/status）
+- run_im.sh：更新为适配当前机器的启动脚本
+
+**未来优化方向：**
+- 修复 pinyinime.conf DataDir 配置覆盖（当前靠默认路径 workaround）
+- XIM addon 缺 libxcb-imdkit.so.1（不影响 DBus 输入）
+- XKB 键盘规则加载（conda 环境路径问题）
+- Wayland 支持
+- 系统级打包（deb/rpm）
+
+**待办事项：**
+- [ ] 修复 addon 读取用户配置文件中的 DataDir
+- [ ] 补齐 libxcb-imdkit 以支持 XIM 协议
+- [ ] fontconfig 配置（候选窗中文字体）
+- [ ] fcitx5-configtool GUI 配置验证
+- [ ] S3 产物更新（加入 libIME 库到 bundle）
+
+**所需依赖（新机器复现）：**
+- 系统：xorg-x11-server-Xvfb, dbus, boost-devel, fmt-devel, zstd-devel, libuv-devel, ninja-build, extra-cmake-modules, gettext, libuuid-devel, python3-dbus
+- conda（micromamba）：GCC 13, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, cmake, ninja
+- rclone（已预装）：CSTCloud S3 下载
+- 代理 127.0.0.1:7890 + gh-proxy.com（GitHub 源码下载）
+
+
 ### ⚠️ 真实可用性评估
 
 **结论：X11 桌面三条输入通道全部打通，免 CLI 安装链路已验证——已基本达到「搜狗拼音式」开箱体验（X11 会话内）。**
