@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="pinyin-ime" tests="12" failures="0" timestamp="2026-10-11T11:45:27+08:00">
+<testsuite name="pinyin-ime" tests="12" failures="0" timestamp="2026-10-11T12:08:48+08:00">
 
   <testcase name="CLI冒烟测试" />
   <testcase name="e2e_input_test" />
