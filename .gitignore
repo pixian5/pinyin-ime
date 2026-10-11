@@ -70,3 +70,8 @@ dist/custom_full.lm
 # S3 v0.9.83 large binaries (use rclone to download)
 pinyin-ime-s3/pinyin-ime-desktop-v0.9.83.tar.gz
 pinyin-ime-s3/zh_CN.lm
+
+# S3 downloaded artifacts (use rclone to download)
+pinyin-ime-s3/v0.9.83/
+pinyin-ime-s3/v0.9.84/
+tools/xim_test_client

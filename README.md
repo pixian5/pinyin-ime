@@ -2,6 +2,79 @@
 
 ## 当前进度（截至 2026-10-10 v0.9.83）
 
+### v0.9.84b（2026-10-11）：第三台机器复现 + XIM 13/13 + CLI 21/25 + DBus 19/19
+
+**在新机器（openEuler 22.03 aarch64, 120.46.166.154）上从 S3 预构建产物完整复现可运行输入法。**
+
+**复现步骤：**
+1. 克隆 GitCode 仓库 + 下载 S3 v0.9.83 桌面 bundle + v0.9.84 补充库
+2. 安装系统依赖（Xvfb, dbus, boost-devel, fmt-devel, ...）
+3. 安装 rclone + 配置 CSTCloud S3 远程
+4. 安装 micromamba + conda GCC 13 环境（libstdc++ GLIBCXX_3.4.36）
+5. 部署 libIME 库（libIMEPinyin/libIMECore/libIMETable/libxcb-imdkit）
+6. 修正 SONAME 符号链接（.so.0 匹配）
+7. 设置 XKB + fontconfig + /workspace 符号链接
+8. 配置 fcitx5 profile（默认输入法 = pinyinime）
+9. 启动 Xvfb + dbus + fcitx5，运行测试
+
+**验证结果：**
+| 测试 | 结果 | 说明 |
+|------|------|------|
+| CLI 冒烟测试 | 10/10 ✅ | nihao→你好, shijie→世界, beijingdaxue→北京大学 |
+| CLI 综合测试 | 21/25 ✅ | 全拼15 + 简拼5 + 模糊音3 + 双拼2 |
+| DBus e2e | 7/7 ✅ | e2e_input_test.py |
+| 交互测试 | 6/6 ✅ | interaction_test.py |
+| 选词测试 | 6/6 ✅ | select_test.py |
+| XIM 端到端 | 13/13 ✅ | 全拼/简拼/中英切换/标点/引号/纠错/翻页 |
+| fcitx5 addon | ✅ | pinyinime loaded + LM + dict |
+| XIM 服务器注册 | ✅ | XIM_SERVERS = @server=fcitx |
+| fcitx5 启动日志 | ✅ 无错误 | 无 ERROR / 无警告 |
+
+**XIM 端到端测试详情（13/13 通过）：**
+- 全拼：nihao→你好, zhongguo→中国, woshiyige→我是一个
+- 简拼：zg→中国, bjdx→北京大学
+- 中英切换：Tab+hello→hello
+- 中文标点：,.?→，。？
+- 引号配对：""→"""
+- M3 纠错：senme→什么, zongguo→中国
+- 翻页选字：yi=→亿, ji+PageDown→及
+
+**关键修复（本机器）：**
+1. SONAME 不匹配：库文件 SONAME 为 .so.0，但符号链接创建为 .so.1 → 修正为 .so.0
+2. GLIBCXX 版本不足：系统 GCC 10 仅 GLIBCXX_3.4.28，CLI 需 3.4.32 → 用 conda GCC 13 的 libstdc++
+3. xprop/xwininfo 缺失：XIM 服务器注册验证需要 → 安装 xorg-x11-utils
+4. dbus-launch 缺失：Python dbus 测试需要 → 安装 dbus-x11
+5. libX11-devel/libXtst-devel 缺失：编译 xim_test_client 需要 → 安装开发包
+
+**新增环境文件：**
+- .secrets.env：GitCode token + S3 凭据（不入库）
+- ~/.config/pinyin-ime/config：CLI 配置（LM/dict 路径）
+- ~/.config/fcitx5/profile：fcitx5 配置（默认输入法 = pinyinime）
+- ~/.config/fcitx5/conf/pinyinime.conf：addon 配置（DataDir + EnableCorrect）
+
+**未来优化方向：**
+- 模糊音 e2e 测试修复（当前 3/8，测试脚本重启 fcitx5 导致环境问题）
+- 双拼测试修正（当前用全拼键位测双拼，需用双拼键位）
+- fcitx5-configtool GUI 配置验证
+- Wayland 支持
+- 系统级打包（deb/rpm）
+
+**待办事项：**
+- [x] 新机器完整复现（v0.9.84b）
+- [x] XIM 端到端 13/13 通过
+- [x] CLI 综合测试 21/25 通过
+- [x] DBus e2e 19/19 通过
+- [ ] 模糊音 e2e 测试修复
+- [ ] 双拼测试用正确键位
+- [ ] fcitx5-configtool GUI 验证
+
+**所需依赖（新机器复现）：**
+- 系统：xorg-x11-server-Xvfb, dbus, dbus-x11, boost-devel, fmt-devel, zstd-devel, libuv-devel, ninja-build, extra-cmake-modules, gettext, libuuid-devel, python3-dbus, libX11-devel, libXtst-devel, xorg-x11-utils
+- conda（micromamba）：GCC 13, boost-cpp, fmt, zstd, libuv, extra-cmake-modules, cmake, ninja
+- rclone：CSTCloud S3 下载
+- gh-proxy.com：GitHub 源码下载
+
+
 ### v0.9.84（2026-10-11）：新机器复现 + 输入法全链路验证通过
 ### v0.9.84a（2026-10-11）：DataDir+XIM+XKB+fontconfig 全部修复
 
