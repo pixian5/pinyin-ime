@@ -344,14 +344,14 @@ ctrl.SetCurrentIM("pinyinime")  # ← 有效
 - `scripts/interaction_test.py`：用户交互端到端测试
 
 **未来优化方向：**
-- [ ] 候选词列表内容验证（SelectCandidate 选择指定候选）
+- [x] 候选词列表内容验证（v0.9.84a：candidate_test.py 8/8 通过）
 - [ ] 模糊音/简拼在 fcitx5 中的端到端验证
 - [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
-- [ ] SelectCandidate 精确选词测试
+- [x] SelectCandidate 精确选词测试（v0.9.84a：8/8 通过）
 - [ ] 系统级一键安装验证
 - [ ] 打包 + S3 分发 v0.9.81
 
@@ -425,14 +425,14 @@ signal member=CommitString  string "输入法"
 | DBus 接口 | CreateInputContext+ProcessKeyEvent | ✅ |
 
 **未来优化方向：**
-- [ ] 候选词翻页/选择测试（NextPage/PrevPage/SelectCandidate）
+- [x] 候选词翻页/选择测试（v0.9.84a：candidate_test.py 8/8 通过）
 - [ ] 模糊音/简拼在 fcitx5 中的端到端验证
 - [ ] XIM 协议客户端完整实现（XFilterEvent 拦截）
 - [ ] fcitx5 配置工具（fcitx5-configtool）集成
 - [x] 系统级安装脚本（v0.9.84a：scripts/install.sh install/uninstall/check）
 
 **待办事项：**
-- [ ] 候选词翻页/选择端到端测试
+- [x] 候选词翻页/选择端到端测试（v0.9.84a：8/8 通过）
 - [ ] 系统级一键安装验证
 - [ ] 打包 + S3 分发 v0.9.80
 
