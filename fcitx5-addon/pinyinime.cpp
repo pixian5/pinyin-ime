@@ -205,6 +205,47 @@ size_t utf8Len(const std::string &s) {
 
 } // namespace
 
+// v0.9.90: 检查输入是否为有效拼音（能否分解为合法音节）
+// 用于中英自动混输：无效拼音直接上屏英文
+bool is_valid_pinyin(const std::string &raw) {
+    if (raw.empty()) return false;
+    static const std::set<std::string> syllables = {
+        "a","ai","an","ang","ao","ba","bai","ban","bang","bao","bei","ben","beng","bi","bian","biao","bie","bin","bing","bo","bu",
+        "ca","cai","can","cang","cao","ce","cen","ceng","cha","chai","chan","chang","chao","che","chen","cheng","chi","chong","chou","chu","chua","chuai","chuan","chuang","chui","chun","chuo","ci","cong","cou","cu","cuan","cui","cun","cuo",
+        "da","dai","dan","dang","dao","de","dei","den","deng","di","dia","dian","diao","die","ding","diu","dong","dou","du","duan","dui","dun","duo",
+        "e","ei","en","eng","er","fa","fan","fang","fei","fen","feng","fo","fou","fu",
+        "ga","gai","gan","gang","gao","ge","gei","gen","geng","gong","gou","gu","gua","guai","guan","guang","gui","gun","guo",
+        "ha","hai","han","hang","hao","he","hei","hen","heng","hong","hou","hu","hua","huai","huan","huang","hui","hun","huo",
+        "ji","jia","jian","jiang","jiao","jie","jin","jing","jiong","jiu","ju","juan","jue","jun",
+        "ka","kai","kan","kang","kao","ke","kei","ken","keng","kong","kou","ku","kua","kuai","kuan","kuang","kui","kun","kuo",
+        "la","lai","lan","lang","lao","le","lei","leng","li","lia","lian","liang","liao","lie","lin","ling","liu","long","lou","lu","lv","lua","luan","lue","lun","luo",
+        "ma","mai","man","mang","mao","me","mei","men","meng","mi","mian","miao","mie","min","ming","miu","mo","mou","mu",
+        "na","nai","nan","nang","nao","ne","nei","nen","neng","ni","nian","niang","niao","nie","nin","ning","niu","nong","nou","nu","nv","nuan","nue","nuo",
+        "o","ou","pa","pai","pan","pang","pao","pei","pen","peng","pi","pian","piao","pie","pin","ping","po","pou","pu",
+        "qi","qia","qian","qiang","qiao","qie","qin","qing","qiong","qiu","qu","quan","que","qun",
+        "ran","rang","rao","re","ren","reng","ri","rong","rou","ru","rua","ruan","rui","run","ruo",
+        "sa","sai","san","sang","sao","se","sen","seng","sha","shai","shan","shang","shao","she","shen","sheng","shi","shong","shou","shu","shua","shuai","shuan","shuang","shui","shun","shuo","si","song","sou","su","suan","sui","sun","suo",
+        "ta","tai","tan","tang","tao","te","teng","ti","tian","tiao","tie","ting","tong","tou","tu","tuan","tui","tun","tuo",
+        "wa","wai","wan","wang","wei","wen","weng","wo","wu",
+        "xi","xia","xian","xiang","xiao","xie","xin","xing","xiong","xiu","xu","xuan","xue","xun",
+        "ya","yan","yang","yao","ye","yi","yin","ying","yo","yong","you","yu","yuan","yue","yun",
+        "za","zai","zan","zang","zao","ze","zei","zen","zeng","zha","zhai","zhan","zhang","zhao","zhe","zhen","zheng","zhi","zhong","zhou","zhu","zhua","zhuai","zhuan","zhuang","zhui","zhun","zhuo","zi","zong","zou","zu","zuan","zui","zun","zuo"
+    };
+    int n = raw.size();
+    std::vector<int> dp(n + 1, -1);
+    dp[n] = 0;
+    for (int i = n - 1; i >= 0; --i) {
+        for (int len = 6; len >= 1; --len) {
+            if (i + len > n) continue;
+            if (syllables.count(raw.substr(i, len)) && dp[i + len] >= 0) {
+                dp[i] = len;
+                break;
+            }
+        }
+    }
+    return dp[0] >= 0;
+}
+
 // ---------------- PinyinIMEState ----------------
 
 PinyinIMEState::PinyinIMEState(PinyinIMEEngine *engine, InputContext *ic)
@@ -365,9 +406,16 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
                 if (i == begin) displayIdx = boostSwap_;
                 else if (i == boostSwap_) displayIdx = begin;
             }
+            // v0.9.90: 首选候选显示拼音标注
+            Text candText(cands[displayIdx].toString());
+            if (i == begin && page_ == 0) {
+                std::string candPy = context_.candidateFullPinyin(displayIdx);
+                if (!candPy.empty()) {
+                    candText.append(" " + candPy);
+                }
+            }
             // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
-            candidateList->append<DisplayOnlyCandidateWord>(
-                Text(cands[displayIdx].toString()));
+            candidateList->append<DisplayOnlyCandidateWord>(candText);
         }
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
@@ -550,6 +598,8 @@ bool PinyinIMEEngine::ensureDataLoaded() {
                        libime::PinyinDictFormat::Binary);
     ime_->setNBest(
         static_cast<size_t>(std::max(1, config().nbest.value())));
+    // v0.9.90: 音节分隔显示 — Pinyin 模式在音节间加空格，用户能看到引擎如何切分
+    ime_->setPreeditMode(libime::PinyinPreeditMode::Pinyin);
     if (config().enableFuzzy.value()) {
         ime_->setFuzzyFlags(commonFuzzyFlags());
     }
@@ -902,6 +952,17 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                         }
                     }
                 }
+            }
+            // v0.9.90: 中英自动混输 — 无效拼音直接上屏英文
+            std::string compactPy;
+            for (char c : ctx.preedit()) {
+                if (c != '\'' && c != ' ') compactPy.push_back(c);
+            }
+            if (!is_valid_pinyin(compactPy)) {
+                state->commitText(compactPy);
+                state->reset();
+                event.filterAndAccept();
+                return;
             }
             state->selectCandidate(entry,
                                    state->page_ * state->pageSize() + state->candFocus_);

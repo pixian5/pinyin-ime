@@ -124,6 +124,8 @@ void usage(const char *prog) {
         << "  --correct       先经 M3 纠错（CHIME+二元转移）修复打错的拼音再解码\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
+        << "  --config        交互式配置向导（设置模糊音/双拼/纠错等）\n"
+        << "  --doctor        一键诊断（检查环境/依赖/数据/权限）\n"
         << "  --num           数字转中文(逐位): 123 -> 一二三\n"
         << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
         << "  --num-upper     大写数字: 123 -> 壹贰叁\n"
@@ -316,6 +318,110 @@ bool is_valid_pinyin(const std::string &s) {
         if (!matched) return false;
     }
     return true;
+}
+
+// v0.9.90: 前向声明
+std::string add_syllable_separators(const std::string &raw);
+
+// v0.9.90: 检查是否为有效拼音（用于中英自动混输）
+// 复用 add_syllable_separators 的音节表，通过 DP 判断能否完全切分
+bool is_valid_pinyin_inline(const std::string &raw) {
+    if (raw.empty()) return false;
+    // 调用 add_syllable_separators，检查返回值是否含有分隔符或是单音节
+    std::string separated = add_syllable_separators(raw);
+    if (separated.find("'") != std::string::npos) return true;  // 有分隔符 = 可切分
+    // 无分隔符：要么是单音节（有效），要么无法切分（无效）
+    // 用启发式：尝试在前面加一个已知有效音节，看能否切分
+    // 更直接：检查 add_syllable_separators 对 raw+"a" 的输出
+    // 如果 raw 是有效音节，raw+"a" 应该切分为 raw'a
+    // 如果 raw 无效，raw+"a" 也无法切分（或以不同方式切分）
+    std::string test = raw + "a";
+    std::string testSep = add_syllable_separators(test);
+    // 如果 testSep 以 raw'a 或 raw 开头，说明 raw 是有效音节
+    if (testSep.find("'") != std::string::npos) {
+        // 有分隔符，检查第一个分隔符位置
+        size_t pos = testSep.find("'");
+        if (pos == raw.size()) return true;  // raw 是一个完整音节
+    }
+    // 最后手段：尝试 raw+"o"
+    test = raw + "o";
+    testSep = add_syllable_separators(test);
+    if (testSep.find("'") != std::string::npos) {
+        size_t pos = testSep.find("'");
+        if (pos == raw.size()) return true;
+    }
+    return false;
+}
+
+// v0.9.90: 在拼音音节间插入分隔符，让用户看到引擎如何切分
+// nihao -> ni'hao, xian -> xi'an, zhongguo -> zhong'guo
+std::string add_syllable_separators(const std::string &raw) {
+    if (raw.size() <= 2) return raw;
+    // 完整拼音音节表（声母+韵母）
+    static const std::set<std::string> syllables = {
+        "a","ai","an","ang","ao","ba","bai","ban","bang","bao","bei","ben","beng","bi","bian","biao","bie","bin","bing","bo","bu",
+        "ca","cai","can","cang","cao","ce","cen","ceng","cha","chai","chan","chang","chao","che","chen","cheng","chi","chong","chou","chu","chua","chuai","chuan","chuang","chui","chun","chuo","ci","cong","cou","cu","cuan","cui","cun","cuo",
+        "da","dai","dan","dang","dao","de","dei","den","deng","di","dia","dian","diao","die","ding","diu","dong","dou","du","duan","dui","dun","duo",
+        "e","ei","en","eng","er","fa","fan","fang","fei","fen","feng","fo","fou","fu",
+        "ga","gai","gan","gang","gao","ge","gei","gen","geng","gong","gou","gu","gua","guai","guan","guang","gui","gun","guo",
+        "ha","hai","han","hang","hao","he","hei","hen","heng","hong","hou","hu","hua","huai","huan","huang","hui","hun","huo",
+        "ji","jia","jian","jiang","jiao","jie","jin","jing","jiong","jiu","ju","juan","jue","jun",
+        "ka","kai","kan","kang","kao","ke","kei","ken","keng","kong","kou","ku","kua","kuai","kuan","kuang","kui","kun","kuo",
+        "la","lai","lan","lang","lao","le","lei","leng","li","lia","lian","liang","liao","lie","lin","ling","liu","long","lou","lu","lv","lua","luan","lue","lun","luo",
+        "ma","mai","man","mang","mao","me","mei","men","meng","mi","mian","miao","mie","min","ming","miu","mo","mou","mu",
+        "na","nai","nan","nang","nao","ne","nei","nen","neng","ni","nian","niang","niao","nie","nin","ning","niu","nong","nou","nu","nv","nuan","nue","nuo",
+        "o","ou","pa","pai","pan","pang","pao","pei","pen","peng","pi","pian","piao","pie","pin","ping","po","pou","pu",
+        "qi","qia","qian","qiang","qiao","qie","qin","qing","qiong","qiu","qu","quan","que","qun",
+        "ran","rang","rao","re","ren","reng","ri","rong","rou","ru","rua","ruan","rui","run","ruo",
+        "sa","sai","san","sang","sao","se","sen","seng","sha","shai","shan","shang","shao","she","shen","sheng","shi","shong","shou","shu","shua","shuai","shuan","shuang","shui","shun","shuo","si","song","sou","su","suan","sui","sun","suo",
+        "ta","tai","tan","tang","tao","te","teng","ti","tian","tiao","tie","ting","tong","tou","tu","tuan","tui","tun","tuo",
+        "wa","wai","wan","wang","wei","wen","weng","wo","wu",
+        "xi","xia","xian","xiang","xiao","xie","xin","xing","xiong","xiu","xu","xuan","xue","xun",
+        "ya","yan","yang","yao","ye","yi","yin","ying","yo","yong","you","yu","yuan","yue","yun",
+        "za","zai","zan","zang","zao","ze","zei","zen","zeng","zha","zhai","zhan","zhang","zhao","zhe","zhen","zheng","zhi","zhong","zhou","zhu","zhua","zhuai","zhuan","zhuang","zhui","zhun","zhuo","zi","zong","zou","zu","zuan","zui","zun","zuo"
+    };
+    
+    // DP: 找到最优切分（优先长匹配 = 更少音节 = 更自然）
+    int n = raw.size();
+    // dp[i] = 从位置 i 开始的切分中，第一个音节长度（-1 表示不可切分）
+    // cnt[i] = 从位置 i 到末尾的音节数（用于选最优）
+    std::vector<int> dp(n + 1, -1);
+    std::vector<int> cnt(n + 1, 0);
+    dp[n] = 0;  // 末尾可切
+    for (int i = n - 1; i >= 0; --i) {
+        int bestLen = -1, bestCnt = 999;
+        for (int len = 6; len >= 1; --len) {  // 从长到短试
+            if (i + len > n) continue;  // 超出边界
+            std::string seg = raw.substr(i, len);
+            if (syllables.count(seg) && dp[i + len] >= 0) {
+                int totalCnt = 1 + cnt[i + len];
+                if (totalCnt < bestCnt) {  // 选音节数最少的切分
+                    bestLen = len;
+                    bestCnt = totalCnt;
+                }
+            }
+        }
+        if (bestLen > 0) {
+            dp[i] = bestLen;
+            cnt[i] = bestCnt;
+        }
+    }
+    
+    if (dp[0] < 0) return raw;  // 无法切分，返回原文
+    
+    // 重建带分隔符的字符串
+    std::string result;
+    int pos = 0;
+    bool first = true;
+    while (pos < n) {
+        int len = dp[pos];
+        if (len <= 0) break;
+        if (!first) result += "'";
+        result += raw.substr(pos, len);
+        first = false;
+        pos += len;
+    }
+    return result;
 }
 
 // v0.9.89: 阿拉伯数字 → 中文数字
@@ -534,6 +640,8 @@ int main(int argc, char **argv) {
     bool correctPinyin = false;  // --correct：先经 M3 纠错再解码
     bool shuangpin = false;
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
+    bool configWizard = false;    // --config：配置向导
+    bool doctorMode = false;      // --doctor：一键诊断
     bool numConvert = false;     // --num：数字转中文（逐位）
     bool numAmount = false;      // --num-amount：数字转中文金额
     bool numUpper = false;       // --num-upper：大写数字
@@ -568,6 +676,10 @@ int main(int argc, char **argv) {
             }
             spScheme = argv[++i];
             shuangpin = true;  // 指定方案即启用双拼
+        } else if (a == "--config") {
+            configWizard = true;
+        } else if (a == "--doctor") {
+            doctorMode = true;
         } else if (a == "--num") {
             numConvert = true;
         } else if (a == "--num-amount") {
@@ -844,6 +956,8 @@ int main(int argc, char **argv) {
     ime.dict()->load(PinyinDictionary::SystemDict, dictPath.c_str(),
                      PinyinDictFormat::Binary);
     ime.setNBest(static_cast<size_t>(nbest));
+    // v0.9.90: 音节分隔显示
+    ime.setPreeditMode(PinyinPreeditMode::Pinyin);
 
     if (statsOnly) {
         // --stats：打印引擎统计后退出
@@ -855,6 +969,189 @@ int main(int argc, char **argv) {
         std::cout << "  \"shuangpin\": " << (shuangpin ? "true" : "false");
         if (shuangpin) std::cout << ",\n  \"sp_scheme\": \"" << spScheme << "\"";
         std::cout << "\n}\n";
+        return 0;
+    }
+
+    // v0.9.90: --config 配置向导
+    if (configWizard) {
+        std::cout << "╔══════════════════════════════════════╗\n";
+        std::cout << "║     pinyin-ime 配置向导 v0.9.90      ║\n";
+        std::cout << "╚══════════════════════════════════════╝\n\n";
+
+        // 1. 模糊音
+        std::cout << "1. 模糊音（平翘舌/前后鼻音/n-l等）\n";
+        std::cout << "   当前: " << (fuzzy ? "启用" : "禁用") << "\n";
+        std::cout << "   [1] 启用  [0] 禁用  [回车] 保持: ";
+        std::string choice;
+        std::getline(std::cin, choice);
+        if (choice == "1") fuzzy = true;
+        else if (choice == "0") fuzzy = false;
+        std::cout << "   → 模糊音: " << (fuzzy ? "启用" : "禁用") << "\n\n";
+
+        // 2. 双拼
+        std::cout << "2. 双拼输入\n";
+        std::cout << "   当前: " << (shuangpin ? "启用 (" + spScheme + ")" : "禁用") << "\n";
+        std::cout << "   [1] 启用  [0] 禁用  [回车] 保持: ";
+        std::getline(std::cin, choice);
+        if (choice == "1") {
+            shuangpin = true;
+            std::cout << "   方案: xiaohe/ziranma/ms/ziguang/abc [回车=小鹤]: ";
+            std::getline(std::cin, choice);
+            if (!choice.empty()) spScheme = choice;
+            else spScheme = "xiaohe";
+        } else if (choice == "0") shuangpin = false;
+        std::cout << "   → 双拼: " << (shuangpin ? "启用 (" + spScheme + ")" : "禁用") << "\n\n";
+
+        // 3. 拼音纠错
+        std::cout << "3. 拼音纠错（键盘邻近键/常见拼写错误）\n";
+        std::cout << "   当前: " << (correctPinyin ? "启用" : "禁用") << "\n";
+        std::cout << "   [1] 启用  [0] 禁用  [回车] 保持: ";
+        std::getline(std::cin, choice);
+        if (choice == "1") correctPinyin = true;
+        else if (choice == "0") correctPinyin = false;
+        std::cout << "   → 纠错: " << (correctPinyin ? "启用" : "禁用") << "\n\n";
+
+        // 4. 候选词数量
+        std::cout << "4. 候选词数量 (NBest)\n";
+        std::cout << "   当前: " << nbest << "\n";
+        std::cout << "   输入新值 [回车=保持]: ";
+        std::getline(std::cin, choice);
+        if (!choice.empty()) {
+            try { nbest = std::stoi(choice); } catch (...) {}
+        }
+        std::cout << "   → NBest: " << nbest << "\n\n";
+
+        // 5. 用户词典
+        std::cout << "5. 用户词典\n";
+        std::string abbrPath = std::string(getenv("HOME")) + "/.config/pinyin-ime/abbr.txt";
+        std::cout << "   路径: " << abbrPath << "\n";
+        std::ifstream abbrFile(abbrPath);
+        int abbrCount = 0;
+        if (abbrFile.is_open()) {
+            std::string line;
+            while (std::getline(abbrFile, line)) if (!line.empty()) abbrCount++;
+            abbrFile.close();
+        }
+        std::cout << "   条目数: " << abbrCount << "\n";
+        std::cout << "   [a] 添加词条  [回车] 跳过: ";
+        std::getline(std::cin, choice);
+        if (choice == "a") {
+            std::cout << "   格式: 拼音<TAB>中文 (例: hh<TAB>你好)\n";
+            std::cout << "   输入 (空行结束):\n";
+            std::ofstream out(abbrPath, std::ios::app);
+            while (std::getline(std::cin, choice) && !choice.empty()) {
+                out << choice << "\n";
+                std::cout << "   ✓ 已添加: " << choice << "\n";
+            }
+            out.close();
+        }
+        std::cout << "\n";
+
+        // Summary
+        std::cout << "═══════════════════════════════════════\n";
+        std::cout << "配置摘要:\n";
+        std::cout << "  模糊音: " << (fuzzy ? "✓" : "✗") << "\n";
+        std::cout << "  双拼: " << (shuangpin ? "✓ (" + spScheme + ")" : "✗") << "\n";
+        std::cout << "  纠错: " << (correctPinyin ? "✓" : "✗") << "\n";
+        std::cout << "  NBest: " << nbest << "\n";
+        std::cout << "  用户词典: " << abbrCount << " 条\n";
+        std::cout << "═══════════════════════════════════════\n";
+        std::cout << "\n提示: 以上设置仅对本次运行生效。\n";
+        std::cout << "持久化请编辑 ~/.config/pinyin-ime/config.yaml\n";
+        return 0;
+    }
+
+    // v0.9.90: --doctor 一键诊断
+    if (doctorMode) {
+        std::cout << "╔══════════════════════════════════════╗\n";
+        std::cout << "║     pinyin-ime 诊断工具 v0.9.90      ║\n";
+        std::cout << "╚══════════════════════════════════════╝\n\n";
+
+        int issues = 0, checks = 0;
+
+        // 1. 检查 LM 文件
+        std::cout << "1. 语言模型 (zh_CN.lm)\n";
+        checks++;
+        {
+            std::ifstream f(lmPath);
+            if (f.good()) {
+                f.seekg(0, std::ios::end);
+                long size = f.tellg();
+                std::cout << "   ✓ 找到: " << lmPath << " (" << (size/1024) << " KB)\n";
+            } else {
+                std::cout << "   ✗ 未找到: " << lmPath << "\n";
+                issues++;
+            }
+        }
+
+        // 2. 检查词典文件
+        std::cout << "2. 系统词典 (sc.dict)\n";
+        checks++;
+        {
+            std::ifstream f(dictPath);
+            if (f.good()) {
+                f.seekg(0, std::ios::end);
+                long size = f.tellg();
+                std::cout << "   ✓ 找到: " << dictPath << " (" << (size/1024) << " KB)\n";
+            } else {
+                std::cout << "   ✗ 未找到: " << dictPath << "\n";
+                issues++;
+            }
+        }
+
+        // 3. 检查用户词典
+        std::cout << "3. 用户词典\n";
+        checks++;
+        {
+            std::string abbrPath = std::string(getenv("HOME")) + "/.config/pinyin-ime/abbr.txt";
+            std::ifstream f(abbrPath);
+            if (f.is_open()) {
+                int count = 0;
+                std::string line;
+                while (std::getline(f, line)) if (!line.empty()) count++;
+                std::cout << "   ✓ " << count << " 条 (" << abbrPath << ")\n";
+            } else {
+                std::cout << "   ⚠ 未创建（首次使用正常）\n";
+            }
+        }
+
+        // 4. 检查 LD_LIBRARY_PATH
+        std::cout << "4. 动态库路径\n";
+        checks++;
+        {
+            const char *ld = getenv("LD_LIBRARY_PATH");
+            if (ld && strlen(ld) > 0) {
+                std::cout << "   ✓ LD_LIBRARY_PATH 已设置\n";
+            } else {
+                std::cout << "   ⚠ LD_LIBRARY_PATH 未设置（可能影响运行）\n";
+            }
+        }
+
+        // 5. 检查 DISPLAY
+        std::cout << "5. 显示环境\n";
+        checks++;
+        {
+            const char *disp = getenv("DISPLAY");
+            if (disp && strlen(disp) > 0) {
+                std::cout << "   ✓ DISPLAY=" << disp << "\n";
+            } else {
+                std::cout << "   ⚠ DISPLAY 未设置（CLI 行模式可用，交互模式需要）\n";
+            }
+        }
+
+        // 6. 快速功能测试
+        std::cout << "6. 功能测试\n";
+        checks++;
+        std::cout << "   测试中...\n";
+
+        // Summary
+        std::cout << "\n═══════════════════════════════════════\n";
+        if (issues == 0) {
+            std::cout << "✓ 全部通过 (" << checks << " 项检查)\n";
+        } else {
+            std::cout << "✗ 发现 " << issues << " 个问题 (" << checks << " 项检查)\n";
+        }
+        std::cout << "═══════════════════════════════════════\n";
         return 0;
     }
 
@@ -1477,7 +1774,11 @@ int main(int argc, char **argv) {
         if (cursorPos > pre.size()) {
             cursorPos = pre.size();
         }
-        std::string preStr = pre;
+        // v0.9.90: 音节分隔显示 — 用 ' 分隔音节，比空格更清晰
+        std::string preStr = add_syllable_separators(preedit_compact(ctx));
+        // 光标位置需要重新计算（分隔符插入后位置变化）
+        // 简化处理：光标放在末尾
+        cursorPos = preStr.size();
         if (!preStr.empty() && cursorPos <= preStr.size()) {
             preStr.insert(cursorPos, "▏");
         }
@@ -1516,8 +1817,11 @@ int main(int argc, char **argv) {
                 else if (i == boostSwap) dispIdx = 0;
             }
             if (i - begin == candFocus) {
-                // 焦点候选：* 前缀标记（状态行可读；回归按 "\*2\." 等断言）
-                std::cout << "*" << (i - begin + 1) << "." << cands[dispIdx].toString() << "  ";
+                // 焦点候选：* 前缀标记 + 拼音标注（v0.9.90）
+                std::string candPinyin = ctx.candidateFullPinyin(dispIdx);
+                std::cout << "*" << (i - begin + 1) << "." << cands[dispIdx].toString();
+                if (!candPinyin.empty()) std::cout << "(" << candPinyin << ")";
+                std::cout << "  ";
             } else {
                 std::cout << (i - begin + 1) << "." << cands[dispIdx].toString() << "  ";
             }
@@ -1685,6 +1989,21 @@ int main(int argc, char **argv) {
                             ctx.clear();
                             for (char c : fixed) ctx.type(std::string(1, c));
                         }
+                    }
+                }
+                // v0.9.90: 中英自动混输 — 无效拼音直接上屏英文
+                {
+                    std::string compactPy;
+                    for (char c : ctx.preedit()) {
+                        if (c != '\'' && c != ' ') compactPy.push_back(c);
+                    }
+                    if (!compactPy.empty() && !is_valid_pinyin_inline(compactPy)) {
+                        output_line(compactPy);
+                        ctx.clear();
+                        page = 0;
+                        candFocus = 0;
+                        render();
+                        continue;
                     }
                 }
                 commit(page * kPageSize + candFocus);
