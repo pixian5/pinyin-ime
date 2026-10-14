@@ -883,11 +883,46 @@ int main(int argc, char **argv) {
                 if (!fixed.empty()) line = fixed;
             }
             line = disambiguate_pinyin(line);
-            for (char ch : line) {
-                if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+            // v0.9.85: 空格分隔 → 分段解码再拼接（"nihao shijie" → "你好"+"世界"）
+            bool hasSpace = false;
+            for (char c : line) if (c == ' ') { hasSpace = true; break; }
+            std::vector<std::string> cands;
+            if (hasSpace) {
+                // 按空格切分，每段独立解码，拼接首选候选
+                std::vector<std::string> segs;
+                std::string cur;
+                for (char c : line) {
+                    if (c == ' ') { if (!cur.empty()) segs.push_back(cur); cur.clear(); }
+                    else cur.push_back(c);
+                }
+                if (!cur.empty()) segs.push_back(cur);
+                // 每段独立解码
+                std::string joined;
+                std::vector<std::vector<std::string>> segCands;
+                for (auto &seg : segs) {
+                    ctx.clear();
+                    for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
+                    boost_abbreviation(seg, sc);
+                    segCands.push_back(sc);
+                    if (!sc.empty()) joined += sc[0];
+                }
+                if (!joined.empty()) cands.push_back(joined);
+                // 也生成各段第二候选的组合作为备选
+                std::string joined2;
+                bool hasAlt = false;
+                for (size_t si = 0; si < segCands.size(); ++si) {
+                    if (segCands[si].size() > 1) { joined2 += segCands[si][1]; hasAlt = true; }
+                    else if (!segCands[si].empty()) joined2 += segCands[si][0];
+                }
+                if (hasAlt && joined2 != joined) cands.push_back(joined2);
+            } else {
+                for (char ch : line) {
+                    if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                }
+                cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+                boost_abbreviation(line, cands);
             }
-            auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-            boost_abbreviation(line, cands);
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
             } else if (topK > 0) {
@@ -1074,11 +1109,59 @@ int main(int argc, char **argv) {
                 if (!fixed.empty()) line = fixed;
             }
             line = disambiguate_pinyin(line);
-            for (char ch : line) {
-                if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+            // v0.9.85: 空格分隔 → 智能分段解码
+            // 策略：如果所有段都≥4字符（词级分隔），分段解码再拼接
+            //       否则（音节级分隔），去除空格整体解码
+            bool hasSpace2 = false;
+            for (char c : line) if (c == ' ') { hasSpace2 = true; break; }
+            std::vector<std::string> cands;
+            if (hasSpace2) {
+                std::vector<std::string> segs;
+                std::string cur;
+                for (char c : line) {
+                    if (c == ' ') { if (!cur.empty()) segs.push_back(cur); cur.clear(); }
+                    else cur.push_back(c);
+                }
+                if (!cur.empty()) segs.push_back(cur);
+                // 判断是否为词级分隔（所有段≥4字符）
+                bool wordLevel = true;
+                for (auto &s : segs) if (s.size() < 4) { wordLevel = false; break; }
+                if (wordLevel && segs.size() >= 2) {
+                    // 词级分隔：每段独立解码，拼接首选候选
+                    std::string joined;
+                    std::vector<std::vector<std::string>> segCands;
+                    for (auto &seg : segs) {
+                        ctx.clear();
+                        for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                        auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
+                        boost_abbreviation(seg, sc);
+                        segCands.push_back(sc);
+                        if (!sc.empty()) joined += sc[0];
+                    }
+                    if (!joined.empty()) cands.push_back(joined);
+                    // 备选：各段第二候选组合
+                    std::string joined2;
+                    bool hasAlt = false;
+                    for (size_t si = 0; si < segCands.size(); ++si) {
+                        if (segCands[si].size() > 1) { joined2 += segCands[si][1]; hasAlt = true; }
+                        else if (!segCands[si].empty()) joined2 += segCands[si][0];
+                    }
+                    if (hasAlt && joined2 != joined) cands.push_back(joined2);
+                } else {
+                    // 音节级分隔：去除空格，整体解码
+                    std::string nospaces;
+                    for (char c : line) if (c != ' ') nospaces.push_back(c);
+                    for (char ch : nospaces) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+                    boost_abbreviation(nospaces, cands);
+                }
+            } else {
+                for (char ch : line) {
+                    if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                }
+                cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+                boost_abbreviation(line, cands);
             }
-            auto cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-            boost_abbreviation(line, cands);
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
             } else if (topK > 0) {
