@@ -124,6 +124,9 @@ void usage(const char *prog) {
         << "  --correct       先经 M3 纠错（CHIME+二元转移）修复打错的拼音再解码\n"
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
+        << "  --num           数字转中文(逐位): 123 -> 一二三\n"
+        << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
+        << "  --num-upper     大写数字: 123 -> 壹贰叁\n"
         << "  --quiet         抑制信息性 stderr 输出（配合 --json 使用更干净）\n"
         << "  --json          行模式输出 JSON 数组（方便程序化调用）\n"
         << "  --stats         打印引擎统计（词典/LM/内存）后退出\n"
@@ -315,6 +318,63 @@ bool is_valid_pinyin(const std::string &s) {
     return true;
 }
 
+// v0.9.89: 阿拉伯数字 → 中文数字
+std::string num_to_chinese(const std::string &num, bool uppercase = false) {
+    static const char *lower[] = {"零","一","二","三","四","五","六","七","八","九"};
+    static const char *upper[] = {"零","壹","贰","叁","肆","伍","陆","柒","捌","玖"};
+    const char **digits = uppercase ? upper : lower;
+    
+    // 简单逐位转换（适合年份、电话号等）
+    std::string result;
+    for (char c : num) {
+        if (c >= '0' && c <= '9') result += digits[c - '0'];
+        else result += c;
+    }
+    return result;
+}
+
+// 数字 → 中文金额/数量表达（一百二十三）
+std::string num_to_chinese_amount(const std::string &num) {
+    static const char *digits[] = {"零","一","二","三","四","五","六","七","八","九"};
+    static const char *units[] = {"","十","百","千"};
+    static const char *big_units[] = {"","万","亿"};
+    
+    if (num.empty()) return "";
+    // 处理 0
+    if (num == "0") return "零";
+    
+    std::string result;
+    int len = num.size();
+    bool prevZero = false;
+    
+    for (int i = 0; i < len; ++i) {
+        int d = num[i] - '0';
+        int pos = len - i - 1;  // 位置（从右数）
+        int bigUnit = pos / 4;
+        int smallUnit = pos % 4;
+        
+        if (d == 0) {
+            prevZero = true;
+        } else {
+            if (prevZero && !result.empty()) result += "零";
+            // 十的省略规则：11-19 开头不写"一"
+            if (d == 1 && smallUnit == 1 && (i == 0 || (i == 1 && num[0] == '0'))) {
+                // 只写"十"不写"一十"
+            } else {
+                result += digits[d];
+            }
+            if (smallUnit > 0) result += units[smallUnit];
+            prevZero = false;
+        }
+        
+        // 大单位（万、亿）
+        if (smallUnit == 0 && bigUnit > 0 && !prevZero) {
+            result += big_units[bigUnit];
+        }
+    }
+    return result;
+}
+
 std::string _line_punct_suffix;  // v0.9.86: 行模式标点后缀
 
 std::string chinese_punct(char ch) {
@@ -474,6 +534,9 @@ int main(int argc, char **argv) {
     bool correctPinyin = false;  // --correct：先经 M3 纠错再解码
     bool shuangpin = false;
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
+    bool numConvert = false;     // --num：数字转中文（逐位）
+    bool numAmount = false;      // --num-amount：数字转中文金额
+    bool numUpper = false;       // --num-upper：大写数字
     bool statsOnly = false;     // --stats：打印引擎统计后退出
     bool quiet = false;          // --quiet：抑制信息性 stderr 输出
     std::string learnFile;       // --learn-file：批量学习
@@ -505,6 +568,12 @@ int main(int argc, char **argv) {
             }
             spScheme = argv[++i];
             shuangpin = true;  // 指定方案即启用双拼
+        } else if (a == "--num") {
+            numConvert = true;
+        } else if (a == "--num-amount") {
+            numAmount = true;
+        } else if (a == "--num-upper") {
+            numUpper = true;
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
@@ -1189,6 +1258,20 @@ int main(int argc, char **argv) {
             if (correctPinyin && pinyin_corrector::should_correct(line)) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
+            }
+            // v0.9.89: 数字转中文
+            if (numConvert || numAmount || numUpper) {
+                bool allDigits = true;
+                for (char c : line) {
+                    if (c < '0' || c > '9') { allDigits = false; break; }
+                }
+                if (allDigits && !line.empty()) {
+                    std::string numResult;
+                    if (numAmount) numResult = num_to_chinese_amount(line);
+                    else numResult = num_to_chinese(line, numUpper);
+                    std::cout << numResult << "\n";
+                    continue;
+                }
             }
             // v0.9.86: 行模式标点处理
             // 纯标点行 → 直接输出中文标点
