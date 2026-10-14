@@ -236,6 +236,8 @@ std::string sp_display_name(ShuangpinBuiltinProfile p) {
 
 // 中文标点：半角 ASCII 标点 → 全角中文标点。纯前端（不进拼音解码），
 // 只负责「上屏标点」这一件事。返回空串表示该字符无对应中文标点。
+std::string _line_punct_suffix;  // v0.9.86: 行模式标点后缀
+
 std::string chinese_punct(char ch) {
     switch (ch) {
     case ',': return "，";
@@ -427,7 +429,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.9.82\n";
+            std::cout << "pinyin_ime_cli 0.9.86\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {
@@ -755,7 +757,7 @@ int main(int argc, char **argv) {
     // --self-test：健康检查
     if (selfTest) {
         std::cout << "pinyin-ime 自检\n";
-        std::cout << "  版本: 0.9.82\n";
+        std::cout << "  版本: 0.9.86\n";
         std::cout << "  LM: " << lmPath << " (" << (std::ifstream(lmPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  词典: " << dictPath << " (" << (std::ifstream(dictPath).good() ? "OK" : "缺失") << ")\n";
         std::cout << "  模糊音: " << (fuzzy ? "开" : "关") << "\n";
@@ -950,7 +952,8 @@ int main(int argc, char **argv) {
                     if (i) std::cout << '\t';
                     std::cout << cands[i];
                 }
-                std::cout << '\n';
+                std::cout << _line_punct_suffix << '\n';
+                _line_punct_suffix.clear();
             }
         }
         std::cout.flush();
@@ -1108,6 +1111,39 @@ int main(int argc, char **argv) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
+            // v0.9.86: 行模式标点处理
+            // 纯标点行 → 直接输出中文标点
+            // 拼音+标点 → 先解码拼音，再追加中文标点
+            {
+                std::string pinyinPart, punctPart;
+                bool inPunct = false;
+                for (char c : line) {
+                    std::string p = chinese_punct(c);
+                    if (!p.empty()) {
+                        inPunct = true;
+                        punctPart += p;
+                    } else if (!inPunct) {
+                        pinyinPart += c;
+                    } else {
+                        // 标点后的非标点字符，也作为标点部分（如引号内容）
+                        punctPart += c;
+                    }
+                }
+                if (pinyinPart.empty() && !punctPart.empty()) {
+                    // 纯标点行
+                    if (top1Only) {
+                        std::cout << punctPart << "\n";
+                    } else {
+                        std::cout << punctPart << "\n";
+                    }
+                    continue;
+                }
+                // 有标点部分时，先解码拼音部分，再追加标点
+                // 保存标点部分供后面使用
+                line = pinyinPart;
+                // 标点部分存在全局变量供输出时追加
+                _line_punct_suffix = punctPart;
+            }
             line = disambiguate_pinyin(line);
             // v0.9.85: 空格分隔 → 智能分段解码
             // 策略：如果所有段都≥4字符（词级分隔），分段解码再拼接
@@ -1163,13 +1199,17 @@ int main(int argc, char **argv) {
                 boost_abbreviation(line, cands);
             }
             if (top1Only) {
-                if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
+                if (!cands.empty()) std::cout << cands[0];
+                std::cout << _line_punct_suffix;
+                _line_punct_suffix.clear();
             } else if (topK > 0) {
                 size_t limit = std::min(static_cast<size_t>(topK), cands.size());
                 for (size_t i = 0; i < limit; ++i) {
                     if (i) std::cout << '\t';
                     std::cout << cands[i];
                 }
+                std::cout << _line_punct_suffix;
+                _line_punct_suffix.clear();
             } else if (jsonOutput) {
                 // JSON 数组输出：["候选1","候选2",...]
                 std::cout << '[';
@@ -1190,6 +1230,8 @@ int main(int argc, char **argv) {
                     if (i) std::cout << '\t';
                     std::cout << cands[i];
                 }
+                std::cout << _line_punct_suffix;
+                _line_punct_suffix.clear();
             }
             std::cout << '\n';
             std::cout.flush();
