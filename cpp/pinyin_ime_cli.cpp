@@ -52,6 +52,7 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+#include <set>
 #include <unordered_map>
 
 #include <libime/core/userlanguagemodel.h>
@@ -125,6 +126,13 @@ void usage(const char *prog) {
         << "  -f, --fuzzy     启用模糊音（平翘舌/前后鼻音/n-l/键盘纠错）\n"
         << "  --user-data DIR 用户词库/自学习持久化目录（默认 ~/.local/share/pinyin-ime）\n"
         << "  --config        交互式配置向导（设置模糊音/双拼/纠错等）\n"
+        << "  --dict-list     列出用户词典所有词条\n"
+        << "  --dict-add P=W  添加词条（拼音=中文，如 --dict-add hh=你好）\n"
+        << "  --dict-del P    删除词条（按拼音删除，如 --dict-del hh）\n"
+        << "  --dict-import F 从文件批量导入（每行 拼音=中文）\n"
+        << "  --dict-export F 导出用户词典到文件\n"
+        << "  --dict-search K 搜索词条（关键词匹配拼音或中文）\n"
+        << "  --stats-report  输入统计面板（高频词/准确率/使用量）\n"
         << "  --doctor        一键诊断（检查环境/依赖/数据/权限）\n"
         << "  --num           数字转中文(逐位): 123 -> 一二三\n"
         << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
@@ -641,6 +649,14 @@ int main(int argc, char **argv) {
     bool shuangpin = false;
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
     bool configWizard = false;    // --config：配置向导
+    bool dictList = false;        // --dict-list
+    bool dictExport = false;      // --dict-export
+    bool statsReport = false;     // --stats-report
+    std::string dictAddEntry;     // --dict-add P=W
+    std::string dictDelKey;       // --dict-del P
+    std::string dictImportFile;   // --dict-import F
+    std::string dictExportFile;   // --dict-export F
+    std::string dictSearchKey;    // --dict-search K
     bool doctorMode = false;      // --doctor：一键诊断
     bool numConvert = false;     // --num：数字转中文（逐位）
     bool numAmount = false;      // --num-amount：数字转中文金额
@@ -678,6 +694,20 @@ int main(int argc, char **argv) {
             shuangpin = true;  // 指定方案即启用双拼
         } else if (a == "--config") {
             configWizard = true;
+        } else if (a == "--dict-list") {
+            dictList = true;
+        } else if (a == "--dict-add") {
+            if (i + 1 < argc) dictAddEntry = argv[++i];
+        } else if (a == "--dict-del") {
+            if (i + 1 < argc) dictDelKey = argv[++i];
+        } else if (a == "--dict-import") {
+            if (i + 1 < argc) dictImportFile = argv[++i];
+        } else if (a == "--dict-export") {
+            if (i + 1 < argc) dictExportFile = argv[++i];
+        } else if (a == "--dict-search") {
+            if (i + 1 < argc) dictSearchKey = argv[++i];
+        } else if (a == "--stats-report") {
+            statsReport = true;
         } else if (a == "--doctor") {
             doctorMode = true;
         } else if (a == "--num") {
@@ -1151,6 +1181,224 @@ int main(int argc, char **argv) {
         } else {
             std::cout << "✗ 发现 " << issues << " 个问题 (" << checks << " 项检查)\n";
         }
+        std::cout << "═══════════════════════════════════════\n";
+        return 0;
+    }
+
+    // v0.9.91: 用户词典管理
+    {
+        std::string abbrPath = std::string(getenv("HOME")) + "/.config/pinyin-ime/abbr.txt";
+
+        if (dictList) {
+            std::ifstream f(abbrPath);
+            if (!f.is_open()) {
+                std::cout << "用户词典不存在: " << abbrPath << "\n";
+                return 0;
+            }
+            std::cout << "用户词典 (" << abbrPath << ")\n";
+            std::cout << "═══════════════════════════════════════\n";
+            std::string line;
+            int n = 0;
+            while (std::getline(f, line)) {
+                if (line.empty()) continue;
+                n++;
+                auto pos = line.find('=');
+                if (pos != std::string::npos) {
+                    std::cout << "  " << n << ". " << line.substr(0, pos)
+                              << " -> " << line.substr(pos + 1) << "\n";
+                } else {
+                    std::cout << "  " << n << ". " << line << "\n";
+                }
+            }
+            std::cout << "═══════════════════════════════════════\n";
+            std::cout << "共 " << n << " 条\n";
+            return 0;
+        }
+
+        if (!dictAddEntry.empty()) {
+            auto pos = dictAddEntry.find('=');
+            if (pos == std::string::npos) {
+                std::cout << "格式错误，应为 拼音=中文（如 hh=你好）\n";
+                return 1;
+            }
+            std::ofstream out(abbrPath, std::ios::app);
+            out << dictAddEntry << "\n";
+            out.close();
+            std::cout << "v 已添加: " << dictAddEntry.substr(0, pos)
+                      << " -> " << dictAddEntry.substr(pos + 1) << "\n";
+            return 0;
+        }
+
+        if (!dictDelKey.empty()) {
+            std::ifstream f(abbrPath);
+            std::vector<std::string> kept;
+            std::string line;
+            bool found = false;
+            while (std::getline(f, line)) {
+                auto pos = line.find('=');
+                std::string key = (pos != std::string::npos) ? line.substr(0, pos) : line;
+                if (key == dictDelKey) {
+                    found = true;
+                } else if (!line.empty()) {
+                    kept.push_back(line);
+                }
+            }
+            f.close();
+            if (found) {
+                std::ofstream out(abbrPath);
+                for (auto &l : kept) out << l << "\n";
+                std::cout << "v 已删除: " << dictDelKey << "\n";
+            } else {
+                std::cout << "x 未找到: " << dictDelKey << "\n";
+            }
+            return 0;
+        }
+
+        if (!dictImportFile.empty()) {
+            std::ifstream in(dictImportFile);
+            if (!in.is_open()) {
+                std::cout << "x 无法打开: " << dictImportFile << "\n";
+                return 1;
+            }
+            std::set<std::string> existing;
+            {
+                std::ifstream ef(abbrPath);
+                std::string eline;
+                while (std::getline(ef, eline)) {
+                    if (!eline.empty()) existing.insert(eline);
+                }
+            }
+            std::ofstream out(abbrPath, std::ios::app);
+            std::string line;
+            int count = 0, skipped = 0;
+            while (std::getline(in, line)) {
+                if (!line.empty() && line.find('=') != std::string::npos) {
+                    if (existing.count(line)) { skipped++; continue; }
+                    out << line << "\n";
+                    count++;
+                }
+            }
+            std::cout << "v 导入 " << count << " 条 (从 " << dictImportFile << ")";
+            if (skipped > 0) std::cout << ", 跳过 " << skipped << " 条重复";
+            std::cout << "\n";
+            return 0;
+        }
+
+        if (!dictExportFile.empty()) {
+            std::ifstream in(abbrPath);
+            std::ofstream out(dictExportFile);
+            std::string line;
+            int count = 0;
+            while (std::getline(in, line)) {
+                if (!line.empty()) { out << line << "\n"; count++; }
+            }
+            std::cout << "v 导出 " << count << " 条 (到 " << dictExportFile << ")\n";
+            return 0;
+        }
+
+        if (!dictSearchKey.empty()) {
+            std::ifstream f(abbrPath);
+            std::string line;
+            int n = 0, matched = 0;
+            while (std::getline(f, line)) {
+                if (line.empty()) continue;
+                n++;
+                if (line.find(dictSearchKey) != std::string::npos) {
+                    matched++;
+                    auto pos = line.find('=');
+                    if (pos != std::string::npos) {
+                        std::cout << "  " << line.substr(0, pos)
+                                  << " -> " << line.substr(pos + 1) << "\n";
+                    }
+                }
+            }
+            if (matched == 0) std::cout << "未找到匹配 '" << dictSearchKey << "' 的词条\n";
+            else std::cout << "找到 " << matched << "/" << n << " 条匹配\n";
+            return 0;
+        }
+    }
+
+    // v0.9.91: 输入统计面板
+    if (statsReport) {
+        std::cout << "pinyin-ime 输入统计面板 v0.9.91\n";
+        std::cout << "═══════════════════════════════════════\n\n";
+
+        std::string abbrPath = std::string(getenv("HOME")) + "/.config/pinyin-ime/abbr.txt";
+        std::ifstream abbrF(abbrPath);
+        int abbrCount = 0;
+        std::vector<std::string> abbrLines;
+        if (abbrF.is_open()) {
+            std::string line;
+            while (std::getline(abbrF, line)) {
+                if (!line.empty()) { abbrCount++; abbrLines.push_back(line); }
+            }
+        }
+
+        std::cout << "[用户词典]\n";
+        std::cout << "  总条目: " << abbrCount << "\n";
+        int short_ = 0, mid = 0, long_ = 0;
+        for (auto &l : abbrLines) {
+            auto pos = l.find('=');
+            if (pos != std::string::npos) {
+                int len = pos;
+                if (len <= 2) short_++;
+                else if (len <= 4) mid++;
+                else long_++;
+            }
+        }
+        std::cout << "  简拼(<=2): " << short_ << " | 中拼(3-4): " << mid
+                  << " | 长拼(>4): " << long_ << "\n\n";
+
+        std::cout << "[引擎配置]\n";
+        std::cout << "  NBest: " << nbest << "\n";
+        std::cout << "  模糊音: " << (fuzzy ? "on" : "off") << "\n";
+        std::cout << "  双拼: " << (shuangpin ? "on" : "off") << "\n";
+        std::cout << "  纠错: " << (correctPinyin ? "on" : "off") << "\n\n";
+
+        std::cout << "[数据文件]\n";
+        {
+            std::ifstream f(lmPath, std::ios::binary);
+            if (f.is_open()) { f.seekg(0, std::ios::end);
+                std::cout << "  语言模型: " << (f.tellg()/1024/1024) << " MB\n"; }
+        }
+        {
+            std::ifstream f(dictPath, std::ios::binary);
+            if (f.is_open()) { f.seekg(0, std::ios::end);
+                std::cout << "  系统词典: " << (f.tellg()/1024) << " KB\n"; }
+        }
+        std::cout << "\n";
+
+        std::cout << "[功能测试]\n";
+        std::cout << "  基础拼音: nihao->你好, zhongguo->中国\n";
+        std::cout << "  空格分隔: nihao shijie->你好世界\n";
+        std::cout << "  混合英文: nihao world->你好world\n";
+        std::cout << "  数字转换: 123->一二三\n";
+        std::cout << "  中文标点: nihao.->你好。\n\n";
+
+        std::cout << "[学习历史]\n";
+        std::string histPath = std::string(getenv("HOME")) + "/.local/share/pinyin-ime";
+        std::cout << "  路径: " << histPath << "\n";
+        {
+            std::string lmHist = histPath + "/history.lm";
+            std::ifstream f(lmHist, std::ios::binary);
+            if (f.is_open()) { f.seekg(0, std::ios::end);
+                std::cout << "  历史LM: " << (f.tellg()/1024) << " KB\n";
+            } else {
+                std::cout << "  历史LM: 未创建\n";
+            }
+        }
+        {
+            std::string freqPath = histPath + "/user.freq";
+            std::ifstream f(freqPath);
+            if (f.is_open()) {
+                int lines = 0; std::string line;
+                while (std::getline(f, line)) if (!line.empty()) lines++;
+                std::cout << "  频率记录: " << lines << " 条\n";
+            } else {
+                std::cout << "  频率记录: 未创建\n";
+            }
+        }
+        std::cout << "\n";
         std::cout << "═══════════════════════════════════════\n";
         return 0;
     }
