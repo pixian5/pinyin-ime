@@ -1,4 +1,113 @@
 # pinyin-ime
+## 当前进度（截至 2026-10-14 v0.9.85）
+
+### v0.9.85（2026-10-14）：第四台机器复现 + 88/90 全测试通过 + 系统级安装
+
+**在 openEuler 22.03 aarch64 (114.116.247.146) 上从 S3 预构建产物完整复现可运行输入法，系统级安装完成。**
+
+**复现步骤：**
+1. 克隆 GitCode 仓库 + 设置 GITCODE_TOKEN 环境变量
+2. 安装 rclone + 配置 CSTCloud S3 远程
+3. 下载 S3 v0.9.84a 预构建产物（CLI + lib + data + addon）
+4. 下载 S3 v0.9.83 桌面 bundle（fcitx5 + deps-lib）
+5. 下载 S3 v0.9.84 补充库
+6. 解压桌面 bundle 到 ~/.local/pinyin-ime/
+7. 部署 libIME 库 + SONAME 符号链接
+8. 修复数据文件（sc.dict dangling symlink）
+9. 创建 /workspace/native-build 符号链接结构
+10. 修复 XKB 路径（/workspace/native-build/mamba-env/share/X11/xkb）
+11. 配置 fcitx5 profile（默认输入法 = pinyinime）
+12. 启动 Xvfb + dbus + fcitx5
+13. 系统级安装（addon → /usr/lib64/fcitx5/, libIME → /usr/lib64/, data → /usr/share/libime/）
+
+**全面测试结果（88/90 通过）：**
+| 测试 | 结果 | 说明 |
+|------|------|------|
+| CLI 冒烟 | 10/10 ✅ | nihao→你好, zhongguo→中国, shijie→世界 |
+| CLI 综合 | 23/23 ✅ | 全拼15 + 简拼5 + 模糊音3 |
+| CLI 模糊音/多模式 | 18/18 ✅ | 全拼+简拼+多字+英文混排 |
+| DBus e2e | 7/7 ✅ | 基本输入/预编辑/退格/选词 |
+| 交互测试 | 6/6 ✅ | 基本输入/预编辑/退格/数字选词/翻页/多段 |
+| 选词测试 | 6/6 ✅ | 数字键选词/翻页选词/简拼/多选/取消 |
+| XIM 协议 | 5/5 ✅ | addon/server/protocol/xterm/remote |
+| X11 e2e | 7/7 ✅ | X server/XIM/窗口/键盘/remote/IM列表/当前IM |
+| 模糊音 e2e fcitx5 | 6/8 | DBus 交互重启后失败（已知问题） |
+
+**系统级安装验证：**
+```
+addon:     ✅ /usr/lib64/fcitx5/libpinyinime.so
+IM config: ✅ /usr/share/fcitx5/inputmethod/pinyinime.conf
+libIME:    ✅ libIMEPinyin/libIMECore/libIMETable/libxcb-imdkit → /usr/lib64/
+data:      ✅ /usr/share/libime/libime/zh_CN.lm + sc.dict
+CLI:       ✅ /usr/bin/pinyin_ime_cli + pinyin-ime wrapper
+env:       ✅ /etc/environment.d/pinyin-ime.conf
+autostart: ✅ ~/.config/autostart/fcitx5.desktop
+fcitx5:    ✅ pinyinime addon loaded + LM + dict + XIM + DBus
+```
+
+**fcitx5 启动日志（干净，无 ERROR）：**
+- ✅ pinyinime: loaded lm + dict
+- ✅ Loaded addon pinyinime
+- ✅ X11 display connected (:99)
+- ✅ XKB keyboard loaded (697 layouts)
+- ✅ dbus + dbusfrontend + xim + classicui loaded
+- ✅ Found 1 input method in addon pinyinime
+
+**使用方法：**
+```bash
+# CLI 使用
+echo "nihao" | pinyin-ime    # → 你好
+pinyin-ime "zhongguo"        # → 中国
+pinyin-ime --fuzzy "zongguo" # → 中国 (模糊音)
+
+# 桌面使用
+# Ctrl+Space 切换中英文
+# 数字键选词，PageDown 翻页
+```
+
+**关键修复（本机器）：**
+1. CLI 二进制被符号链接覆盖：创建 wrapper 时 cat > 通过 symlink 覆盖了原 ELF 二进制 → 重新从 tarball 解压
+2. XKB 路径：fcitx5 编译时路径 /workspace/native-build/mamba-env/share/X11/xkb → 创建符号链接到 /usr/share/X11
+3. sc.dict dangling symlink：bundle 内 sc.dict 是断裂的符号链接 → 删除后复制实体文件
+4. Python dbus 模块：系统 python3-dbus 安装在 Python 3.9 路径，但默认 Python 是 3.11 → 用 PYTHONPATH 包含 3.9 site-packages
+5. XDG_RUNTIME_DIR：/run/user/0 不存在 → mkdir -p /run/user/0
+
+**新增文件：**
+- scripts/start_im_env.sh：持久化启动 Xvfb + dbus + fcitx5 的脚本
+- start_im.sh：启动脚本
+- .secrets.env：GitCode token + S3 凭据（不入库）
+
+**未来优化方向：**
+- 模糊音 e2e 测试修复（当前 6/8，DBus 交互重启后失败）
+- Wayland 支持
+- 系统级打包（deb/rpm）
+- fcitx5-configtool GUI 配置验证
+- 双拼测试用正确键位
+- 优化 "nihao shijie" 空格分隔输入（当前输出"你好时节"而非"你好世界"）
+
+**待办事项：**
+- [x] 第四台机器完整复现（v0.9.85）
+- [x] CLI 综合 23/23 通过
+- [x] DBus e2e 7/7 通过
+- [x] 交互测试 6/6 通过
+- [x] 选词测试 6/6 通过
+- [x] XIM 协议 5/5 通过
+- [x] X11 e2e 7/7 通过
+- [x] 模糊音/多模式 18/18 通过
+- [x] 系统级安装完成
+- [ ] 模糊音 e2e DBus 交互修复
+- [ ] Wayland 支持
+- [ ] 系统级打包（deb/rpm）
+
+**所需依赖（本机器复现）：**
+- 系统：xorg-x11-server-Xvfb, dbus, dbus-x11, boost-devel, fmt-devel, zstd-devel, libuv-devel, ninja-build, extra-cmake-modules, gettext, libuuid-devel, python3-dbus, libX11-devel, libXtst-devel, xorg-x11-utils, xterm, fontconfig-devel, wayland-devel, wayland-protocols-devel, libxkbcommon-devel, libxcb-devel, xcb-util-devel, xcb-util-wm-devel, xcb-util-keysyms-devel
+- rclone：CSTCloud S3 下载
+- Python：python-xlib (pip), PYTHONPATH 包含 /usr/lib64/python3.9/site-packages (dbus module)
+- S3 产物：v0.9.84a (CLI+lib+data+addon) + v0.9.83 (desktop bundle) + v0.9.84 (supplement libs)
+
+
+
+
 
 ## 当前进度（截至 2026-10-10 v0.9.83）
 
@@ -417,6 +526,7 @@ bash scripts/install.sh --prefix=/opt/pinyin-ime
 
 ## 历史进度
 
+
 ## 当前进度（截至 2026-10-10 v0.9.81）
 
 ### v0.9.81（2026-10-10）：用户交互测试 6/6 全通过 — 退格、选词、翻页全部工作
@@ -491,6 +601,7 @@ ctrl.SetCurrentIM("pinyinime")  # ← 有效
 ---
 
 ## 历史进度
+
 
 ## 当前进度（截至 2026-10-10 v0.9.80）
 
@@ -573,6 +684,7 @@ signal member=CommitString  string "输入法"
 
 ## 历史进度
 
+
 ## 当前进度（截至 2026-10-10 v0.9.79）
 
 ### v0.9.79（2026-10-10）：classicui segfault 修复 + 桌面集成 21/21 全通过
@@ -645,6 +757,7 @@ signal member=CommitString  string "输入法"
 ---
 
 ## 历史进度
+
 
 ## 当前进度（截至 2026-10-10 v0.9.78）
 
@@ -748,6 +861,7 @@ fcitx5 加载的 addon（9 个）：pinyinime, imselector, xcb, quickphrase, key
 - Python（评测用）：pypinyin, pyyaml, jieba
 
 ---
+
 
 ## 当前进度（截至 2026-10-10 v0.9.77）
 
@@ -923,6 +1037,7 @@ conda-forge 工具链(gcc 16.2/gxx/boost 1.85/fmt 12.2/zstd/libuv/ECM 6.12, BFSU
 
 ---
 
+
 ## 当前进度（截至 2026-10-09 v0.9.75）
 
 ### v0.9.75（2026-10-09）：全新机器从源码全量重建 — 24/24 冒烟全通过，真正能跑的输入法
@@ -990,6 +1105,7 @@ conda-forge 工具链(gcc/gxx/boost/fmt/zstd/libuv/ECM, BFSU 镜像)
 - Python（评测用）：pypinyin, pyyaml, jieba
 
 ---
+
 
 ## 当前进度（截至 2026-10-09 v0.9.71）
 
@@ -1310,6 +1426,7 @@ rpm -ivh pinyin-ime-0.9.71-1.oe2203.aarch64.rpm
 
 
 
+
 ## 当前进度（截至 2026-10-09 v0.9.63）
 
 ### v0.9.63（2026-10-09）：真正可运行的 Linux 拼音输入法 — 全功能验证通过
@@ -1420,6 +1537,7 @@ python3 scripts/train_domain_lm.py --corpus corpus1.txt corpus2.txt --output cus
 
 
 
+
 ## 当前进度（截至 2026-10-09 v0.9.62）
 
 ### v0.9.62（2026-10-09）：全量验证通过 — 真正可运行的 Linux 拼音输入法
@@ -1516,6 +1634,7 @@ echo "nihao" | pinyin_ime_cli --quiet --top1 /usr/share/libime/zh_CN.lm /usr/sha
 
 
 
+
 ## 当前进度（截至 2026-10-09 全量重建+系统安装）
 
 ### v0.9.61（2026-10-09）：沙箱全量重建 + CLI + fcitx5 addon + 24/24 冒烟通过
@@ -1608,6 +1727,7 @@ echo "nihao" | pinyin_ime_cli --quiet --top1 /usr/share/libime/zh_CN.lm /usr/sha
 6. 构建产物上传 S3（rclone 到 cstcloud）
 7. RPM/DEB 打包自动化
 8. 代理节点自动测速选择
+
 
 
 
@@ -1718,6 +1838,7 @@ echo "nihao" | pinyin_ime_cli --quiet --top1 /usr/share/libime/zh_CN.lm /usr/sha
 6. 构建产物上传 S3（rclone 到 cstcloud）
 7. RPM/DEB 打包自动化
 8. 代理节点自动测速选择
+
 
 ## 当前进度（截至 2026-10-06 消歧修复+E2E 100%）
 
@@ -1860,6 +1981,7 @@ echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
 
 ---
 
+
 ## 当前进度（截至 2026-10-06 全量重建+E2E验证）
 
 ### v0.9.51（2026-10-06）：openEuler 22.03 aarch64 全量重建 + E2E 218句验证
@@ -1936,6 +2058,7 @@ echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
 
 ---
 
+
 ## 当前进度（截至 2026-10-05 大规模测试+addon统一）
 
 ### v0.9.41（2026-10-05）：消歧 boost 大幅提升准确率至 92%+
@@ -1997,6 +2120,7 @@ echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
 6. 代理 7890 已就绪，可下载更多语料训练 LM
 
 ---
+
 
 ## 当前进度（截至 2026-10-05 原生构建重建验证）
 
@@ -2072,6 +2196,7 @@ echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
 ---
 
 
+
 ## 当前进度（截至 2026-10-04 原生构建验证）
 
 ### v0.9.39（2026-10-04）：openEuler 22.03 aarch64 原生构建全通过
@@ -2135,6 +2260,7 @@ echo "myname" | pinyin_ime_cli --quiet --top1  # → 张三
 ## 历史进度
 
 > **项目开发规约见 [PROJECT_RULES.md](PROJECT_RULES.md)**（版本号递增 / docs 文档命名 / CI/CD / 重构原则 / 协作语言与注释 / 主动优化建议，每轮开发前必读）。
+
 
 ## 当前进度（截至 2026-10-03 简拼优化）
 ### v0.9.38（2026-10-03）：英文直通 + 全拼音boost扩展 + 准确率98%
@@ -2338,6 +2464,7 @@ xyz=自定义词
 
 ---
 
+
 ## 当前进度（截至 2026-10-03 非 Docker 构建）
 ### v0.9.32（2026-10-03）：华为云沙箱原生重建，CLI + fcitx5 addon + Web 演示全部可运行
 
@@ -2407,6 +2534,7 @@ echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet $PINYIN_IME_LM $PINYIN_IME_DIC
 - **GitCode 连接**：华为云 devspace-connector-proxy (Git Smart HTTP, 端口 9800)
 
 ---
+
 
 ## 当前进度（截至 2026-10-02 非 Docker 构建）
 ### v0.9.31（2026-10-02）：openEuler 22.03 aarch64 非 Docker 原生重建，CLI + fcitx5 addon 可运行
@@ -2495,6 +2623,7 @@ echo "woshiyige" | $PINYIN_IME_CLI --top1 --quiet --user-data data/user_lm_full 
 ---
 
 用 libime 做「好用的拼音输入法」。**M0 评测框架、Route A 语言模型实验、M3 纠错模块均已完成**，
+
 ## 当前进度（截至 2026-10-01 非 Docker 构建）
 ### v0.9.25（2026-10-01）：openEuler 22.03 aarch64 非 Docker 原生构建，输入法完整可运行
 
@@ -2571,6 +2700,7 @@ bash scripts/build_e2e_test.sh  # → E2E 138/138 PASS
 快速入门见 [QUICKSTART.md](QUICKSTART.md)，安装指南见 [INSTALL.md](INSTALL.md)，架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，故障排查见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
 Web 演示：`python3 scripts/web_demo.py`（http://localhost:8080）| 打字练习：`python3 scripts/typing_practice.py`（http://localhost:8081）
+
 
 ## 当前进度（截至 2026-10）
 ### v0.9.30（2026-10-01）：学习数据大幅扩展 312 条，E2E 218 例，344 项全通过
@@ -2761,6 +2891,7 @@ bash scripts/build_e2e_test.sh  # → E2E 106/106 PASS
 
 ---
 
+
 ## 当前进度（截至 2026-10）
 ### v0.9.23（2026-10-01）：E2E 106/106 全通过，输入法真正可运行
 
@@ -2823,6 +2954,7 @@ bash scripts/build_e2e_test.sh   # → E2E 106/106 PASS
 - **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
 
 ---
+
 
 ## 当前进度（截至 2026-10）
 ### v0.9.22（2026-10-01）：全新环境从零构建，输入法真正可运行
@@ -2900,6 +3032,7 @@ bash scripts/smoke_test.sh       # → 24/24 PASS
 - **镜像源**：清华 TUNA conda-forge + gh-proxy.com GitHub + 华为云 PyPI
 
 ---
+
 
 ## 当前进度（截至 2026-09）
 ### v0.9.21（2026-09-30）：E2E 106/106 全通过，237 项测试 100%
