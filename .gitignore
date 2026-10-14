@@ -75,3 +75,4 @@ pinyin-ime-s3/zh_CN.lm
 pinyin-ime-s3/v0.9.83/
 pinyin-ime-s3/v0.9.84/
 tools/xim_test_client
+*.bak
