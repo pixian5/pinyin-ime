@@ -36,6 +36,15 @@ if [ -n "$DB" ]; then
   if echo "$names" | grep -q org.fcitx.Fcitx5; then ok "org.fcitx.Fcitx5 在线(DBus)"; else ng "fcitx5 未接管 DBus"; fi
 fi
 
+echo "==================== 第 4 层：fcitx5 真实输入链路（DBus e2e）===================="
+EE2E_LOG=/tmp/repro_e2e.log
+bash "$REPO_DIR/scripts/e2e_run.sh" >"$EE2E_LOG" 2>&1
+if grep -q "Tests passed: 7/7" "$EE2E_LOG"; then
+  grep -E "Committed strings|Keys consumed|Tests passed" "$EE2E_LOG"
+  ok "真实输入链路 e2e（按键->上屏 7/7，同 GTK/Qt 底层路径）"
+else
+  tail -8 "$EE2E_LOG"; ng "DBus e2e 未通过"
+fi
 echo "================================================================"
 echo "结果：$PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]

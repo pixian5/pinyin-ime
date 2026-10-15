@@ -21,52 +21,57 @@
 7. 搭 `native-build/` 兼容目录 → 直接复用原 `smoke_test.sh`。
 8. `fcitx5` 走 **DBus 会话 + 守护进程**路线启动（见下"环境限制"）。
 
-**三层验证结果（scripts/repro_verify.sh，6/6 全过）：**
+**四层验证结果（scripts/repro_verify.sh，全过）：**
 
 | 层 | 验证 | 结果 |
 |---|---|---|
 | 1 | CLI 引擎冒烟（全拼5+简拼3+模糊音4+双拼8+CLI功能4） | **24/24 ✅** |
 | 2 | `pinyin-ime` 命令（装到 `/usr/local/bin`） | ✅ `nihao→你好` |
 | 3 | fcitx5 加载 pinyinime addon + zh_CN.lm + sc.dict + 注册 IM + DBus 在线 | ✅ |
+| 4 | **真实输入链路 e2e**：经 fcitx5 DBus InputContext 协议（=GTK/Qt 输入法模块同一条路）发真实按键，回读上屏 | ✅ **提交串 `你好/中国/输入法/北京/上海/拼音/中文`，按键 65/65，7/7** |
 
-**fcitx5 实机日志（关键行）：**
+**fcitx5 真实输入链路证据（scripts/e2e_input_test.py，非 CLI）：**
 ```
-pinyinime.cpp:580] pinyinime: loaded lm=/root/.local/pinyin-ime/share/libime/zh_CN.lm dict=.../sc.dict
-addonmanager.cpp:208]  Loaded addon pinyinime
-inputmethodmanager.cpp:213] Found 1 input method(s) in addon pinyinime
-dbusmodule.cpp:844]       Service name change: org.fcitx.Fcitx5  :1.1
+Committed strings: ['你好', '中国', '输入法', '北京', '上海', '拼音', '中文', ...]
+Keys consumed: 65/65
+Tests passed: 7/7
 ```
 
 **使用：**
 ```bash
 echo "nihao" | pinyin-ime       # → 你好
 pinyin-ime --fuzzy zongguo      # → 中国（模糊音）
-bash scripts/repro_verify.sh    # 三层一键验证
+bash scripts/repro_verify.sh    # 四层一键验证（含真实输入链路 e2e）
+bash scripts/e2e_run.sh         # 只跑 fcitx5 真实按键→上屏 e2e
 bash scripts/start_im_env_ro.sh status   # 查看输入法栈状态
 ```
 
 **新增/改动文件：**
 - `scripts/setup_local_runtime.sh`：S3 产物 → native-build 兼容目录（复用原测试脚本）。
 - `scripts/start_im_env_ro.sh`：只读 /usr 环境下启动 DBus+fcitx5（自建最小 dbus.conf，无 X）。
-- `scripts/repro_verify.sh`：三层一键验证。
+- `scripts/repro_verify.sh`：四层一键验证。
+- `scripts/e2e_run.sh` + `scripts/e2e_input_test.py`：驱动 fcitx5 真实按键→上屏链路。
 - `/usr/local/bin/pinyin-ime`：命令行入口（含 stdin + 取值型选项解析）。
 - `ip.txt`：追加 `140.245.88.50`。
 
-**⚠️ 环境限制（非代码缺陷，本机独有）：图形 XIM 端到端不可用。**
-- Xvfb 的 XKB 键盘初始化硬编码调用 `/usr/bin/xkbcomp`；本机 `/usr` 只读 + 无 `CAP_SYS_ADMIN`/`unshare` → 无法放置/绑定该二进制 → Xvfb 无法完成键盘初始化。
-- 因而采取"DBus 会话 + fcitx5 守护进程"路线：不依赖 X 即可证明 **addon 加载、LM/dict 加载、输入法注册、org.fcitx.Fcitx5 接管 DBus**；图形按键→候选→提交流程需在有 X 的常规机器上做（对应旧版 XIM/DBus/GTK/Qt e2e 用例）。
+**✅ 输入链路已打通（真实按键→上屏）。** 经 fcitx5 的 DBus InputContext 协议——正是 GTK/Qt 输入法模块底层调用的同一条路——把真实按键喂进运行中的 pinyinime 引擎，上屏串原样返回（`你好/中国/…`，按键 65/65，e2e 7/7）。所以它**不是 CLI**：是跑在 fcitx5 里的真输入法，具备完整的"按键→预编辑→候选→提交"能力。
+
+**⚠️ 唯一环境限制（非代码缺陷）：像素级 X 应用渲染仍未在本机验证。**
+- Xvfb 的 XKB 键盘初始化硬编码调用 `/usr/bin/xkbcomp`；本机 `/usr` 只读 + 无 `CAP_SYS_ADMIN`/`unshare` → 无法放置/绑定该二进制 → Xvfb 起不来。
+- 影响面：仅限"在真实 X 应用窗口里点选候选/看候选窗像素"这一层；**输入链路本身已由 DBus e2e 证明**。要在 X 里点选，需在有 X 的常规机器或打包自带 xkbcomp 路径的 X 服务器上补验。
 
 **未来优化方向：**
-- 有 X 的常规机器上补齐 XIM/GTK/Qt 端到端打字用例。
+- 有 X 的常规机器上补齐 XIM/GTK/Qt 窗口内点选 e2e。
 - 为只读 /usr 环境提供静态链接或打包版 Xvfb（自带 xkbcomp 路径）以打通图形端。
 - 中文候选窗渲染需 CJK 字体（本机 sysroot 仅有 dejavu），补齐 Noto/WenQuanYi 后验证 classicui 渲染。
 
 **待办事项：**
 - [x] 第六台机器 CLI 复现 24/24
 - [x] fcitx5 + pinyinime 集成验证（addon/lm/dict/IM/DBus）
-- [x] `pinyin-ime` 命令 / 三层验证脚本
-- [ ] 图形 XIM 端到端（受限于只读 /usr 的 xkbcomp）
-- [ ] CJK 字体 + 候选窗渲染验证
+- [x] `pinyin-ime` 命令 / 四层验证脚本
+- [x] **真实输入链路 e2e（按键→上屏 7/7，DBus InputContext）**
+- [ ] X 窗口内点选 e2e（受限于只读 /usr 的 xkbcomp）
+- [ ] CJK 字体 + 候选窗像素渲染验证
 
 **本机所需依赖（只读 /usr 复现）：**
 - 系统（dnf **download**+解包到 sysroot，不 install）：xorg-x11-server-Xvfb, dbus, dbus-x11, dbus-tools, xterm, xorg-x11-utils, xkeyboard-config, libXfont2, dejavu-sans-fonts（+ 其依赖）。
