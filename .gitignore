@@ -83,3 +83,7 @@ pinyin-ime-s3/desktop-v0.9.83/
 # S3 ro-runtime 脚本包（用 rclone 获取，不入库）
 pinyin-ime-s3/v0.9.93/
 pinyin-ime-s3/v0.9.94/
+
+# 项目根 ip.txt（本机公网 IP，要求必须入库）：显式反忽略，防止将来宽规则误伤
+!ip.txt
+
