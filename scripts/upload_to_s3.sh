@@ -35,17 +35,22 @@ mkdir -p "$STAGE/$BUNDLE/scripts" "$STAGE/$BUNDLE/tools"
 copy_if() { [ -e "$1" ] && cp -f "$1" "$2/" || true; }
 for f in start_im_env_ro.sh start_im_env_x.sh repro_verify.sh \
          reproduce_from_scratch.sh setup_local_runtime.sh \
-         e2e_run.sh pinyin-ime-cli-wrapper.sh xvfb_x11_ime_test.sh; do
+         e2e_run.sh pinyin-ime-cli-wrapper.sh xvfb_x11_ime_test.sh \
+         xvfb_gui_demo.sh; do
     copy_if "scripts/$f" "$STAGE/$BUNDLE/scripts"
 done
 copy_if "scripts/e2e_input_test.py" "$STAGE/$BUNDLE/scripts"
 copy_if "tools/xkbcomp_redirect.c" "$STAGE/$BUNDLE/tools"
+copy_if "tools/ime_gui_demo.c" "$STAGE/$BUNDLE/tools"
 
 cat > "$STAGE/$BUNDLE/README-RO.txt" <<EOF
 pinyin-ime 只读 /usr 沙箱运行脚本包 ${VERSION}
 - 用途：在 /usr、/etc 只读、无 CAP_SYS_ADMIN、无 conda/docker 的内机上，
   以 S3 预构建产物（v0.9.84a + v0.9.83 + v0.9.84）跑起 fcitx5 + pinyinime。
-- 新增 ${VERSION}：X11 图形层打通（Xvfb + XIM）。
+- 新增 ${VERSION}：真实 GUI 候选窗 + 应用内上屏演示（像搜狗一样）。
+  scripts/xvfb_gui_demo.sh + tools/ime_gui_demo.c：在真实 X 客户端窗口内
+  打拼音→候选窗→空格上屏中文（XIM + libXft/文泉驿），并输出截图。
+- 新增 ${VERSION}（源自 v0.9.94）：X11 图形层打通（Xvfb + XIM）。
   tools/xkbcomp_redirect.c 为 LD_PRELOAD 垫片，把 X server 硬编码的
   /usr/bin/xkbcomp 重定向到 sysroot；scripts/start_im_env_x.sh 启动 X 模式；
   scripts/xvfb_x11_ime_test.sh 为 XIM 桌面用例矩阵。

@@ -1,5 +1,45 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-15 v0.9.94）
+## 当前进度（截至 2026-10-15 v0.9.95）
+
+### v0.9.95（2026-10-15）：真实 GUI 候选窗 + 应用内上屏演示 —— 像搜狗一样的「应用内」输入体验
+
+**澄清：本项目从来不是 CLI。** 交付物是 fcitx5 的 addon `libpinyinime.so`（与搜狗拼音、`fcitx5-pinyin` 完全同一框架）；`pinyin-ime` 命令行只是调试旁路。v0.9.94 已打通 X 图形层，本版进一步**在真实 X 应用窗口里完成「打拼音 → 候选窗 → 空格上屏中文」的全链路截图**。
+
+**演示（`scripts/xvfb_gui_demo.sh`：Xvfb 虚拟显示 + 真实 fcitx5 classicui）：**
+- `tools/ime_gui_demo.c`：一个真实 X 客户端窗口（白底，**libXft 走 fontconfig/文泉驿渲染中文**）。XTest 注入按键 → `XFilterEvent` 交给 XIM → fcitx5 pinyinime addon 出候选、上屏；上屏文本经 `Xutf8LookupString` 取回并渲染到窗口。
+- **关键点（第一次候选窗不出现的根因）**：XIM 协议下输入法**只能看到客户端 `XFilterEvent` 过滤过的按键**；因此每次发键后必须泵事件队列把按键转发给 fcitx5，否则永远没有预编辑/候选窗。
+
+**演示截图（`screenshots/`）：**
+
+| 文件 | 内容 |
+|---|---|
+| `gui-candidate-preedit.png` | 候选窗：预编辑 `ni hao` + 中文候选 `1.你好 2.利好 3.你毫 …` |
+| `gui-committed-nihao.png` | 空格上屏后，应用窗口渲染出 `你好` |
+| `gui-committed-nihaoshijie.png` | 再打 `shijie` 上屏，窗口显示 `你好世界` |
+
+**新增/改动文件：**
+- `tools/ime_gui_demo.c`：GUI 候选窗 + 上屏演示客户端（XIM + libXft）。
+- `scripts/xvfb_gui_demo.sh`：一键起 X 环境、跑演示、PPM→PNG 出图。
+- `screenshots/gui-*.png`、`screenshots/crop-preedit.png`/`crop-c1.png`/`crop-c2.png`：演示截图。
+- `VERSION` / `fcitx5-addon/CMakeLists.txt`：递增到 `0.9.95`。
+
+**使用：**
+```bash
+bash scripts/xvfb_gui_demo.sh                # 出候选窗+上屏截图到 ./screenshots/
+DISPLAY=:99 bash scripts/xvfb_gui_demo.sh    # 指定显示时用 XDISPLAY=:99 前缀
+```
+
+**新增依赖（sysroot，`dnf download`+`rpm2archive`+`tar` 解包，不 install）：**
+- CJK 字体：`wqy-microhei-fonts`、`wqy-zenhei-fonts`（候选窗与应用窗中文渲染）。
+- 编译 Xft 演示客户端：`libXft-devel`、`freetype-devel`、`fontconfig-devel`、`libXrender-devel`。
+
+**⚠️ 环境限制（已记录，非本项目缺陷）：** `xterm` 在本沙箱**无法运行**：其 pty 初始化对 `/dev/pts/7` 执行 `chown(0,5)` 时，因 gid 5(`tty`) 在 bwrap 用户命名空间内不可映射而返回 `EINVAL`，`xterm` 视其为致命错误、启动即退。故演示改用自建的**真实 X 客户端窗口**（同样走 XIM + fontconfig 渲染中文，等价于任意应用渲染 IME 提交文本）。
+
+**待办事项：**
+- [x] 真实 GUI 候选窗像素级截图（中文候选正确渲染）
+- [x] 应用窗口内中文上屏渲染（`你好世界`）
+- [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
+- [ ] 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e
 
 ### v0.9.94（2026-10-15）：第七台机器复现（114.116.247.146，只读 /usr 沙箱）—— **打通 X 图形层（Xvfb + XIM 真实桌面）**
 
@@ -64,7 +104,7 @@ bash scripts/e2e_run.sh                         # 只跑 DBus 按键→上屏 e2
 
 **未来优化方向：**
 - 用当前源码（v0.9.94）重编 fcitx5 addon：使 `EnableCorrect` 的 `should_correct` 门控（含「重错全拼扩展」，如 `senme→什么`）与 CLI 对齐；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
-- 补 CJK 字体（Noto/文泉驿）后验证候选窗中文像素渲染（当前 sysroot 仅 dejavu）。
+- 补 CJK 字体（Noto/文泉驿）后验证候选窗中文像素渲染（当前 sysroot 仅 dejavu）。→ **已于 v0.9.95 完成（文泉驿 + libXft，候选窗/应用窗中文均正确渲染）**。
 - 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e。
 
 **待办事项：**
@@ -74,7 +114,7 @@ bash scripts/e2e_run.sh                         # 只跑 DBus 按键→上屏 e2
 - [x] **X11/XIM 真实桌面（Xvfb + LD_PRELOAD xkbcomp）9/9**
 - [x] 前置 `ip.txt` 首行；版本递增 0.9.94
 - [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
-- [ ] CJK 字体 + 候选窗像素渲染验证
+- [x] CJK 字体 + 候选窗像素渲染验证（见 v0.9.95）
 
 **本机所需依赖（只读 /usr 复现）：**
 - 系统（dnf **download**+解包到 sysroot，不 install）：`xorg-x11-server-Xvfb, xorg-x11-server-common, xkeyboard-config, dbus, dbus-x11, dbus-tools, xorg-x11-utils, xterm, libXfont2, dejavu-sans-fonts`；编译 XIM 客户端另需 `libX11-devel, libXtst-devel, libXext-devel, xorg-x11-proto-devel`。
