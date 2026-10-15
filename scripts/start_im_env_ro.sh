@@ -57,8 +57,8 @@ EOF
 </busconfig>
 DBUSEOF
   cat > "$RUNDIR/conf/fcitx5/conf/pinyinime.conf" <<EOF
-[PinyinIMEConfig]
-EnableFuzzy=true
+EnableFuzzy=True
+EnableCorrect=True
 EOF
 }
 

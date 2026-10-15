@@ -7,6 +7,7 @@
 set -uo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPLOY="${DEPLOY:-/workspace/deploy}"
+SYSROOT="${SYSROOT:-/workspace/sysroot}"
 RT="$DEPLOY/pinyin-ime-v0.9.84a"
 PASS=0; FAIL=0
 ok(){ echo "  ✅ $*"; PASS=$((PASS+1)); }
@@ -44,6 +45,21 @@ if grep -q "Tests passed: 7/7" "$EE2E_LOG"; then
   ok "真实输入链路 e2e（按键->上屏 7/7，同 GTK/Qt 底层路径）"
 else
   tail -8 "$EE2E_LOG"; ng "DBus e2e 未通过"
+fi
+
+echo "==================== 第 5 层：X11/XIM 真实桌面（Xvfb + LD_PRELOAD xkbcomp）===================="
+XLOG=/tmp/repro_x11.log
+if [ -x "$SYSROOT/usr/bin/Xvfb" ]; then
+  bash "$REPO_DIR/scripts/xvfb_x11_ime_test.sh" >"$XLOG" 2>&1
+  if [ $? -eq 0 ] && grep -q "0 失败" "$XLOG"; then
+    grep -E "结果：|PASS  " "$XLOG" | tail -12
+    ok "X11/XIM 真实桌面（sysroot Xvfb + xkbcomp 重定向）"
+  else
+    grep -E "PASS  |FAIL  |结果：" "$XLOG" | tail -12
+    ng "X11/XIM 桌面验证未全过"
+  fi
+else
+  ng "无 sysroot Xvfb（图形端不可用）"
 fi
 echo "================================================================"
 echo "结果：$PASS 通过 / $FAIL 失败"

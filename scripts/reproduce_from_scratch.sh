@@ -80,6 +80,9 @@ if [ ! -x "$RT/bin/pinyin_ime_cli" ]; then
   for l in libIMECore libIMEPinyin libIMETable; do
     ln -sf "$RT/lib/${l}.so.1.1.17" "$RT/lib/${l}.so.0"; ln -sf "${l}.so.1.1.17" "$RT/lib/${l}.so"
   done
+  # xcb-imdkit SONAME 链接（fcitx5 xim 前端加载 libxcb-imdkit.so.1 所需）
+  ln -sf libxcb-imdkit.so.1.0.9 "$RT/lib/libxcb-imdkit.so.1"
+  ln -sf libxcb-imdkit.so.1.0.9 "$RT/lib/libxcb-imdkit.so"
 fi
 [ -x "$RT/bin/pinyin_ime_cli" ] && log "✅ S3 产物就绪" || { log "❌ 缺 CLI"; exit 1; }
 

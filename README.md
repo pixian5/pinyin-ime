@@ -1,5 +1,87 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-15 v0.9.93）
+## 当前进度（截至 2026-10-15 v0.9.94）
+
+### v0.9.94（2026-10-15）：第七台机器复现（114.116.247.146，只读 /usr 沙箱）—— **打通 X 图形层（Xvfb + XIM 真实桌面）**
+
+**首次在「只读 /usr、无 conda、无 docker」的 openEuler 22.03 aarch64 沙箱内，把输入法验证到 X11 图形层：真实 X 显示 + XIM 前端 + 按键→上屏。**
+
+**本机与第六台机器的相同约束：** `/usr`、`/etc` 只读 overlay；`/usr/local/bin` 可写；root 但 `CapEff` 无 `CAP_SYS_ADMIN`（不能 `unshare`/bind-mount）；无 conda。**唯一新条件：代理 7890 就绪。**
+
+**关键突破（第六台机器的唯一遗留缺口）：Xvfb 的 XKB 初始化硬编码调用 `/usr/bin/xkbcomp`，而 /usr 只读、系统未装 → 之前判定「图形端在本类机器不可用」。**
+- 新增 `tools/xkbcomp_redirect.c`：一个 **LD_PRELOAD 垫片**，拦截 `execve/execv/execvp/posix_spawn/p`，把可执行路径 `/usr/bin/xkbcomp` **透明重定向**到 sysroot 内的真实二进制（`XKBCOMP_REAL` 可覆盖）。X server 是通过 `Popen("/bin/sh -c ...")` 间接调用的，垫片随 `LD_PRELOAD` 继承进 `sh` 后即可截获。
+- 用 `Xvfb -xkbdir <sysroot>/usr/share/X11/xkb` 指定键盘数据目录。
+- 两处 fcitx5 适配：`XKB_CONFIG_ROOT` 指向 sysroot 的 xkb 数据（桌面 bundle 的 libxkbcommon 编译期路径指向不存在的 mamba-env）；自生成 `fonts.conf`（`FONTCONFIG_FILE`）指向 sysroot 字体，避免 classicui 渲染崩溃。
+- 补齐 `libxcb-imdkit.so.1` SONAME 链接（fcitx5 `xim` 前端加载所需），`xim` addon 方能 `Loaded addon xim`。
+- 修正 addon 配置为**无 section 的裸键**（与 `fcitx5-addon/conf/pinyinime.conf` 样例一致），`EnableFuzzy/EnableCorrect` 方生效。
+
+**复现路线（与 v0.9.93 同源，增量补 X）：**
+1. 克隆 GitCode 仓库 + `GITCODE_TOKEN`；装 rclone（gh-proxy 下载静态二进制）；配置 `cst` 远程（凭据写 `~/.config/rclone/rclone.conf` 与 `.secrets/env.sh`，均不入库）。
+2. 公网 IP `114.116.247.146` **前置到 `ip.txt` 首行**（已确认 ip.txt 不在 .gitignore）。
+3. `dnf download`（不 install）X/dbus 依赖 → `rpm2archive`+`tar` 解包到 `/workspace/sysroot`；另下载 `libX11-devel/libXtst-devel/libXext-devel/xorg-x11-proto-devel` 以编译 XIM 测试客户端。
+4. 从 S3 下载并**校验** `v0.9.84a`（主包）、`v0.9.83`（桌面包/LM/dict）、`v0.9.84`（supplement 库）→ 解包到 `/workspace/deploy`。
+5. `scripts/reproduce_from_scratch.sh` → `scripts/repro_verify.sh` 五层验证。
+
+**五层验证结果（scripts/repro_verify.sh，全过）：**
+
+| 层 | 验证 | 结果 |
+|---|---|---|
+| 1 | CLI 引擎冒烟（全拼/简拼/模糊音/双拼/CLI 功能） | **24/24 ✅** |
+| 2 | `pinyin-ime` 命令 | ✅ `nihao→你好` |
+| 3 | fcitx5 加载 pinyinime addon + LM + dict + 注册 IM + DBus 在线 | ✅ |
+| 4 | **DBus InputContext e2e**：按键→上屏 | ✅ **7/7，按键 65/65** |
+| 5 | **X11/XIM 真实桌面**（Xvfb + LD_PRELOAD xkbcomp + fcitx5 xim） | ✅ **9/9** |
+
+**第 5 层 XIM 实测上屏证据（scripts/xvfb_x11_ime_test.sh，真实 X 显示）：**
+```
+全拼 nihao→你好   zhongguo→中国   简拼 zg→中国   bjdx→北京大学
+woshiyige→我是一个   中英切换 Tab+hello→hello
+中文标点 ,.？→？    打拼音中先上屏再标点 zhongguo!→中国！
+纠错 zongguo→中国
+结果：9 通过 / 0 失败
+```
+
+**使用：**
+```bash
+echo "nihao" | pinyin-ime                     # → 你好
+bash scripts/repro_verify.sh                   # 五层一键验证（含 X11/XIM 真实桌面）
+bash scripts/start_im_env_x.sh start           # 起 X11 模式 fcitx5（Xvfb+XIM）
+DISPLAY=:99 bash scripts/xvfb_x11_ime_test.sh  # 只跑 XIM 桌面用例矩阵
+bash scripts/e2e_run.sh                         # 只跑 DBus 按键→上屏 e2e
+```
+
+**新增/改动文件：**
+- `tools/xkbcomp_redirect.c`：LD_PRELOAD 垫片，重定向 `/usr/bin/xkbcomp` → sysroot（**本次核心**）。
+- `scripts/start_im_env_x.sh`：X11 模式启动（Xvfb + LD_PRELOAD 垫片 + `-xkbdir`；fcitx5 XIM；自动挑空闲 display）。
+- `scripts/xvfb_x11_ime_test.sh`：XIM 真实桌面用例矩阵（9 例）。
+- `scripts/repro_verify.sh`：新增第 5 层 X11/XIM；补 `SYSROOT` 定义。
+- `scripts/start_im_env_ro.sh`：addon 配置改裸键；`reproduce_from_scratch.sh`：补 `libxcb-imdkit.so.1` 链接。
+- `VERSION`/`fcitx5-addon/CMakeLists.txt`：版本递增到 `0.9.94`。
+- `ip.txt`：前置 `114.116.247.146`。
+
+**⚠️ 已解决的旧限制：** 第六台机器记录的「只读 /usr 无法验证 X 像素级渲染」——现已通过 LD_PRELOAD xkbcomp 重定向解决，X 显示与 XIM 输入链路均实测通过。
+
+**沙箱注意（跨调用进程模型）：** 每个工具调用运行在独立 bwrap/PID 命名空间，**跨调用无法 kill 旧守护进程**（Xvfb/fcitx5 会残留）。因此 X 测试必须**在同一次调用内**选空闲 display → 启动 → 测试 → 收尾；`pgrep` 判活须用 `[X]vfb` 括号技巧避免匹配自身。
+
+**未来优化方向：**
+- 用当前源码（v0.9.94）重编 fcitx5 addon：使 `EnableCorrect` 的 `should_correct` 门控（含「重错全拼扩展」，如 `senme→什么`）与 CLI 对齐；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
+- 补 CJK 字体（Noto/文泉驿）后验证候选窗中文像素渲染（当前 sysroot 仅 dejavu）。
+- 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e。
+
+**待办事项：**
+- [x] 第七台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成（DBus）
+- [x] DBus 真实输入链路 e2e（7/7）
+- [x] **X11/XIM 真实桌面（Xvfb + LD_PRELOAD xkbcomp）9/9**
+- [x] 前置 `ip.txt` 首行；版本递增 0.9.94
+- [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
+- [ ] CJK 字体 + 候选窗像素渲染验证
+
+**本机所需依赖（只读 /usr 复现）：**
+- 系统（dnf **download**+解包到 sysroot，不 install）：`xorg-x11-server-Xvfb, xorg-x11-server-common, xkeyboard-config, dbus, dbus-x11, dbus-tools, xorg-x11-utils, xterm, libXfont2, dejavu-sans-fonts`；编译 XIM 客户端另需 `libX11-devel, libXtst-devel, libXext-devel, xorg-x11-proto-devel`。
+- 运行时全在 `/workspace/deploy`（S3 产物）：fcitx5-x11 + deps-lib + libIME 1.1.17 + zh_CN.lm/sc.dict。
+- rclone：CSTCloud S3（`cst:xbz/pinyin-ime/`）；代理 127.0.0.1:7890 取公网 IP。
+
+
 
 ### v0.9.93（2026-10-15）：第六台机器复现（140.245.88.50，只读 /usr 沙箱）—— 输入法真正跑起来
 
