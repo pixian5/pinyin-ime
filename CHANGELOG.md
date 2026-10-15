@@ -1,6 +1,17 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.93 (2026-10-15)
+
+### 第六台机器复现：只读 /usr 沙箱（140.245.88.50）——输入法真正跑起来
+- 从 S3 预构建产物（v0.9.84a + v0.9.83 桌面 bundle + v0.9.84 supplement）复现，**不写 /usr、无 conda、无 docker**。
+- CLI 引擎冒烟 **24/24**（全拼/简拼/模糊音/双拼/CLI 功能）。
+- fcitx5 以 **DBus+守护进程**方式加载 pinyinime addon + zh_CN.lm + sc.dict，注册输入法 `pinyinime`，`org.fcitx.Fcitx5` 接管 DBus。
+- 新增：`scripts/setup_local_runtime.sh`、`scripts/start_im_env_ro.sh`（只读 /usr 启动器）、`scripts/repro_verify.sh`（三层验证，6/6）、`/usr/local/bin/pinyin-ime`。
+- 关键坑：CLI 需 `deps-lib/libstdc++.so.6`(GLIBCXX_3.4.32)；`LD_LIBRARY_PATH` 不可带 `sysroot/lib64`（glibc/ld 不匹配）；数据放默认 DataDir `/root/.local/pinyin-ime/share/libime`。
+- 环境限制：Xvfb XKB 硬编码 `/usr/bin/xkbcomp` 且本机只读无 CAP_SYS_ADMIN，图形 XIM 端到端本机不可用（非代码缺陷）。
+
+
 ## v0.9.83 (2026-10-10)
 
 ### 新增：X11 桌面链路全通 + 免 CLI「搜狗式」体验

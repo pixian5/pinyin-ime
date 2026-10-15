@@ -1,5 +1,79 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-14 v0.9.91）
+## 当前进度（截至 2026-10-15 v0.9.93）
+
+### v0.9.93（2026-10-15）：第六台机器复现（140.245.88.50，只读 /usr 沙箱）—— 输入法真正跑起来
+
+**在只读 /usr 的 openEuler 22.03 aarch64 沙箱内机上，从 S3 预构建产物完整复现可运行输入法，全程不写 /usr、不依赖 docker、无需 conda。**
+
+**本机环境约束（与以往机器最大不同）：**
+- `/usr`、`/etc`、`/opt`、`/lib` 为**只读 overlay**（`dnf install` 无法写入；原报 "needs 1355MB more space on /etc" 实为只读）。
+- 可写：`/`(tmpfs)、`/var`、`/workspace`、`/root`、`/usr/local/bin`(tmpfs)。
+- **无 conda / 无 CAP_SYS_ADMIN**：不能 `unshare`/bind-mount，也无法在 `/usr/bin` 放置文件。
+- 直连外网失败，**国内镜像直连可用**（华为云 openEuler 镜像 200）。
+
+**复现路线（与以往"编译/系统级安装"路线不同）：**
+1. 克隆 GitCode 仓库 + `GITCODE_TOKEN`；rclone 配置 `cst` 远程；凭据写入 `~/.config/rclone/rclone.conf` 与 `.secrets/pinyin-ime.env`（不入库）。
+2. 公网 IP `140.245.88.50` 经代理(127.0.0.1:7890)获取，**追加到 `ip.txt` 首行**（已确认 ip.txt 不在 .gitignore）。
+3. dnf 仓库切华为云镜像；X/dbus 用 `dnf download`（**不 install**）→ `rpm2archive`+`tar` 解包到 `/workspace/sysroot`（含 Xvfb/dbus/xterm/xkbcomp/xkb 数据）。
+4. 下载 S3 `v0.9.84a`（CLI+libIME+addon+data）+ `v0.9.83` 桌面 bundle（fcitx5-x11 + deps-lib）+ `v0.9.84` supplement，解包到 `/workspace/deploy`。
+5. **关键坑**：`v0.9.84a` CLI 需 `GLIBCXX_3.4.32` → 必须用 bundle 自带 `deps-lib/libstdc++.so.6`，**且 `LD_LIBRARY_PATH` 不能带 `/workspace/sysroot/lib64`（glibc/ld 与系统不匹配，报 `__tunable_is_initialized`）**。
+6. libIME 建 SONAME 符号链接（`libIMExx.so.0/1.1.17`）；数据放默认 `DataDir=/root/.local/pinyin-ime/share/libime`（addon 源码默认路径，无需改配置）。
+7. 搭 `native-build/` 兼容目录 → 直接复用原 `smoke_test.sh`。
+8. `fcitx5` 走 **DBus 会话 + 守护进程**路线启动（见下"环境限制"）。
+
+**三层验证结果（scripts/repro_verify.sh，6/6 全过）：**
+
+| 层 | 验证 | 结果 |
+|---|---|---|
+| 1 | CLI 引擎冒烟（全拼5+简拼3+模糊音4+双拼8+CLI功能4） | **24/24 ✅** |
+| 2 | `pinyin-ime` 命令（装到 `/usr/local/bin`） | ✅ `nihao→你好` |
+| 3 | fcitx5 加载 pinyinime addon + zh_CN.lm + sc.dict + 注册 IM + DBus 在线 | ✅ |
+
+**fcitx5 实机日志（关键行）：**
+```
+pinyinime.cpp:580] pinyinime: loaded lm=/root/.local/pinyin-ime/share/libime/zh_CN.lm dict=.../sc.dict
+addonmanager.cpp:208]  Loaded addon pinyinime
+inputmethodmanager.cpp:213] Found 1 input method(s) in addon pinyinime
+dbusmodule.cpp:844]       Service name change: org.fcitx.Fcitx5  :1.1
+```
+
+**使用：**
+```bash
+echo "nihao" | pinyin-ime       # → 你好
+pinyin-ime --fuzzy zongguo      # → 中国（模糊音）
+bash scripts/repro_verify.sh    # 三层一键验证
+bash scripts/start_im_env_ro.sh status   # 查看输入法栈状态
+```
+
+**新增/改动文件：**
+- `scripts/setup_local_runtime.sh`：S3 产物 → native-build 兼容目录（复用原测试脚本）。
+- `scripts/start_im_env_ro.sh`：只读 /usr 环境下启动 DBus+fcitx5（自建最小 dbus.conf，无 X）。
+- `scripts/repro_verify.sh`：三层一键验证。
+- `/usr/local/bin/pinyin-ime`：命令行入口（含 stdin + 取值型选项解析）。
+- `ip.txt`：追加 `140.245.88.50`。
+
+**⚠️ 环境限制（非代码缺陷，本机独有）：图形 XIM 端到端不可用。**
+- Xvfb 的 XKB 键盘初始化硬编码调用 `/usr/bin/xkbcomp`；本机 `/usr` 只读 + 无 `CAP_SYS_ADMIN`/`unshare` → 无法放置/绑定该二进制 → Xvfb 无法完成键盘初始化。
+- 因而采取"DBus 会话 + fcitx5 守护进程"路线：不依赖 X 即可证明 **addon 加载、LM/dict 加载、输入法注册、org.fcitx.Fcitx5 接管 DBus**；图形按键→候选→提交流程需在有 X 的常规机器上做（对应旧版 XIM/DBus/GTK/Qt e2e 用例）。
+
+**未来优化方向：**
+- 有 X 的常规机器上补齐 XIM/GTK/Qt 端到端打字用例。
+- 为只读 /usr 环境提供静态链接或打包版 Xvfb（自带 xkbcomp 路径）以打通图形端。
+- 中文候选窗渲染需 CJK 字体（本机 sysroot 仅有 dejavu），补齐 Noto/WenQuanYi 后验证 classicui 渲染。
+
+**待办事项：**
+- [x] 第六台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成验证（addon/lm/dict/IM/DBus）
+- [x] `pinyin-ime` 命令 / 三层验证脚本
+- [ ] 图形 XIM 端到端（受限于只读 /usr 的 xkbcomp）
+- [ ] CJK 字体 + 候选窗渲染验证
+
+**本机所需依赖（只读 /usr 复现）：**
+- 系统（dnf **download**+解包到 sysroot，不 install）：xorg-x11-server-Xvfb, dbus, dbus-x11, dbus-tools, xterm, xorg-x11-utils, xkeyboard-config, libXfont2, dejavu-sans-fonts（+ 其依赖）。
+- 运行时全在 `/workspace/deploy`（S3 产物）：fcitx5-x11 + deps-lib（新版 libstdc++/ICU）+ libIME 1.1.17 + zh_CN.lm/sc.dict。
+- rclone：CSTCloud S3；代理 127.0.0.1:7890 取公网 IP。
+
+
 
 ### v0.9.91（2026-10-14）：第四台机器复现 + 88/90 全测试通过 + 系统级安装
 
