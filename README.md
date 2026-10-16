@@ -65,6 +65,13 @@ bash scripts/xvfb_gui_demo.sh                  # GUI 候选窗 + 上屏截图
 - **`dnf download --resolve --alldeps` 太慢**：拉全量传递依赖（数百个 RPM）易超时；按需分批下载（先 X/dbus，再 devel，再字体）更快。
 - **`LD_LIBRARY_PATH` 绝不能带 `/workspace/sysroot/lib64`**（glibc/ld 与系统不匹配，报 `__tunable_is_initialized`）；sysroot 的 X/dbus 二进制要用 `LD_LIBRARY_PATH=$SYSROOT/usr/lib64` 单独启动。
 
+**🔐 安全修复（本轮附带）：**
+- `scripts/setup_env.sh` 第 62-63 行原**硬编码明文 S3 凭据**并入库。已改为从 `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` 环境变量读取；未设置则跳过配置并打印提示，不再把凭据写进脚本。
+- `rclone.conf` 改以 `umask 077` + `chmod 600` 写入，降低本机其他用户读取风险。
+- 全仓库凭据扫描（排除 `.git`）已确认无明文 AK/SK 残留；`.secrets`、`rclone.conf` 均未被 git 跟踪。
+- **使用方式**：`export S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...` 后再运行 `scripts/setup_env.sh`，或参照 `scripts/download_from_s3.sh` 手动配置 `cst` 远程。凭据只落本机 `.secrets/` 或 `~/.config/rclone/rclone.conf`（均已在 `.gitignore` 中）。
+- ⚠️ **历史提交中仍可检出该凭据**（本次未做 history rewrite）。彻底清除需 `git filter-repo`/`BFG` 重写历史并强制推送，会影响所有协作者的克隆——是否执行请自行评估。
+
 **未来优化方向：**
 - 从源码重编 fcitx5 addon，对齐 M3 纠错门控（`should_correct` 含「重错全拼扩展」，如 `senme→什么`）；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
 - 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e（现为等价 XIM 自建客户端等价验证）。
