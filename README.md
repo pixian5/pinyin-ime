@@ -1,5 +1,84 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-15 v0.9.95）
+## 当前进度（截至 2026-10-16 v0.9.96）
+
+### v0.9.96（2026-10-16）：第八台机器复现（113.44.163.253）—— 五层验证 8/8 全过 + GUI 候选窗截图成功
+
+**在「只读 /usr、无 docker、无 conda」的 openEuler 22.03 aarch64 沙箱内机上，一次跑通从 CLI 到真实 GUI 候选窗的完整链路。**
+
+**本机环境约束（与第七台同型）：**
+- `/usr`、`/etc` 为只读 overlay（`dnf install` / 改 `yum.repos.d` 均不可行）。
+- 可写：`/workspace`、`/root`、`/usr/local/bin`、`/var`。
+- 无 `CAP_SYS_ADMIN`（不能 `unshare`/bind-mount）；无 conda、无 docker。
+- `HOME=/workspace`（故 rclone 配置落在 `/workspace/.config/rclone/rclone.conf`）。
+
+**复现路线（与 v0.9.94/0.9.95 同源，全增量、零重编）：**
+1. 克隆 GitCode 仓库 + `GITCODE_TOKEN`；装 rclone v1.75.2（经代理 7890 取 arm64 静态二进制）；配 `cst` 远程（凭据写入 `~/.config/rclone/rclone.conf`，**不入库**）。
+2. 公网 IP `113.44.163.253` **前置到 `ip.txt` 首行**（已确认 `.gitignore` 中以 `!ip.txt` 反忽略）。
+3. `dnf download`（**不 install**）X/dbus/devel/字体 RPM → `rpm2archive`+`tar` 解包到 `/workspace/sysroot`。
+4. 从 S3 下载并校验 `v0.9.84a`（主包）、`v0.9.83`（桌面包/LM/dict）、`v0.9.84`（supplement 库）→ 解包到 `/workspace/deploy`。
+5. 建 libIME `SONAME` 符号链接（`.so`/`.so.0` → `.so.1.1.17`）+ `libxcb-imdkit.so.1` 链接；数据落 `DataDir=/root/.local/pinyin-ime/share/libime`。
+6. `scripts/repro_verify.sh` → 五层验证（8 项检查全过）；`scripts/xvfb_gui_demo.sh` → GUI 候选窗截图。
+
+**五层验证结果（`scripts/repro_verify.sh`，8 通过 / 0 失败）：**
+
+| 层 | 验证 | 结果 |
+|---|---|---|
+| 1 | CLI 引擎冒烟（全拼5+简拼3+模糊音4+双拼8+CLI功能4） | **24/24 ✅** |
+| 2 | `pinyin-ime` 命令 | ✅ `nihao→你好` |
+| 3 | fcitx5 加载 pinyinime addon + LM + dict + 注册 IM + DBus 在线 | ✅ 4/4 |
+| 4 | **DBus InputContext e2e**：按键→上屏 | ✅ **7/7，按键 65/65** |
+| 5 | **X11/XIM 真实桌面**（Xvfb + LD_PRELOAD xkbcomp + fcitx5 xim） | ✅ **9/9** |
+
+**第 5 层 XIM 实测上屏证据（`scripts/xvfb_x11_ime_test.sh`，真实 X 显示）：**
+```
+全拼 nihao→你好   zhongguo→中国   简拼 zg→中国   bjdx→北京大学
+woshiyige→我是一个   中英切换 Tab+hello→hello
+中文标点 ,.？→？    打拼音中先上屏再标点 zhongguo!→中国！
+纠错 zongguo→中国            ��� 结果：9 通过 / 0 失败
+```
+
+**GUI 候选窗 + 应用内上屏（`scripts/xvfb_gui_demo.sh`，截图 → `screenshots/`）：**
+- 文泉驿 CJK 字体（`wqy-microhei`/`wqy-zenhei`）+ `libXft` 走 fontconfig 渲染中文。
+- 打 `nihao` → 预编辑 `ni hao` + 候选窗（`1.你好 2.利好 3.你毫 …`）→ 空格上屏 → 应用窗渲染 `你好` → 再打 `shijie` → 最终窗口文本 **`你好世界`**。
+- 产出：`gui-candidate-preedit.png` / `gui-committed-nihao.png` / `gui-committed-nihaoshijie.png`。
+
+**使用：**
+```bash
+echo "nihao" | pinyin-ime                     # → 你好
+bash scripts/repro_verify.sh                   # 五层一键验证（8/8）
+bash scripts/start_im_env_ro.sh start           # 起 DBus 模式 fcitx5
+bash scripts/start_im_env_x.sh start           # 起 X11/XIM 模式 fcitx5（Xvfb）
+DISPLAY=:99 bash scripts/xvfb_x11_ime_test.sh  # XIM 桌面用例矩阵（9 例）
+bash scripts/xvfb_gui_demo.sh                  # GUI 候选窗 + 上屏截图
+```
+
+**本机所需依赖（sysroot，`dnf download`+解包，**不 install**）：**
+- X/dbus：`xorg-x11-server-Xvfb`、`xorg-x11-server-common`、`xkeyboard-config`、`dbus`、`dbus-x11`、`dbus-tools`、`xorg-x11-utils`、`libXfont2`、`dejavu-sans-fonts`。
+- 编译 XIM/GUI 客户端：`libX11-devel`、`libXtst-devel`、`libXext-devel`、`xorg-x11-proto-devel`、`libXft-devel`、`freetype-devel`、`fontconfig-devel`、`libXrender-devel`。
+- CJK 字体：`wqy-microhei-fonts`、`wqy-zenhei-fonts`（候选窗与应用窗中文渲染）。
+- 运行时全在 `/workspace/deploy`（S3 产物）：fcitx5-x11 + deps-lib + libIME 1.1.17 + zh_CN.lm/sc.dict。
+- rclone：CSTCloud S3（`cst:xbz/pinyin-ime/`）；代理 127.0.0.1:7890 取公网 IP 与下载二进制。
+
+**本轮经验（踩坑记录，供参考）：**
+- **rclone 配置路径**：`HOME=/workspace` 时 rclone 只读 `/workspace/.config/rclone/rclone.conf`，往 `/root/.config` 写无效。
+- **`reproduce_from_scratch.sh` 里 libIME `.so.0` 符号链接用了 `$RT/lib/...` 绝对前缀**，在 `lib/` 内解析会指错；正确做法是相对链接 `ln -sf "${l}.so.1.1.17" "${l}.so.0"`。
+- **`dnf download --resolve --alldeps` 太慢**：拉全量传递依赖（数百个 RPM）易超时；按需分批下载（先 X/dbus，再 devel，再字体）更快。
+- **`LD_LIBRARY_PATH` 绝不能带 `/workspace/sysroot/lib64`**（glibc/ld 与系统不匹配，报 `__tunable_is_initialized`）；sysroot 的 X/dbus 二进制要用 `LD_LIBRARY_PATH=$SYSROOT/usr/lib64` 单独启动。
+
+**未来优化方向：**
+- 从源码重编 fcitx5 addon，对齐 M3 纠错门控（`should_correct` 含「重错全拼扩展」，如 `senme→什么`）；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
+- 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e（现为等价 XIM 自建客户端等价验证）。
+- 打包 `.deb`/`.rpm` 便于普通用户一键安装；补全候选窗「翻页/选词/自定义短语」GUI 交互的截图验证。
+
+**待办事项：**
+- [x] 第八台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成（DBus，4/4）
+- [x] DBus 真实输入链路 e2e（7/7，按键 65/65）
+- [x] X11/XIM 真实桌面（Xvfb + LD_PRELOAD xkbcomp，9/9）
+- [x] GUI 候选窗 + 应用内上屏截图（`你好世界`）
+- [x] 前置 `ip.txt` 首行；版本递增 0.9.96
+- [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
+- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
 
 ### v0.9.95（2026-10-15）：真实 GUI 候选窗 + 应用内上屏演示 —— 像搜狗一样的「应用内」输入体验
 
