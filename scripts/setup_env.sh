@@ -54,17 +54,27 @@ do_install() {
     fi
 
     log "Step 3: 配置 S3 远程..."
-    mkdir -p ~/.config/rclone
-    cat > ~/.config/rclone/rclone.conf << 'EOF'
+    # 安全：凭据只从环境变量读取，绝不硬编码入库。
+    # 用法：export S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=... 后再运行本脚本。
+    if [ -z "${S3_ACCESS_KEY_ID:-}" ] || [ -z "${S3_SECRET_ACCESS_KEY:-}" ]; then
+        log "缺少 S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY 环境变量，跳过 S3 远程配置。"
+        log "如需下载 S3 产物，请先设置后重试，或参照 scripts/download_from_s3.sh 手动配置 rclone 远程。"
+    else
+        mkdir -p ~/.config/rclone
+        # 以 600 权限写入，避免其他用户读取
+        ( umask 077; cat > ~/.config/rclone/rclone.conf << EOF
 [cst]
 type = s3
 provider = Other
-access_key_id = AKIAHSYF5VQJWQPHJ2WO
-secret_access_key = EN3YQRS2SQ=R/YUM/BA+S3JC8YBBG09HKBEMG+LZ
+access_key_id = ${S3_ACCESS_KEY_ID}
+secret_access_key = ${S3_SECRET_ACCESS_KEY}
 endpoint = https://s3.cstcloud.cn
 force_path_style = true
 acl = private
 EOF
+        )
+        chmod 600 ~/.config/rclone/rclone.conf
+    fi
 
     log "Step 4: 下载 S3 预构建产物..."
     mkdir -p "$S3_DIR/v0.9.83" "$S3_DIR/v0.9.84"
