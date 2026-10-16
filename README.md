@@ -1,5 +1,92 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-16 v0.9.96）
+## 当前进度（截至 2026-10-17 v0.9.97）
+
+### v0.9.97（2026-10-17）：第九台机器复现（119.3.239.52）—— 五层验证 8/8 全过 + GUI 候选窗截图 + X11 devel 补全
+
+**在「只读 /usr、无 docker、无 conda」的 openEuler 22.03 LTS aarch64 沙箱内机上，一次跑通从 CLI 到真实 GUI 候选窗的完整链路。**
+
+**本机环境约束（与第八台同型）：**
+- `/usr`、`/etc` 为只读 overlay（`dnf install` / 改 `yum.repos.d` 均不可行）。
+- 可写：`/workspace`、`/root`、`/usr/local/bin`、`/var`。
+- 无 `CAP_SYS_ADMIN`（不能 `unshare`/bind-mount）；无 conda、无 docker。
+- `HOME=/workspace`（故 rclone 配置落在 `/workspace/.config/rclone/rclone.conf`）。
+- 架构：aarch64（ARM64）。
+
+**复现路线（与 v0.9.96 同源，全增量、零重编）：**
+1. 克隆 GitCode 仓库 + `GITCODE_TOKEN`；装 rclone v1.75.1 arm64 静态二进制（经 `gh-proxy.com` + GitHub release URL 下载，代理 7890 取公网 IP）；配 `cst` 远程（凭据写入 `~/.config/rclone/rclone.conf` 与 `.secrets/env.sh`，均 `chmod 600` 不入库）。
+2. 公网 IP `119.3.239.52` **前置到 `ip.txt` 首行**（已确认 `.gitignore` 中以 `!ip.txt` 反忽略）。
+3. `dnf download`（**不 install**）X/dbus/devel/字体 RPM → `rpm2archive`+`tar` 解包到 `/workspace/sysroot`。**本轮关键修复**：初轮 `reproduce_from_scratch.sh` 仅下载了 X/dbus 运行时包，缺 `libX11-devel`/`libXtst-devel`/`libXext-devel`/`xorg-x11-proto-devel` 开发头文件，导致 `xvfb_x11_ime_test.sh` 编译 `xim_test_client` 时 `fatal error: X11/Xlib.h: No such file or directory`。补下载 286 个 devel/字体 RPM（含 `wqy-microhei-fonts`/`wqy-zenhei-fonts` CJK 字体）后第 5 层 9/9 全过。
+4. 从 S3 下载并校验 `v0.9.84a`（主包 35MB）、`v0.9.83`（桌面包 95MB + LM 34MB + dict 4.3MB）、`v0.9.84`（supplement 库）→ 解包到 `/workspace/deploy`。**手动预下载** S3 产物与 RPM 下载并行，加速复现。
+5. 建 libIME `SONAME` 符号链接（`.so`/`.so.0` → `.so.1.1.17`）+ `libxcb-imdkit.so.1` 链接；数据落 `DataDir=/root/.local/pinyin-ime/share/libime`。
+6. `scripts/repro_verify.sh` → 五层验证（8 项检查全过）；`scripts/xvfb_gui_demo.sh` → GUI 候选窗截图。
+
+**五层验证结果（`scripts/repro_verify.sh`，8 通过 / 0 失败）：**
+
+| 层 | 验证 | 结果 |
+|---|---|---|
+| 1 | CLI 引擎冒烟（全拼5+简拼3+模糊音4+双拼8+CLI功能4） | **24/24 ✅** |
+| 2 | `pinyin-ime` 命令 | ✅ `nihao→你好` |
+| 3 | fcitx5 加载 pinyinime addon + LM + dict + 注册 IM + DBus 在线 | ✅ 4/4 |
+| 4 | **DBus InputContext e2e**：按键→上屏 | ✅ **7/7，按键 65/65** |
+| 5 | **X11/XIM 真实桌面**（Xvfb + LD_PRELOAD xkbcomp + fcitx5 xim） | ✅ **9/9** |
+
+**第 5 层 XIM 实测上屏证据（`scripts/xvfb_x11_ime_test.sh`，真实 X 显示）：**
+```
+全拼 nihao→你好   zhongguo→中国   简拼 zg→中国   bjdx→北京大学
+woshiyige→我是一个   中英切换 Tab+hello→hello
+中文标点 ,.？→？    打拼音中先上屏再标点 zhongguo!→中国！
+纠错 zongguo→中国            结果：9 通过 / 0 失败
+```
+
+**GUI 候选窗 + 应用内上屏（`scripts/xvfb_gui_demo.sh`，截图 → `screenshots/`）：**
+- 文泉驿 CJK 字体（`wqy-microhei`/`wqy-zenhei`）+ `libXft` 走 fontconfig 渲染中文。
+- 打 `nihao` → 预编辑 + 候选窗 → 空格上屏 → 再打 `shijie` → 最终窗口文本含 `世界`。
+- 产出：`gui-candidate-preedit.png` / `gui-committed-nihao.png` / `gui-committed-nihaoshijie.png`。
+
+**使用：**
+```bash
+echo "nihao" | pinyin-ime                     # → 你好
+bash scripts/repro_verify.sh                   # 五层一键验证（8/8）
+bash scripts/start_im_env_ro.sh start           # 起 DBus 模式 fcitx5
+bash scripts/start_im_env_x.sh start           # 起 X11/XIM 模式 fcitx5（Xvfb）
+DISPLAY=:99 bash scripts/xvfb_x11_ime_test.sh  # XIM 桌面用例矩阵（9 例）
+bash scripts/xvfb_gui_demo.sh                  # GUI 候选窗 + 上屏截图
+```
+
+**本机所需依赖（sysroot，`dnf download`+解包，**不 install**）：**
+- X/dbus：`xorg-x11-server-Xvfb`、`xorg-x11-server-common`、`xkeyboard-config`、`dbus`、`dbus-x11`、`dbus-tools`、`xorg-x11-utils`、`libXfont2`、`dejavu-sans-fonts`。
+- 编译 XIM/GUI 客户端：`libX11-devel`、`libXtst-devel`、`libXext-devel`、`xorg-x11-proto-devel`、`libXft-devel`、`freetype-devel`、`fontconfig-devel`、`libXrender-devel`。
+- CJK 字体：`wqy-microhei-fonts`、`wqy-zenhei-fonts`（候选窗与应用窗中文渲染）。
+- 运行时全在 `/workspace/deploy`（S3 产物）：fcitx5-x11 + deps-lib + libIME 1.1.17 + zh_CN.lm/sc.dict。
+- rclone v1.75.1 arm64：CSTCloud S3（`cst:xbz/pinyin-ime/`）；`gh-proxy.com` + GitHub release URL 下载二进制；代理 127.0.0.1:7890 取公网 IP。
+
+**本轮经验（踩坑记录，供参考）：**
+- **X11 devel 头文件缺失**：`reproduce_from_scratch.sh` 的 `dnf download` 列表只含运行时包，不含 `libX11-devel` 等。在缺头文件的机器上第 5 层会全部 FAIL（`fatal error: X11/Xlib.h`）。**修复**：额外 `dnf download --resolve` devel 包 + 字体 → `rpm2archive`+`tar` 解包到 sysroot，`gcc -I"$SYSROOT/usr/include"` 即可找到头文件。
+- **rclone arm64 下载**：`downloads.rclone.org` 经代理直连超时（20MB 二进制）；`gh-proxy.com` 对 `downloads.rclone.org` URL 返回 HTML 而非文件。**解决**：用 `gh-proxy.com` + GitHub release URL（`https://gh-proxy.com/https://github.com/rclone/rclone/releases/download/v1.75.1/rclone-v1.75.1-linux-arm64.zip`）成功下载 28MB zip。
+- **DBus e2e 用户数据污染**：连续多次运行 `repro_verify.sh` 后，自学习功能会把用户词频写入默认 DataDir，导致 `shurufa→输入法` 变成 `shurufa→个`（6/7）。**解决**：运行前清理 `/root/.local/pinyin-ime/data/user_lm*` + 重启 fcitx5，即可恢复 7/7。
+- **S3 产物手动预下载**：`reproduce_from_scratch.sh` 内 `rclone copy` 是串行的，与 RPM 下载并行可节省数分钟。手动 `rclone copy` 三个版本到 `/workspace/deploy/dl_*` 后，脚本检测到 `$RT/bin/pinyin_ime_cli` 已存在即跳过下载。
+
+**🔐 安全（沿用 v0.9.96 修复）：**
+- `scripts/setup_env.sh` 从环境变量读取 S3 凭据，不硬编码。
+- `rclone.conf` / `.secrets/env.sh` 均 `umask 077` + `chmod 600`，已在 `.gitignore` 中。
+- 全仓库凭据扫描确认无明文 AK/SK 残留。
+
+**未来优化方向：**
+- 从源码重编 fcitx5 addon，对齐 M3 纠错门控（`should_correct` 含「重错全拼扩展」，如 `senme→什么`）；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
+- 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e（现为等价 XIM 自建客户端等价验证）。
+- 打包 `.deb`/`.rpm` 便于普通用户一键安装；补全候选窗「翻页/选词/自定义短语」GUI 交互的截图验证。
+- `reproduce_from_scratch.sh` 的 `dnf download` 列表补入 `libX11-devel` 等 devel 包，使第 5 层开箱即过（无需手动补下载）。
+
+**待办事项：**
+- [x] 第九台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成（DBus，4/4）
+- [x] DBus 真实输入链路 e2e（7/7，按键 65/65）
+- [x] X11/XIM 真实桌面（Xvfb + LD_PRELOAD xkbcomp，9/9）
+- [x] GUI 候选窗 + 应用内上屏截图
+- [x] 前置 `ip.txt` 首行；版本递增 0.9.97
+- [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
+- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
+- [ ] `reproduce_from_scratch.sh` 补入 devel 包下载
 
 ### v0.9.96（2026-10-16）：第八台机器复现（113.44.163.253）—— 五层验证 8/8 全过 + GUI 候选窗截图成功
 
