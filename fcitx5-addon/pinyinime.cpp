@@ -958,7 +958,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             for (char c : ctx.preedit()) {
                 if (c != '\'' && c != ' ') compactPy.push_back(c);
             }
-            if (!is_valid_pinyin(compactPy)) {
+            if (!is_valid_pinyin(compactPy) && ctx.candidates().empty()) {
                 state->commitText(compactPy);
                 state->reset();
                 event.filterAndAccept();

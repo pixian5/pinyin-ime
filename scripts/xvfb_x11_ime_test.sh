@@ -78,12 +78,10 @@ check "中文标点（全角问号）" '\S,.?'        "？"
 check "打拼音中先上屏再标点" '\Szhongguo!'  "中国！"
 check "纠错 zongguo→中国"  '\Szongguo\s'   "中国"
 
-# 信息项（不计入通过/失败）：S3 预构建 addon 为 v0.9.84a，其 EnableCorrect 的
-# should_correct 门控较当前源码（v0.9.93，含「重错全拼扩展」）保守，故 senme
-# （sen/me 均为合法音节）不会整串纠正为「什么」，而是直接上屏「森么」。
-# CLI（同一引擎）`echo senme | pinyin-ime --correct` 可正确得「什么」。
-# 完整 M3 纠错对齐需用当前源码重编 addon（缺匹配 libime 1.1.17 头，列为待办）。
-info "senme 纠错（addon 版本相关）" '\Ssenme\s'
+
+
+
+check "纠错 senme→什么"  "\Ssenme\s"  "什么"
 
 echo "==== 结果：$pass 通过 / $fail 失败 ===="
 [ "$fail" -eq 0 ]

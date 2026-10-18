@@ -1,5 +1,86 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-18 v0.9.98）
+## 当前进度（截至 2026-10-18 v0.9.99）
+
+### v0.9.99（2026-10-18）：源码重编 addon + M3 纠错门控对齐 + 简拼修复 + XIM 11/11
+
+**从源码重编 fcitx5 addon（libpinyinime.so），对齐 M3 纠错门控，修复简拼回归，XIM 桌面测试 11/11 全过。**
+
+**核心改进：**
+1. **源码重编 addon**：用当前源码（v0.9.99）+ libime 1.1.17 头文件（GitHub tag 1.1.17）+ fcitx5 5.1.23 头文件（S3 预构建）+ Boost 头文件（dnf install boost-devel）编译出新的 `libpinyinime.so`（857KB，vs 旧版 854KB）。
+   - GCC 10.3.1 不支持 `<source_location>`（C++20）→ 创建兼容垫片（`__builtin_FILE/LINE` 实现）。
+   - libime export 头文件缺失 → 手动创建（消费者侧宏为空）。
+   - CMake 配置文件缺失 → 手动创建 `LibIMEPinyinConfig.cmake` / `LibIMECoreConfig.cmake`（定义 IMPORTED target）。
+   - fcitx5 CMake targets 硬编码路径 → 创建符号链接 `/workspace/native-build/opt/fcitx5-x11` → `/workspace/deploy/pinyin-ime/opt/fcitx5-x11`。
+
+2. **M3 纠错门控对齐**：旧版 S3 addon（v0.9.84a）的 `should_correct` 门控较保守，`senme`（sen/me 均为合法音节）不会整串纠正为「什么」。新版 addon 的 `should_correct` 含「重错全拼扩展」，`senme→什么` 正确触发。
+   - `senme → 什么` ✅（旧版上屏「森么」）
+   - `shenme → 什么` ✅
+
+3. **简拼回归修复**：v0.9.90 新增的「中英自动混输」功能在空格上屏前检查 `is_valid_pinyin()`，但该函数只认全拼音节，不认简拼（`zg` 不是合法全拼音节），导致简拼被当英文直接上屏。
+   - 修复：增加 `ctx.candidates().empty()` 条件——只有当 `is_valid_pinyin` 返回 false **且** libime 无候选词时才触发英文上屏。
+   - `zg → 中国` ✅（修复前上屏 `zg`）
+   - `bjdx → 北京大学` ✅（修复前上屏 `bjdx`）
+
+**完整 XIM 桌面测试（11/11 全过）：**
+
+| # | 测试 | 结果 |
+|---|---|---|
+| 1 | 全拼 nihao→你好 | ✅ |
+| 2 | 全拼 zhongguo→中国 | ✅ |
+| 3 | 简拼 zg→中国 | ✅ |
+| 4 | 简拼 bjdx→北京大学 | ✅ |
+| 5 | 长句 woshiyige→我是一个 | ✅ |
+| 6 | 中英切换 Tab+hello→hello | ✅ |
+| 7 | 中文标点 ,.→？ | ✅ |
+| 8 | 先上屏再标点 zhongguo!→中国！ | ✅ |
+| 9 | 纠错 zongguo→中国 | ✅ |
+| 10 | **纠错 senme→什么**（M3 对齐） | ✅ |
+| 11 | **纠错 shenme→什么**（M3 对齐） | ✅ |
+
+**编译环境搭建（可复现）：**
+```bash
+# 1. 获取 libime 1.1.17 头文件
+git clone --depth 1 --filter=blob:none --sparse https://github.com/fcitx/libime.git /tmp/libime-src
+cd /tmp/libime-src && git checkout 1.1.17
+git sparse-checkout set src/libime/core src/libime/pinyin
+
+# 2. 安装依赖
+dnf install -y boost-devel
+
+# 3. 创建 source_location 兼容垫片（GCC 10 不支持 C++20 <source_location>）
+mkdir -p /workspace/deploy/compat-headers
+cat > /workspace/deploy/compat-headers/source_location << 'EOF'
+// ... __builtin_FILE/LINE 实现（见仓库 compat-headers/）
+EOF
+
+# 4. 创建 libime CMake 配置 + export 头文件
+// ... 见仓库 scripts/setup_addon_build.sh
+
+# 5. 编译
+cmake -S fcitx5-addon -B fcitx5-addon/build -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH="$FCITX5_DIR;$LIBIME_CMAKE_DIR" \
+    -DCMAKE_CXX_FLAGS="-I/workspace/deploy/compat-headers"
+cmake --build fcitx5-addon/build
+```
+
+**`reproduce_from_scratch.sh` 改进：**
+- 新增 dnf 直装分支：检测 `/usr` 可写时走 `dnf install -y` 直装路线（X/dbus/devel/字体/工具），跳过 sysroot RPM 解包。
+- 检测 `/usr` 只读时仍走原有 `dnf download` + `rpm2archive` + `tar` 路线。
+
+**待办事项：**
+- [x] 第十台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成（DBus，4/4）
+- [x] DBus 真实输入链路 e2e（7/7，按键 65/65）
+- [x] X11/XIM 真实桌面（Xvfb，**11/11**）
+- [x] GUI 候选窗 + 应用内上屏截图
+- [x] **从源码重编 addon**（libime 1.1.17 头 + fcitx5 5.1.23 头 + Boost + source_location 垫片）
+- [x] **M3 纠错门控对齐**（senme→什么，shenme→什么）
+- [x] **简拼回归修复**（zg→中国，bjdx→北京大学）
+- [x] **`reproduce_from_scratch.sh` dnf 直装分支**
+- [x] **XIM 中英切换 Tab 行为修复**（9/9→11/11）
+- [ ] 中英自动混输优化（hello 等英文词不被转中文）
+- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
+- [ ] 打包 .deb/.rpm 一键安装
 
 ### v0.9.98（2026-10-18）：第十台机器复现（1.92.88.90）—— 五层验证全过 + GUI 候选窗 + dnf 直装
 
