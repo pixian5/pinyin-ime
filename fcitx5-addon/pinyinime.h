@@ -89,6 +89,7 @@ public:
     bool quoteOpen_ = false;
     bool singleQuoteOpen_ = false;
     std::string engBuf_;
+    std::string rawInput_;  // 原始输入（未纠错），用于中英自动混输判断
     // 表情选择（Ctrl-E）：1-9 选表情，[,]/[.] 翻页，Esc/Ctrl-E 返回中文。
     bool emojiMode_ = false;
     // 双拼运行时开关（Ctrl+Shift+S 切换，初始值来自配置）

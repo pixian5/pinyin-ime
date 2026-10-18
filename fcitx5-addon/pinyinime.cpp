@@ -274,6 +274,7 @@ void PinyinIMEState::commitText(const std::string &text) {
 
 void PinyinIMEState::reset() {
     context_.clear();
+    rawInput_.clear();
     page_ = 0;
     boostSwap_ = 0;
     boostInsertWord_.clear();
@@ -455,6 +456,7 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
         undoStack_.emplace_back(boostInsertWord_, pinyin);
         if (undoStack_.size() > 32) undoStack_.erase(undoStack_.begin());
         context_.clear();
+        rawInput_.clear();
         commitText(boostInsertWord_);
         boostInsertWord_.clear();
         refreshUI(entry);
@@ -536,6 +538,7 @@ void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
     // 2) 把拼音恢复回候选态（与 CLI 撤回语义一致，用户可继续编辑/重上屏）。
     //    应用消歧，使撤回后预编辑与上屏前一致。
     context_.clear();
+        rawInput_.clear();
     page_ = 0;
     maxPage_ = 0;
     {
@@ -953,13 +956,13 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     }
                 }
             }
-            // v0.9.90: 中英自动混输 — 无效拼音直接上屏英文
-            std::string compactPy;
-            for (char c : ctx.preedit()) {
-                if (c != '\'' && c != ' ') compactPy.push_back(c);
-            }
-            if (!is_valid_pinyin(compactPy) && ctx.candidates().empty()) {
-                state->commitText(compactPy);
+            // v0.9.100: 中英自动混输 — 用原始输入（未纠错）判断
+            // compactPy 是纠错后的 preedit（如 hello→henli），会误判为有效拼音
+            // rawInput_ 是用户实际键入的字符，用它判断是否英文
+            if (!state->rawInput_.empty() &&
+                !is_valid_pinyin(state->rawInput_) &&
+                (ctx.candidates().empty() || state->rawInput_.size() > 4)) {
+                state->commitText(state->rawInput_);
                 state->reset();
                 event.filterAndAccept();
                 return;
@@ -1046,6 +1049,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             sym == FcitxKey_apostrophe ? "'" : Key::keySymToUTF8(sym);
         if (!ch.empty()) {
             ctx.type(ch);
+            state->rawInput_ += ch;
             // 拼音消歧：检查当前预编辑是否需要 xian→xi'an 拆分
             // 获取当前预编辑（去除空格/隔音符），应用消歧
             std::string rawPreedit;
