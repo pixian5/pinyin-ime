@@ -78,7 +78,7 @@ cmake --build fcitx5-addon/build
 - [x] **简拼回归修复**（zg→中国，bjdx→北京大学）
 - [x] **`reproduce_from_scratch.sh` dnf 直装分支**
 - [x] **XIM 中英切换 Tab 行为修复**（9/9→11/11）
-- [ ] 中英自动混输优化（hello 等英文词不被转中文）
+- [x] 中英自动混输优化（hello 等英文词不被转中文）— v0.9.100 rawInput_ 修复
 - [ ] 常规有 X 机器补 GTK/Qt immodule e2e
 - [ ] 打包 .deb/.rpm 一键安装
 

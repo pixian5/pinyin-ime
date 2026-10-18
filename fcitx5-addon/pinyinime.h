@@ -48,6 +48,20 @@ FCITX_CONFIGURATION(
         "~/.local/share/pinyin-ime"};
     Option<bool> enableFuzzy{this, "EnableFuzzy", _("Enable fuzzy pinyin"),
                              false};
+    Option<bool> fuzzyZ_ZH{this, "FuzzyZ_ZH", _("z <-> zh"), false};
+    Option<bool> fuzzyC_CH{this, "FuzzyC_CH", _("c <-> ch"), false};
+    Option<bool> fuzzyS_SH{this, "FuzzyS_SH", _("s <-> sh"), false};
+    Option<bool> fuzzyL_N{this, "FuzzyL_N", _("l <-> n"), false};
+    Option<bool> fuzzyL_R{this, "FuzzyL_R", _("l <-> r"), false};
+    Option<bool> fuzzyF_H{this, "FuzzyF_H", _("f <-> h"), false};
+    Option<bool> fuzzyAN_ANG{this, "FuzzyAN_ANG", _("an <-> ang"), false};
+    Option<bool> fuzzyEN_ENG{this, "FuzzyEN_ENG", _("en <-> eng"), false};
+    Option<bool> fuzzyIN_ING{this, "FuzzyIN_ING", _("in <-> ing"), false};
+    Option<bool> fuzzyIAN_IANG{this, "FuzzyIAN_IANG", _("ian <-> iang"), false};
+    Option<bool> fuzzyU_OU{this, "FuzzyU_OU", _("u <-> ou"), false};
+    Option<bool> fuzzyUAN_UANG{this, "FuzzyUAN_UANG", _("uan <-> uang"), false};
+    Option<bool> fuzzyV_U{this, "FuzzyV_U", _("v <-> u"), false};
+    Option<bool> fuzzyVE_UE{this, "FuzzyVE_UE", _("ve <-> ue"), false};
     Option<bool> enableCorrect{
         this, "EnableCorrect", _("Enable M3 spelling correction"), false};
     Option<bool> enableShuangpin{

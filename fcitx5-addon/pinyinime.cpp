@@ -77,17 +77,30 @@ std::string findData(const std::vector<std::string> &candidates,
 // to ensure exact pinyin matches rank higher than fuzzy matches.
 // Without this, common words like 限定 (via ian↔iang fuzzy of xiang) can
 // outrank the exact match 想订, producing wrong candidates.
-libime::PinyinFuzzyFlags commonFuzzyFlags() {
+libime::PinyinFuzzyFlags buildFuzzyFlags(const PinyinIMEConfig &cfg) {
     using libime::PinyinFuzzyFlag;
-    return {PinyinFuzzyFlag::C_CH,         PinyinFuzzyFlag::F_H,
-            PinyinFuzzyFlag::L_N,          PinyinFuzzyFlag::S_SH,
-            PinyinFuzzyFlag::Z_ZH,         PinyinFuzzyFlag::L_R,
-            PinyinFuzzyFlag::AN_ANG,       PinyinFuzzyFlag::EN_ENG,
-            PinyinFuzzyFlag::IAN_IANG,     PinyinFuzzyFlag::IN_ING,
-            PinyinFuzzyFlag::U_OU,         PinyinFuzzyFlag::UAN_UANG,
-            PinyinFuzzyFlag::V_U,          PinyinFuzzyFlag::VE_UE,
-            PinyinFuzzyFlag::CommonTypo,   PinyinFuzzyFlag::AdvancedTypo,
-            PinyinFuzzyFlag::Correction};
+    libime::PinyinFuzzyFlags flags;
+    // 细粒度模糊音（每对独立开关，默认全关）
+    if (cfg.fuzzyZ_ZH.value())      flags |= PinyinFuzzyFlag::Z_ZH;
+    if (cfg.fuzzyC_CH.value())      flags |= PinyinFuzzyFlag::C_CH;
+    if (cfg.fuzzyS_SH.value())      flags |= PinyinFuzzyFlag::S_SH;
+    if (cfg.fuzzyL_N.value())       flags |= PinyinFuzzyFlag::L_N;
+    if (cfg.fuzzyL_R.value())       flags |= PinyinFuzzyFlag::L_R;
+    if (cfg.fuzzyF_H.value())       flags |= PinyinFuzzyFlag::F_H;
+    if (cfg.fuzzyAN_ANG.value())    flags |= PinyinFuzzyFlag::AN_ANG;
+    if (cfg.fuzzyEN_ENG.value())    flags |= PinyinFuzzyFlag::EN_ENG;
+    if (cfg.fuzzyIN_ING.value())    flags |= PinyinFuzzyFlag::IN_ING;
+    if (cfg.fuzzyIAN_IANG.value())  flags |= PinyinFuzzyFlag::IAN_IANG;
+    if (cfg.fuzzyU_OU.value())      flags |= PinyinFuzzyFlag::U_OU;
+    if (cfg.fuzzyUAN_UANG.value())  flags |= PinyinFuzzyFlag::UAN_UANG;
+    if (cfg.fuzzyV_U.value())       flags |= PinyinFuzzyFlag::V_U;
+    if (cfg.fuzzyVE_UE.value())     flags |= PinyinFuzzyFlag::VE_UE;
+    // CommonTypo + AdvancedTypo 始终包含在 fuzzy 模式中
+    if (cfg.enableFuzzy.value()) {
+        flags |= PinyinFuzzyFlag::CommonTypo;
+        flags |= PinyinFuzzyFlag::AdvancedTypo;
+    }
+    return flags;
 }
 
 // 双拼方案名 → libime 枚举（与 CLI sp_profile_from 保持一致）。
@@ -604,7 +617,7 @@ bool PinyinIMEEngine::ensureDataLoaded() {
     // v0.9.90: 音节分隔显示 — Pinyin 模式在音节间加空格，用户能看到引擎如何切分
     ime_->setPreeditMode(libime::PinyinPreeditMode::Pinyin);
     if (config().enableFuzzy.value()) {
-        ime_->setFuzzyFlags(commonFuzzyFlags());
+        ime_->setFuzzyFlags(buildFuzzyFlags(config()));
     }
 
     // 双拼 profile（与 CLI setShuangpinProfile 一致）
@@ -657,7 +670,7 @@ void PinyinIMEEngine::reloadConfig() {
             static_cast<size_t>(std::max(1, config().nbest.value())));
         // 模糊音热更新（配置变更后即时生效）
         if (config().enableFuzzy.value()) {
-            ime_->setFuzzyFlags(commonFuzzyFlags());
+            ime_->setFuzzyFlags(buildFuzzyFlags(config()));
         } else {
             ime_->setFuzzyFlags(libime::PinyinFuzzyFlags());
         }
