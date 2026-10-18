@@ -90,3 +90,11 @@ pinyin-ime-s3/v0.9.94/
 # 项目根 ip.txt（本机公网 IP，要求必须入库）：显式反忽略，防止将来宽规则误伤
 !ip.txt
 
+
+# x86_64 本机构建目录（2026-10-19 Ubuntu 24.04 x86_64 轮）
+cpp/build-x86/
+fcitx5-addon/build-x86/
+pinyin-ime-s3/SHA256SUMS
+pinyin-ime-s3/libpinyinime.so
+pinyin-ime-s3/pinyin-ime-0.9.103-1.aarch64.rpm
+pinyin-ime-s3/pinyin-ime_0.9.103_arm64.deb

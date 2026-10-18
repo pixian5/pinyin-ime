@@ -85,7 +85,7 @@ libime::PinyinFuzzyFlags buildFuzzyFlags(const PinyinIMEConfig &cfg) {
     if (cfg.fuzzyC_CH.value())      flags |= PinyinFuzzyFlag::C_CH;
     if (cfg.fuzzyS_SH.value())      flags |= PinyinFuzzyFlag::S_SH;
     if (cfg.fuzzyL_N.value())       flags |= PinyinFuzzyFlag::L_N;
-    if (cfg.fuzzyL_R.value())       flags |= PinyinFuzzyFlag::L_R;
+    // L_R：libime 1.1.5 无此枚举，跳过（新版 libime 支持 l/r 模糊）
     if (cfg.fuzzyF_H.value())       flags |= PinyinFuzzyFlag::F_H;
     if (cfg.fuzzyAN_ANG.value())    flags |= PinyinFuzzyFlag::AN_ANG;
     if (cfg.fuzzyEN_ENG.value())    flags |= PinyinFuzzyFlag::EN_ENG;
@@ -127,7 +127,8 @@ libime::ShuangpinBuiltinProfile shuangpinProfileFrom(std::string name) {
 
     if (name == "xiaohe" || name == "小鹤") return libime::ShuangpinBuiltinProfile::Xiaohe;
 
-    if (name == "gb") return libime::ShuangpinBuiltinProfile::GB;
+    // GB：libime 1.1.5 无此内置方案，回退小鹤
+    if (name == "gb") return libime::ShuangpinBuiltinProfile::Xiaohe;
 
     FCITX_WARN() << "pinyinime: unknown shuangpin scheme \"" << name
                  << "\", falling back to Xiaohe";
@@ -323,7 +324,7 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
         candidateList->setCursorIncludeUnselected(true);
-        candidateList->setCursorIndex(0);
+        // setCursorIndex(0)：fcitx5 5.1.7 的 CommonCandidateList 无此 setter；新建列表光标默认在第 0 位
 
         inputContext_->inputPanel().reset();
         inputContext_->inputPanel().setPreedit(preeditText);
@@ -438,7 +439,9 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
         // 让 Ctrl+←/→ 移动焦点后，候选窗里高亮的就是即将上屏的那个候选（第 15 轮只做了
         // 上屏语义、视觉仍固定在第 1 个）。candFocus_ 已在 keyEvent 钳制到 < end-begin，
         // 且 end>begin 时才走到这里，故索引必有效。翻页/新拼音/退格已把 candFocus_ 归零。
-        candidateList->setCursorIndex(static_cast<int>(candFocus_));
+        // fcitx5 5.1.7 的 CommonCandidateList 无 setCursorIndex，用 nextCandidate() 逐步移动
+        for (unsigned ci = 0; ci < candFocus_ && ci < 9; ++ci)
+            candidateList->nextCandidate();
         inputContext_->inputPanel().setCandidateList(std::move(candidateList));
     }
     inputContext_->updatePreedit();
@@ -1135,4 +1138,4 @@ class PinyinIMEFactory : public AddonFactory {
 
 } // namespace fcitx
 
-FCITX_ADDON_FACTORY_V2(pinyinime, fcitx::PinyinIMEFactory);
+FCITX_ADDON_FACTORY(fcitx::PinyinIMEFactory)  // 5.1.7 经典宏只带工厂类一个参数

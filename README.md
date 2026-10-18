@@ -1,5 +1,18 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.103）
+## 当前进度（截至 2026-10-19 v0.9.104）
+
+### v0.9.104（2026-10-19）：Ubuntu 24.04 x86_64 全平台打通 — 系统 fcitx5 5.1.7 + XIM e2e 11/11
+
+**新机器（x86_64 Ubuntu 24.04，非 openEuler aarch64 沙箱）从源码构建 CLI + fcitx5 addon，适配 libime 1.1.5 / fcitx5 5.1.7 的 API 差异，Xvfb + 系统 fcitx5 真实输入 e2e 11/11 全过。**
+
+- S3 v0.9.103 预构建产物校验通过，但全部为 aarch64 → 本轮 x86_64 全部源码重编。
+- 兼容适配：`PinyinFuzzyFlag::L_R/Correction`、`ShuangpinBuiltinProfile::GB`（libime 1.1.5 缺失→跳过/回退）；`CommonCandidateList::setCursorIndex`（5.1.7 缺失→nextCandidate 循环）；`FCITX_ADDON_FACTORY_V2`→经典 `FCITX_ADDON_FACTORY`；`add_fcitx5_addon` 宏 5.1.x 已移除→CMakeLists 内置兼容函数；补 `historybigram.h` 包含。
+- **关键坑**：fcitx5 启动时会重写 `~/.config/fcitx5/profile`（DefaultIM 被覆盖回内置 pinyin，XIM 测试打到 fcitx5-chinese-addons 上、自研纠错不触发）。修复：先 `pkill -x fcitx5` 再写 profile 再启动。
+- Ubuntu 数据路径：zh_CN.lm 在 `/usr/lib/x86_64-linux-gnu/libime/`，sc.dict 在 `/usr/share/libime/`。
+- XIM e2e 11/11：nihao/zhongguo/长句/简拼 zg·bjdx/M3 纠错 senme·zhing·zhng·zongguo/中文标点，全部正确；CLI 行模式全拼/简拼/纠错/模糊音全对。
+- 详见 `docs/2026年10月19日01时05分Ubuntu2404-x86_64全平台打通与fcitx5-5.1.7兼容适配-Hermes.md`。
+
+**待办：** Ubuntu 部署脚本固化（install_ubuntu_x86_64.sh）、x86_64 打包 .deb/.rpm 并回传 S3、GTK/Qt immodule e2e（本机有系统 GTK3/Qt5）、libime 升级 1.1.17 恢复完整模糊音/纠错能力。
 
 ### v0.9.103（2026-10-19）：GTK/Qt immodule e2e 双双 10/10 + .rpm/.deb 一键安装包
 

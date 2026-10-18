@@ -9,7 +9,7 @@
 #
 # 实机（Ubuntu 26.04）用法见 README「Fcitx5 addon：实机安装」。
 cmake_minimum_required(VERSION 3.16)
-project(pinyinime VERSION 0.9.103 LANGUAGES CXX)
+project(pinyinime VERSION 0.9.104 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,15 @@ find_package(LibIMEPinyin REQUIRED)
 
 set(PINYINIME_VERSION ${PROJECT_VERSION})
 
+# 兼容宏：旧版 fcitx5 的 add_fcitx5_addon 在 5.1.x 已移除，改为等价的现代写法：
+# MODULE 库（去 lib 前缀）+ install 到 addon 目录 + conf 里 Type=SharedLibrary。
+if(NOT COMMAND add_fcitx5_addon)
+  set(FCITX_ADDON_TYPE "SharedLibrary")  # 供 pinyinime.conf.in 的 @FCITX_ADDON_TYPE@ 使用
+  function(add_fcitx5_addon name)
+    add_library(${name} MODULE ${ARGN})
+    set_target_properties(${name} PROPERTIES PREFIX "lib")
+  endfunction()
+endif()
 add_fcitx5_addon(pinyinime pinyinime.cpp ../cpp/pinyin_corrector.cpp)
 
 target_link_libraries(pinyinime PRIVATE

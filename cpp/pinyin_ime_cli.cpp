@@ -55,6 +55,7 @@
 #include <set>
 #include <unordered_map>
 
+#include <libime/core/historybigram.h>
 #include <libime/core/userlanguagemodel.h>
 #include <libime/pinyin/pinyincontext.h>
 #include <libime/pinyin/pinyindictionary.h>
@@ -208,13 +209,13 @@ PinyinFuzzyFlags common_fuzzy_flags() {
     return {
         PinyinFuzzyFlag::C_CH,       PinyinFuzzyFlag::F_H,
         PinyinFuzzyFlag::L_N,        PinyinFuzzyFlag::S_SH,
-        PinyinFuzzyFlag::Z_ZH,       PinyinFuzzyFlag::L_R,
+        PinyinFuzzyFlag::Z_ZH,       // L_R：libime 1.1.5 无此枚举，跳过（新版 libime 才有）
         PinyinFuzzyFlag::AN_ANG,     PinyinFuzzyFlag::EN_ENG,
         PinyinFuzzyFlag::IAN_IANG,   PinyinFuzzyFlag::IN_ING,
         PinyinFuzzyFlag::U_OU,       PinyinFuzzyFlag::UAN_UANG,
         PinyinFuzzyFlag::V_U,        PinyinFuzzyFlag::VE_UE,
         PinyinFuzzyFlag::CommonTypo, PinyinFuzzyFlag::AdvancedTypo,
-        PinyinFuzzyFlag::Correction,
+        // Correction：libime 1.1.5 无此枚举，由 M3 pinyin_corrector.cpp 自研纠错兜底
     };
 }
 
@@ -228,7 +229,11 @@ ShuangpinBuiltinProfile sp_profile_from(std::string name) {
     if (name == "zhongwenzhixing" || name == "中文之星") return ShuangpinBuiltinProfile::Zhongwenzhixing;
     if (name == "pinyinjiajia" || name == "拼音加加") return ShuangpinBuiltinProfile::PinyinJiajia;
     if (name == "xiaohe" || name == "小鹤") return ShuangpinBuiltinProfile::Xiaohe;
-    if (name == "gb") return ShuangpinBuiltinProfile::GB;
+    // GB：libime 1.1.5 无此内置双拼方案，回退小鹤（新版 libime 才有 GB）
+    if (name == "gb") {
+        std::cerr << "pinyin_ime_cli: 当前 libime 无 GB 双拼方案，回退小鹤\n";
+        return ShuangpinBuiltinProfile::Xiaohe;
+    }
     std::cerr << "pinyin_ime_cli: 未知双拼方案 \"" << name
               << "\"（可用 xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb），回退小鹤\n";
     return ShuangpinBuiltinProfile::Xiaohe;
@@ -242,7 +247,7 @@ std::string sp_display_name(ShuangpinBuiltinProfile p) {
     case ShuangpinBuiltinProfile::ABC: return "智能ABC";
     case ShuangpinBuiltinProfile::Zhongwenzhixing: return "中文之星";
     case ShuangpinBuiltinProfile::PinyinJiajia: return "拼音加加";
-    case ShuangpinBuiltinProfile::GB: return "国标";
+    // GB：libime 1.1.5 无此枚举
     case ShuangpinBuiltinProfile::Xiaohe: default: return "小鹤";
     }
 }
