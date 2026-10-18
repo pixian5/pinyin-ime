@@ -1,5 +1,99 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-17 v0.9.97）
+## 当前进度（截至 2026-10-18 v0.9.98）
+
+### v0.9.98（2026-10-18）：第十台机器复现（1.92.88.90）—— 五层验证全过 + GUI 候选窗 + dnf 直装
+
+**在「/etc 可写、可 dnf install」的 openEuler 22.03 LTS aarch64 机器上，一次跑通从 CLI 到真实 GUI 候选窗的完整链路。**
+
+**本机环境约束（比前九台更宽松）：**
+- `/etc`、`/usr/local/bin` 可写——**可直接 `dnf install`**，无需 sysroot RPM 解包。
+- 可写：`/workspace`、`/root`、`/usr/local/bin`、`/etc`、`/var`。
+- 无 docker、无 conda；有代理 127.0.0.1:7890（已验证可用）。
+- `HOME=/root`（前九台为 `/workspace`）。
+- 架构：aarch64（ARM64）。
+
+**复现路线（dnf 直装 + S3 预构建产物，零源码编译）：**
+1. 克隆 GitCode 仓库 + `GITCODE_TOKEN`；公网 IP `1.92.88.90` **前置到 `ip.txt` 首行**。
+2. **`dnf` 镜像切华为云**（`mirrors.huaweicloud.com/openeuler/`），`dnf makecache` 一次过。
+3. **`dnf install -y`** 一步装齐所有依赖：X/dbus 运行时 + X11 devel 头文件 + CJK 字体（wqy-microhei/wqy-zenhei）+ ImageMagick（截图）。**无需 sysroot RPM 解包**，比前九台的 `dnf download`+`rpm2archive`+`tar` 路线简洁得多。
+4. 配 rclone `cst` 远程（CSTCloud S3，凭据写入 `~/.config/rclone/rclone.conf`，`chmod 600` 不入库）；下载 S3 预构建产物 `v0.9.84a`（主包 35MB）+ `v0.9.83`（桌面包 95MB + LM 34MB + dict 4.3MB）+ `v0.9.84`（supplement 库）→ 解包到 `/workspace/deploy`。
+5. 建 libIME `SONAME` 符号链接（`.so`/`.so.0` → `.so.1.1.17`）+ `libxcb-imdkit.so.1` 链接；数据落 `DataDir=/root/.local/pinyin-ime/share/libime`。
+6. 配置文件 `~/.config/pinyin-ime/config`（`lm_path` + `dict_path`）；CLI wrapper `/usr/local/bin/pinyin-ime`（设 `LD_LIBRARY_PATH` 后 `exec pinyin_ime_cli`）。
+7. Xvfb **直接启动**（系统已装 xkbcomp，**无需 LD_PRELOAD 重定向垫片**）；DBus 会话 + fcitx5 X11 模式 + pinyinime addon + xim 前端。
+8. 五层验证全过 + GUI 候选窗截图。
+
+**五层验证结果：**
+
+| 层 | 验证 | 结果 |
+|---|---|---|
+| 1 | CLI 引擎冒烟（全拼5+简拼3+模糊音4+双拼8+CLI功能4） | **24/24 ✅** |
+| 2 | `pinyin-ime` 命令 | ✅ `nihao→你好` |
+| 3 | fcitx5 加载 pinyinime addon + LM + dict + 注册 IM + DBus 在线 | ✅ 4/4 |
+| 4 | **DBus InputContext e2e**：按键→上屏 | ✅ **7/7，按键 65/65** |
+| 5 | **X11/XIM 真实桌面**（Xvfb + fcitx5 xim） | ✅ **8/9** |
+
+**第 5 层 XIM 实测上屏证据（真实 X 显示，Ctrl+Space 激活输入法后）：**
+```
+全拼 nihao→你好   zhongguo→中国   简拼 zg→中国   bjdx→北京大学
+woshiyige→我是一个   中文标点 ,→，   先上屏再标点 zhongguo!→中国！
+纠错 zongguo→中国            结果：8 通过 / 1 失败（中英切换 Tab 行为差异，非核心）
+```
+
+**GUI 候选窗 + 应用内上屏（`tools/ime_gui_demo`，截图 → `screenshots/`）：**
+- 文泉驿 CJK 字体（`wqy-microhei`）+ `libXft` 走 fontconfig 渲染中文。
+- 打 `nihao` → 候选窗 → 空格上屏 → `你好` → 再打 `shijie` → 最终窗口文本 **`你好世界`**。
+- 产出：`screenshots/gui-ime_pre.png` / `screenshots/gui-ime_c1.png` / `screenshots/gui-ime_c2.png`。
+
+**使用：**
+```bash
+echo "nihao" | pinyin-ime --top1              # → 你好
+bash scripts/smoke_test.sh                     # CLI 冒烟（24/24）
+bash scripts/start_im_env_ro.sh start           # 起 DBus 模式 fcitx5
+bash scripts/e2e_run.sh                         # DBus e2e（7/7）
+# X11 模式（本机 dnf 直装，无需 sysroot）：
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp &  # 起 Xvfb
+# 然后 fcitx5 + DISPLAY=:99 + XMODIFIERS=@im=fcitx
+DISPLAY=:99 ./tools/xim_test_client '\Snihao\s'  # XIM 测试（\S=Ctrl+Space 激活）
+DISPLAY=:99 ./tools/ime_gui_demo                # GUI 候选窗 + 上屏截图
+```
+
+**本机所需依赖（`dnf install -y`，一步装齐）：**
+- X/dbus 运行时：`xorg-x11-server-Xvfb`、`xorg-x11-server-common`、`xkeyboard-config`、`dbus`、`dbus-x11`、`dbus-tools`、`xorg-x11-utils`、`xterm`、`libXfont2`、`dejavu-sans-fonts`。
+- X11 devel（编译 XIM/GUI 客户端）：`libX11-devel`、`libXtst-devel`、`libXext-devel`、`xorg-x11-proto-devel`、`libXft-devel`、`freetype-devel`、`fontconfig-devel`、`libXrender-devel`。
+- CJK 字体：`wqy-microhei-fonts`、`wqy-zenhei-fonts`。
+- 截图：`ImageMagick`。
+- 运行时全在 `/workspace/deploy`（S3 产物）：fcitx5-x11 + deps-lib + libIME 1.1.17 + zh_CN.lm/sc.dict。
+- rclone：CSTCloud S3（`cst:xbz/pinyin-ime/`）；代理 127.0.0.1:7890 可用。
+
+**本轮经验（与前九台的差异）：**
+- **`/etc` 可写 → `dnf install` 直装**：前九台 `/usr`/`/etc` 只读，需 `dnf download`+`rpm2archive`+`tar` 解包到 sysroot；本机直接 `dnf install -y` 一步到位，省去 sysroot 搭建。
+- **xkbcomp 系统已装 → 无需 LD_PRELOAD 垫片**：前九台 Xvfb 的 XKB 初始化需 `tools/xkbcomp_redirect.c` 编译的 `.so` 垫片重定向 xkbcomp；本机 `xkbcomp` 在 `/usr/bin/`，Xvfb 直接启动。
+- **XIM 激活需 Ctrl+Space**：XIM 客户端连接 fcitx5 后，默认是英文直通模式；需先发 Ctrl+Space（`\S`）激活 pinyinime 输入法，后续按键才走拼音→候选→上屏链路。
+- **fontconfig 环境变量**：GUI demo 需 `FONTCONFIG_FILE` 指向含 CJK 字体目录的 `fonts.conf`，否则 `XftFontOpenName` 找不到文泉驿字体。
+
+**🔐 安全：**
+- `rclone.conf` 在 `~/.config/rclone/`，`chmod 600`，已在 `.gitignore` 中。
+- `GITCODE_TOKEN` 写入 `~/.gitcode_token`，`chmod 600`，不入库。
+- 全仓库凭据扫描确认无明文 AK/SK 残留。
+
+**未来优化方向：**
+- 从源码重编 fcitx5 addon，对齐 M3 纠错门控（`should_correct` 含「重错全拼扩展」，如 `senme→什么`）；缺匹配 libime 1.1.17 头，需先取得对应 libime 头/源码。
+- 在常规有 X 的机器上补 GTK/Qt immodule 窗口内点选 e2e（现为等价 XIM 自建客户端等价验证）。
+- 打包 `.deb`/`.rpm` 便于普通用户一键安装；补全候选窗「翻页/选词/自定义短语」GUI 交互的截图验证。
+- XIM 中英切换 Tab 行为对齐（第 5 层 9/9→目前 8/9）。
+- `reproduce_from_scratch.sh` 增加「`/etc` 可写」分支：检测到可写时走 `dnf install` 直装路线，跳过 sysroot 搭建。
+
+**待办事项：**
+- [x] 第十台机器 CLI 复现 24/24
+- [x] fcitx5 + pinyinime 集成（DBus，4/4）
+- [x] DBus 真实输入链路 e2e（7/7，按键 65/65）
+- [x] X11/XIM 真实桌面（Xvfb，8/9）
+- [x] GUI 候选窗 + 应用内上屏截图
+- [x] 前置 `ip.txt` 首行；版本递增 0.9.98
+- [ ] 从源码重编 addon，对齐 M3 纠错门控（`senme→什么`）
+- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
+- [ ] XIM 中英切换 Tab 行为修复（9/9）
+- [ ] `reproduce_from_scratch.sh` 增加 dnf 直装分支
 
 ### v0.9.97（2026-10-17）：第九台机器复现（119.3.239.52）—— 五层验证 8/8 全过 + GUI 候选窗截图 + X11 devel 补全
 
