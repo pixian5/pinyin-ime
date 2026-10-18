@@ -19,15 +19,24 @@ EOF
 
 bash scripts/xvfb_test_env.sh start > /dev/null 2>&1
 
-export DISPLAY=:99 XMODIFIERS=@im=fcitx LANG=zh_CN.utf8 LC_ALL=zh_CN.utf8
+# 显示号可外部传入（DISPLAY=:88 ...），默认 :99；新显示号可绕开历史遗留实例。
+export DISPLAY="${DISPLAY:-:99}" XMODIFIERS=@im=fcitx LANG=zh_CN.utf8 LC_ALL=zh_CN.utf8
 export LD_LIBRARY_PATH="$NB/opt/fcitx5-x11/lib:$NB/opt/libime/lib:$NB/mamba-env/lib"
+# XKB 数据目录（libxkbcommon 编译期数据路径可能指向不存在的 mamba-env）；
+# 系统有 xkb 数据时显式指过去，避免「Could not load XKB rules」。
+[ -d /usr/share/X11/xkb ] && export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/usr/share/X11/xkb}"
+
+# XIM 测试客户端必须用系统 libX11/libXtst：deps-lib 里同名 conda 库会让
+# XOpenIM 失败（只在有真实 X 的机器上暴露）。调用客户端时显式剔除
+# LD_LIBRARY_PATH；fcitx5 自己的库路径由 xvfb_test_env.sh 单独设置。
+xim_client() { env -u LD_LIBRARY_PATH ./tools/xim_test_client "$@"; }
 
 pass=0
 fail=0
 check() {
     local desc="$1" script="$2" want="$3"
     local out
-    out=$(./tools/xim_test_client "$script" 2>/dev/null | grep "^COMMIT:" | tr '\n' ' ')
+    out=$(xim_client "$script" 2>/dev/null | grep "^COMMIT:" | tr '\n' ' ')
     if printf '%s' "$out" | grep -qF "$want"; then
         echo "  PASS  $desc  -> $out"
         pass=$((pass + 1))
@@ -51,7 +60,7 @@ check "Ctrl-E 翻页 👍"        '\S\x05.\1'        "👍"
 check "打拼音中先上屏再标点"  '\Szhongguo!'      "中国！"
 # 误上屏撤回：上屏「你好」→ Ctrl-Z（恢复拼音）→ 空格重新上屏「你好」。
 # 断言用正则（中间会有 forwardKey 退格产生的空 COMMIT，固定串匹配不过）。
-out=$(./tools/xim_test_client '\Snihao\s\x1a\s' 2>/dev/null | grep "^COMMIT:" | tr '\n' ' ')
+out=$(xim_client '\Snihao\s\x1a\s' 2>/dev/null | grep "^COMMIT:" | tr '\n' ' ')
 if printf '%s' "$out" | grep -qE '你好.*你好'; then
     echo "  PASS  误上屏撤回 Ctrl-Z  -> $out"
     pass=$((pass + 1))

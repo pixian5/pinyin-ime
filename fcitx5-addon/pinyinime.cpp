@@ -569,15 +569,23 @@ void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
 
 PinyinIMEEngine::PinyinIMEEngine(Instance *instance)
     : instance_(instance) {
-    // 关键：FactoryFor 不会自动注册，必须在构造函数里显式注册到
-    // InputContextManager，否则 slot_ = -1、propertyFor() 越界读垃圾指针。
-    // （对照官方 keyboard addon 的 registerProperty("keyboardState", ...)）
-    instance_->inputContextManager().registerProperty("pinyinimeState",
-                                                      &factory_);
+    // 关键顺序：必须先 reloadConfig()，再 registerProperty()。
+    // registerProperty 会立即为「已存在」的 InputContext 调用 factory（见
+    // pinyinime.h 中 factory_ 的 lambda），factory 内部调用 ensureDataLoaded()
+    // 加载词典/LM。若此时配置尚未读取，DataDir/UserDataDir/EnableFuzzy 等
+    // 会沿用编译默认值，用户在 conf/pinyinime.conf 里的设置不生效
+    // （v0.9.101 及以前的实际缺陷：XIM server 先建 IC，addon 后加载）。
+    //
     // fcitx5 的 addon 用户配置（conf/pinyinime.conf）默认由 DBus 模块 SetConfig
     // 载入；无 DBus 构建（如 headless Xvfb 实测）不会走该路径，故显式读取一次，
     // 使 EnableCorrect/DataDir/UserDataDir 等配置独立于 DBus 生效。
     reloadConfig();
+
+    // FactoryFor 不会自动注册，必须显式注册到 InputContextManager，否则
+    // slot_ = -1、propertyFor() 越界读垃圾指针。
+    // （对照官方 keyboard addon 的 registerProperty("keyboardState", ...)）
+    instance_->inputContextManager().registerProperty("pinyinimeState",
+                                                      &factory_);
 }
 
 PinyinIMEEngine::~PinyinIMEEngine() { saveUserData(); }
@@ -665,6 +673,8 @@ void PinyinIMEEngine::reloadConfig() {
     readAsIni(config_, kConfFile);
     // 注意：不在此处调用 ensureDataLoaded()，让引擎延迟到首次按键时创建，
     // 确保 setConfig 设置的 EnableFuzzy/EnableCorrect 在引擎创建时已生效。
+    // 构造函数中本方法先于 registerProperty() 执行，保证 factory 触发的
+    // ensureDataLoaded() 读到的是上述已加载的配置。
     if (ime_) {
         ime_->setNBest(
             static_cast<size_t>(std::max(1, config().nbest.value())));
@@ -965,6 +975,16 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                         ctx.clear();
                         for (char c : fixed) {
                             ctx.type(std::string(1, c));
+                        }
+                        // 同步 rawInput_ 为纠正后的紧凑串（去 ' / 空格）：纠错已
+                        // 确认这是「疑似全拼打错」，中英混输判断不能再用纠错前的
+                        // 原文（如 zhing 5 字符 >4 且非法拼音，会在纠错成功后仍被
+                        // 原样当英文上屏，丢失拼音意图）。
+                        state->rawInput_.clear();
+                        for (char c : fixed) {
+                            if (c != '\'' && c != ' ') {
+                                state->rawInput_.push_back(c);
+                            }
                         }
                     }
                 }

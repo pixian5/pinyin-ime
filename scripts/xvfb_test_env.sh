@@ -14,10 +14,14 @@ set -uo pipefail
 
 NB="${NB:-/root/workspace/native-build}"
 FCITX_BIN="$NB/opt/fcitx5-x11/bin/fcitx5"
-LOG=/tmp/fcitx5-x11.log
-PIDF=/tmp/fcitx5-x11.pid
 
-export DISPLAY=:99
+# 显示号可外部传入（如 DISPLAY=:88 bash scripts/...），默认 :99。
+# 每个 shell 命令运行在独立 PID namespace，跨命令无法 kill 旧实例；测试用
+# 新显示号可绕开历史遗留进程，实现单命令闭环。日志/pid 文件按显示号隔离。
+export DISPLAY="${DISPLAY:-:99}"
+DSUF="${DISPLAY#:}"; DSUF="${DSUF%%.*}"
+LOG="/tmp/fcitx5-x11-${DSUF}.log"
+PIDF="/tmp/fcitx5-x11-${DSUF}.pid"
 export XMODIFIERS=@im=fcitx
 export LANG=zh_CN.utf8
 export LC_ALL=zh_CN.utf8
@@ -27,12 +31,12 @@ export FCITX_ADDON_CONFIG_DIRS="$NB/opt/fcitx5-x11/share/fcitx5/addon"
 export FCITX_DATA_DIR="$NB/opt/fcitx5-x11/share/fcitx5"
 
 ensure_display() {
-    # 判活依据是「Xvfb 进程」而非 socket：Xvfb 被 SIGKILL 时会留下 /tmp/.X11-unix/X99
-    # 僵尸 socket，仅靠 [ -S ] 会误判「还在运行」而不再拉起，导致后续 fcitx5 连不上显示。
-    if ! pgrep -x Xvfb > /dev/null 2>&1; then
-        rm -f /tmp/.X11-unix/X99 /tmp/.X99-lock 2>/dev/null
-        echo "[env] 启动 Xvfb :99"
-        setsid Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /tmp/xvfb.log 2>&1 < /dev/null &
+    # 判活依据：能否用 xdpyinfo 连上该显示号。既避免「Xvfb 被 SIGKILL 留下
+    # 僵尸 socket」导致的假活，也支持多显示号并存（新显示号必然要新起 Xvfb）。
+    if ! xdpyinfo -display "$DISPLAY" > /dev/null 2>&1; then
+        rm -f "/tmp/.X11-unix/X${DSUF}" "/tmp/.X${DSUF}-lock" 2>/dev/null
+        echo "[env] 启动 Xvfb $DISPLAY"
+        setsid Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp > "/tmp/xvfb-${DSUF}.log" 2>&1 < /dev/null &
         sleep 2
     fi
     if ! ps -eo args | grep -q "[d]bus-daemon --syslog.*--session"; then
@@ -53,7 +57,7 @@ start_fcitx5() {
         kill "$old" 2>/dev/null && echo "[env] 停止旧 fcitx5 ($old)"
         sleep 1
     fi
-    echo "[env] 启动 fcitx5（Xvfb :99 / XIM / pinyinime）"
+    echo "[env] 启动 fcitx5（Xvfb $DISPLAY / XIM / pinyinime）"
     nohup "$FCITX_BIN" > "$LOG" 2>&1 &
     echo $! > "$PIDF"
     sleep 4

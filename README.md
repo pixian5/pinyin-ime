@@ -1,5 +1,41 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-18 v0.9.99）
+## 当前进度（截至 2026-10-18 v0.9.102）
+
+### v0.9.102（2026-10-18）：addon 配置时序缺陷修复 + 纠错中英混输误判修复 + XIM 21/21
+
+**古铜云机器（120.46.166.154，openEuler 22.03 aarch64，/usr 只读）从源码重编 addon 后，定位并修复两个真实缺陷：conf 的 DataDir/UserDataDir 不生效（配置读取时序）、`zhing` 纠错成功后仍被当英文上屏（中英混输误判）。XIM 桌面矩阵扩到 21 项全过。**
+
+**核心修复：**
+1. **配置读取时序缺陷（自 addon 初版存在）**：
+   - 根因：构造函数先 `registerProperty()`、后 `reloadConfig()`。fcitx5 的 `registerProperty` 会立即为**已存在**的 InputContext 调用 factory → `ensureDataLoaded()`，此时 conf 尚未读取，`DataDir`/`UserDataDir` 沿用编译默认值；bool 配置（EnableCorrect/Fuzzy）因后续热更新掩盖了问题。
+   - 修复：构造函数改为**先 `reloadConfig()` 再 `registerProperty()`**。
+   - 验证（DISPLAY=:88 全新实例）：日志 `loaded lm=/workspace/native-build/opt/libime/lib/libime/zh_CN.lm`（配置值）；`UserDataDir=/tmp/ud-fix88` 新生成 user.dict/user.history；旧默认目录无新写入。
+2. **中英混输误判缺陷（v0.9.100 引入）**：
+   - 现象：`zhing→中` 失败，原样上屏 `zhing`。根因：M3 纠错把 ctx 改为 `zhong` 后，`rawInput_` 仍是纠错前的 `zhing`（5 字符 >4 且非合法拼音）→ 被「中英自动混输」当英文直接上屏。
+   - 修复：纠错成功时同步 `rawInput_` 为纠正后的紧凑串（去 `'`/空格）。
+3. **v0.9.100/101 合并说明**：中英自动混输优化（hello 等英文词直上屏）；每组独立模糊音开关（`EnableFuzzy` + `FuzzyC_CH` 等，默认全关，需显式开启）。
+
+**回归验证（v0.9.102）：**
+
+| 套件 | 结果 |
+|---|---|
+| XIM 桌面矩阵（scripts/xvfb_ime_test.sh，21 项）| **21/21 ✅** |
+| DBus InputContext e2e（scripts/e2e_run.sh）| **7/7 ✅（按键 65/65）** |
+| 配置生效专项（DataDir/UserDataDir 落盘）| ✅ |
+| M3 纠错 `senme→什么 / zhing→中 / zhng→中 / zongguo→中国` | ✅ |
+| 模糊音 `cifan→吃饭`（FuzzyC_CH）| ✅ |
+
+**测试基建改进：** `scripts/xvfb_test_env.sh` / `scripts/xvfb_ime_test.sh` 支持 DISPLAY 参数化（`DISPLAY=:88 bash scripts/xvfb_ime_test.sh`），用新显示号绕开本机 PID namespace 隔离导致的旧实例堆积。
+
+**本轮待办与优化方向：**
+- [x] addon 配置时序修复（DataDir/UserDataDir 生效）
+- [x] zhing 纠错中英混输误判修复
+- [x] XIM 矩阵扩至 21 项全过（含纠错边界、翻页、候选焦点）
+- [x] S3 回传 v0.9.102/libpinyinime.so
+- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
+- [ ] 打包 .deb/.rpm 一键安装
+
+详见 `docs/2026年10月18日23时43分addon配置时序缺陷修复与纠错中英混输误判修复.md`。
 
 ### v0.9.99（2026-10-18）：源码重编 addon + M3 纠错门控对齐 + 简拼修复 + XIM 11/11
 
