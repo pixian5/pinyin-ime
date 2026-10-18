@@ -13,7 +13,11 @@ NB="${NB:-/root/workspace/native-build}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 FCITX_BIN="$NB/opt/fcitx5-x11/bin/fcitx5"
-export DISPLAY=:99 XMODIFIERS=@im=fcitx LANG=zh_CN.utf8 LC_ALL=zh_CN.utf8
+# 显示号可外部传入（DISPLAY=:87 ...），默认 :99；新显示号可绕开历史遗留实例。
+export DISPLAY="${DISPLAY:-:99}" XMODIFIERS=@im=fcitx LANG=zh_CN.utf8 LC_ALL=zh_CN.utf8
+DSUF="${DISPLAY#:}"; DSUF="${DSUF%%.*}"
+# libxkbcommon 数据目录（sandbox 内 conda 库编译期路径不可用时兜底）
+[ -d /usr/share/X11/xkb ] && export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/usr/share/X11/xkb}"
 export LD_LIBRARY_PATH="$NB/opt/fcitx5-x11/lib:$NB/opt/libime/lib"
 export FCITX_ADDON_DIRS="$NB/opt/fcitx5-x11/lib/fcitx5"
 export FCITX_ADDON_CONFIG_DIRS="$NB/opt/fcitx5-x11/share/fcitx5/addon"
@@ -22,6 +26,22 @@ export FCITX_DATA_DIR="$NB/opt/fcitx5-x11/share/fcitx5"
 # 只读 /usr 沙箱里缓存落在前缀内，用 GTK_IM_MODULE_FILE 指过去（文件不存在时此变量无害）。
 IMCACHE="$NB/opt/fcitx5-x11/lib/gtk-3.0/3.0.0/immodules.cache"
 [ -f "$IMCACHE" ] && export GTK_IM_MODULE_FILE="$IMCACHE"
+
+# ---------- 测试客户端自动编译（不存在时）----------
+# 有 gtk3-devel 用 pkg-config；只读 /usr 沙箱无 devel 时，用仓库内置兼容垫片
+# （tools/gtk_compat_headers）+ 系统 GTK3 运行时直接链接。
+[ -x tools/keysend_target ] || \
+    gcc -O2 -o tools/keysend_target tools/keysend_target.c -lX11 -lXtst
+if [ ! -x tools/gtk_ime_test_client ]; then
+    if pkg-config --exists gtk+-3.0 2>/dev/null; then
+        gcc -O2 -o tools/gtk_ime_test_client tools/gtk_ime_test_client.c \
+            $(pkg-config --cflags --libs gtk+-3.0 gdk-x11-3.0)
+    else
+        gcc -O2 -I tools/gtk_compat_headers -o tools/gtk_ime_test_client \
+            tools/gtk_ime_test_client.c \
+            -l:libgtk-3.so.0 -l:libgdk-3.so.0 -l:libgobject-2.0.so.0 -l:libglib-2.0.so.0
+    fi
+fi
 
 # ---------- 用户配置（数据路径 + 隔离用户目录 + 开纠错）----------
 mkdir -p ~/.config/fcitx5/conf
@@ -32,42 +52,43 @@ EnableCorrect=True
 EOF
 
 # ---------- 环境：Xvfb + 独立 DBus 会话 + fcitx5（DBus）----------
-if ! pgrep -x Xvfb > /dev/null 2>&1; then
-    rm -f /tmp/.X11-unix/X99 /tmp/.X99-lock
-    setsid Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/tmp/xvfb.log 2>&1 < /dev/null &
+if ! xdpyinfo -display "$DISPLAY" > /dev/null 2>&1; then
+    rm -f "/tmp/.X11-unix/X${DSUF}" "/tmp/.X${DSUF}-lock"
+    setsid Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >"/tmp/xvfb-${DSUF}.log" 2>&1 < /dev/null &
     sleep 2
 fi
 # 独立 DBus 会话（避免与 XIM 测试的 dbus 串线）
-dbus-daemon --session --fork --print-address=1 --print-pid=1 > /tmp/desk-dbus-info 2>/dev/null
-export DBUS_SESSION_BUS_ADDRESS="$(grep -m1 '^unix:' /tmp/desk-dbus-info)"
+DBUSINFO="/tmp/desk-dbus-info-${DSUF}"
+dbus-daemon --session --fork --print-address=1 --print-pid=1 > "$DBUSINFO" 2>/dev/null
+export DBUS_SESSION_BUS_ADDRESS="$(grep -m1 '^unix:' "$DBUSINFO")"
 
 pkill -9 -x fcitx5 2>/dev/null
 sleep 1
 rm -rf /tmp/pinyin-ime-desk-ud ~/.local/share/pinyin-ime   # 隔离 + 防御性清默认目录（历史污染教训）
-nohup "$FCITX_BIN" > /tmp/desk-fcitx5.log 2>&1 &
+nohup "$FCITX_BIN" > "/tmp/desk-fcitx5-${DSUF}.log" 2>&1 &
 sleep 5
 
 # 校验：DBus 前端与 dbus addon 都加载、总线名在
-if ! grep -q "Loaded addon dbusfrontend" /tmp/desk-fcitx5.log; then
-    echo "!! fcitx5 未加载 dbusfrontend，退出"; tail -8 /tmp/desk-fcitx5.log; exit 1
+if ! grep -q "Loaded addon dbusfrontend" "/tmp/desk-fcitx5-${DSUF}.log"; then
+    echo "!! fcitx5 未加载 dbusfrontend，退出"; tail -8 "/tmp/desk-fcitx5-${DSUF}.log"; exit 1
 fi
 
 pass=0; fail=0
 # run_case <desc> <按键脚本> <期望子串>
 run_case() {
     local desc="$1" script="$2" want="$3" out wid
-    : > /tmp/desk-client.log
-    GTK_IM_MODULE=fcitx ./tools/gtk_ime_test_client 12 > /tmp/desk-client.log 2>&1 &
+    : > "/tmp/desk-client-${DSUF}.log"
+    GTK_IM_MODULE=fcitx ./tools/gtk_ime_test_client 12 > "/tmp/desk-client-${DSUF}.log" 2>&1 &
     local gpid=$!
     local i
-    for i in $(seq 1 40); do grep -q WINDOW_ID /tmp/desk-client.log && break; sleep 0.25; done
-    wid=$(grep -oE 'WINDOW_ID=0x[0-9a-f]+' /tmp/desk-client.log | cut -d= -f2)
+    for i in $(seq 1 40); do grep -q WINDOW_ID "/tmp/desk-client-${DSUF}.log" && break; sleep 0.25; done
+    wid=$(grep -oE 'WINDOW_ID=0x[0-9a-f]+' "/tmp/desk-client-${DSUF}.log" | cut -d= -f2)
     ./tools/keysend_target "$wid" "$script" > /dev/null 2>&1
     sleep 2
-    out=$(grep '^GTK_COMMIT:' /tmp/desk-client.log | sed 's/^GTK_COMMIT://' | tr -d '\n' | tr ' ' '_')
+    out=$(grep '^GTK_COMMIT:' "/tmp/desk-client-${DSUF}.log" | sed 's/^GTK_COMMIT://' | tr -d '\n' | tr ' ' '_')
     kill "$gpid" 2>/dev/null
-    if grep '^GTK_COMMIT:' /tmp/desk-client.log | grep -qF "$want"; then
-        echo "  PASS  $desc  -> $(grep '^GTK_COMMIT:' /tmp/desk-client.log | tr '\n' ' ')"
+    if grep '^GTK_COMMIT:' "/tmp/desk-client-${DSUF}.log" | grep -qF "$want"; then
+        echo "  PASS  $desc  -> $(grep '^GTK_COMMIT:' "/tmp/desk-client-${DSUF}.log" | tr '\n' ' ')"
         pass=$((pass + 1))
     else
         echo "  FAIL  $desc  -> [$out] (期望含 $want)"

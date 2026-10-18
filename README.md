@@ -1,5 +1,67 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-18 v0.9.102）
+## 当前进度（截至 2026-10-19 v0.9.103）
+
+### v0.9.103（2026-10-19）：GTK/Qt immodule e2e 双双 10/10 + .rpm/.deb 一键安装包
+
+**本轮把两个长期推迟的事项收口：① 常规 X 桌面上的 GTK/Qt 输入法模块（immodule）真实验证；② 产出可分发的 .rpm/.deb 安装包。addon 源码本轮零改动，重编二进制与 v0.9.102 完全一致（`libpinyinime.so` md5 `eb29b7db…` 不变，可复现性再验证）。**
+
+**一、GTK immodule e2e（DISPLAY=:87，10/10 ✅）**
+
+- 本机无 GTK3 devel 包（/usr 只读）：新入库 `tools/gtk_compat_headers/`（最小 GTK3 原型垫片 `gtk/gtk.h` + `gdk/gdkx.h`），测试客户端直接链接系统 GTK3 运行时（`-l:libgtk-3.so.0 -l:libgdk-3.so.0`）。
+- `scripts/xvfb_desktop_ime_test.sh` 参数化重构（DISPLAY/NB 环境变量 + XKB_CONFIG_ROOT 防御），自建 Xvfb → DBus → fcitx5 → GTK 客户端，XTest 注入按键后断言应用内上屏回调。
+- 覆盖：全拼/简拼/纠错/模糊音/中英混输/退格/翻页/候选选择/标点上屏，10/10。
+
+**二、Qt immodule e2e（DISPLAY=:86，10/10 ✅）**
+
+- 难点：mamba-env 的 Qt 缺 platform 插件（无法建窗口）。方案：conda-forge `qt-main 5.15.15 h2f19be9_6`（ICU 75 与 mamba-env 匹配）组装运行时覆盖层 `native-build/qt-qpa/`（Qt5Core/Gui/Widgets/DBus/XcbQpa + `plugins/platforms/libqxcb.so` + libxcb-image/render-util），客户端 `LD_LIBRARY_PATH` 以 qt-qpa 优先。
+- `scripts/xvfb_qt_ime_test.sh` 重写为真实输入测试：Xvfb + DBus + fcitx5 自建、fork 客户端取 WINDOW_ID、`tools/keysend_target` XTest 注入、断言 `COMMIT:` 上屏行，10/10。
+
+**三、.deb / .rpm 一键安装包**
+
+- 新增 `scripts/build_packages.sh`（rpm+deb 构建与内置校验）、`scripts/make_deb.py`（纯 Python ar+tar.gz 组装，无 dpkg 依赖）、`scripts/setup_rpmtools.sh`（只读 /usr 沙箱下从 rpm-build 包解出可用 rpmbuild），重写 `packaging/pinyin-ime.spec`。
+- 产物（dist/，随本提交入库）：
+  - `pinyin-ime-0.9.103-1.aarch64.rpm`（369KB，36 条依赖，含 soname 自动依赖 libFcitx5Core.so.7 / libIMEPinyin.so.0 等）
+  - `pinyin-ime_0.9.103_arm64.deb`（566KB，Depends: fcitx5，Recommends: libime-data）
+- 包内容 = addon `.so` + addon 描述 conf + 配置模板 + `pinyin_ime_cli` + README；**不含** LM/dict 数据（addon 自动搜索发行版 `libime` 标准路径，或 conf 里 `DataDir` 指定）。`fcitx5-addon/conf/pinyinime.conf` 模板补齐 14 组独立模糊音开关（中文注释），随包分发。
+- 校验：rpm 假根安装 OK；deb 结构 + md5sums 全过；包内 `.so`/CLI 与构建产物字节一致（`eb29b7db…` / `048e2f05…`）。
+- 沙箱适配（详见脚本注释）：openEuler 自带 rpm 无构建功能 → 解包 rpm-build 得到 rpmbuild；`rpmdeps` 内部依赖生成器在沙箱（fileattrs 不全）静默失效 → find-requires/find-provides 改为逐文件 `elfdeps` 包装 + `_use_internal_dependency_generator 0`。
+- 打包默认不 strip、不生成 debuginfo，保证包内二进制与 S3 发布产物字节一致（便于 md5 校验）。
+
+**四、令牌与仓库卫生**
+
+- git remote 去除明文 token，改用 credential store（`.git-credentials`，chmod 600）；`.secrets.env` 已 gitignore，仓库不再含任何凭据。
+- ⚠️ 待办（用户侧）：在 GitCode 控制台轮换曾暴露的 GITCODE_TOKEN。
+
+**回归验证（v0.9.103）：**
+
+| 套件 | 结果 |
+|---|---|
+| GTK immodule e2e（scripts/xvfb_desktop_ime_test.sh）| **10/10 ✅** |
+| Qt immodule e2e（scripts/xvfb_qt_ime_test.sh）| **10/10 ✅** |
+| XIM 桌面矩阵（scripts/xvfb_ime_test.sh，21 项）| **21/21 ✅（延续 v0.9.102）** |
+| DBus e2e（scripts/e2e_run.sh）| **7/7 ✅（延续 v0.9.102）** |
+| RPM 假根安装 + 元数据（36 条依赖）| ✅ |
+| DEB 结构与 md5sums | ✅ |
+| addon 重编可复现（md5 与 v0.9.102 相同）| ✅ |
+
+**安装方式：**
+
+```bash
+sudo rpm -ivh pinyin-ime-0.9.103-1.aarch64.rpm    # openEuler/Fedora
+sudo dpkg -i pinyin-ime_0.9.103_arm64.deb          # Debian/Ubuntu
+```
+
+**本轮待办与优化方向：**
+
+- [x] GTK immodule e2e
+- [x] Qt immodule e2e
+- [x] .deb/.rpm 一键安装包
+- [x] 令牌治理（remote 去 token + credential store）
+- [ ] GitCode 控制台轮换 GITCODE_TOKEN（用户侧）
+- [ ] 真实桌面机器（非 Xvfb）安装 .rpm/.deb 验证
+- [ ] 发行版仓库提交准备（libime-data 依赖声明、包签名）
+
+详见 `docs/2026年10月19日00时45分GTK与Qt桌面e2e及deb-rpm打包.md`。
 
 ### v0.9.102（2026-10-18）：addon 配置时序缺陷修复 + 纠错中英混输误判修复 + XIM 21/21
 
@@ -32,8 +94,8 @@
 - [x] zhing 纠错中英混输误判修复
 - [x] XIM 矩阵扩至 21 项全过（含纠错边界、翻页、候选焦点）
 - [x] S3 回传 v0.9.102/libpinyinime.so
-- [ ] 常规有 X 机器补 GTK/Qt immodule e2e
-- [ ] 打包 .deb/.rpm 一键安装
+- [x] 常规有 X 机器补 GTK/Qt immodule e2e（v0.9.103 完成）
+- [x] 打包 .deb/.rpm 一键安装（v0.9.103 完成）
 
 详见 `docs/2026年10月18日23时43分addon配置时序缺陷修复与纠错中英混输误判修复.md`。
 

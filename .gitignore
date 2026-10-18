@@ -18,6 +18,9 @@ cpp/*.log
 cpp/build/
 fcitx5-addon/build/
 
+# 打包构建目录（scripts/build_packages.sh 的工作区，不入库）
+/build/
+
 # 编辑器 / 系统
 .DS_Store
 
