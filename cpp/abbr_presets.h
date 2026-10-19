@@ -538,6 +538,20 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         {"byy", "不要呀"},              // 不要呀（y+呀）
         {"ky", "可以"},                 // 可以
         {"buky", "不可以"},             // 不可以
+        // v0.9.114: 元音尾词（辅音+元音，元音独立成字）——通用组合机制
+        // 这些词本身 libime 能出（ha→好啊），但作为长简拼末尾时会被合并成音节
+        // （jrmsha→进入秒杀，而非"家人们好啊"）。boost_abbreviation 会把它们
+        // 与前面的简拼词组合（前缀词+尾词），从而让任意"…辅音元音"都能出"X好X"。
+        {"ha", "好啊"},                 // h=好 + a=啊
+        {"ho", "好哦"},                 // h=好 + o=哦
+        {"he", "好呃"},                 // h=好 + e=呃
+        {"hi", "嗨"},                   // h + i（嗨/嗨呀）
+        {"na", "哪啊"},                 // n=哪 + a=啊
+        {"no", "哪哦"},                 // n=哪 + o=哦
+        {"ya", "呀"},                   // y + a（呀）
+        {"wa", "哇"},                   // w + a（哇）
+        {"wo", "我哦"},                 // w=我 + o=哦
+        {"nia", "你啊"},                // n=你 + ia（呀）
     };
     return map;
 }
@@ -677,6 +691,42 @@ inline size_t lookup_suffix_boost_index(const std::string &preedit,
     return best_idx;
 }
 
+// v0.9.114: 通用元音尾词组合计算
+// 当输入以"元音尾词"（ha/ho/he/na/no/ya/wa 等，元音独立成字）结尾时，
+// 把输入拆成"前缀 + 尾词"。若前缀能通过 boost 表命中（如 jrms→家人们），
+// 返回组合词（如 家人们 + 好啊 = 家人们好啊）；否则返回空串。
+inline std::string vowel_tail_combined(const std::string &input) {
+    // 需要至少 4 个字符（前缀至少 2 + 尾词至少 2）
+    if (input.size() < 4) return "";
+    // 尝试匹配"元音尾词"（优先最长，nia=3，其余 2）
+    for (size_t tailLen = 3; tailLen >= 2; --tailLen) {
+        if (input.size() <= tailLen) continue;
+        std::string tail = input.substr(input.size() - tailLen);
+        // 尾词本身必须是预设词（如 ha→好啊），且不是英文直通
+        std::string tail_word = lookup_pinyin_boost(tail);
+        if (tail_word.empty() || tail_word == tail) continue;
+        std::string prefix = input.substr(0, input.size() - tailLen);
+        std::string pword = lookup_pinyin_boost(prefix);
+        if (pword.empty() || pword == prefix) continue;
+        // 组合（如 家人们 + 好啊 = 家人们好啊）
+        return pword + tail_word;
+    }
+    return "";
+}
+
+// v0.9.114: 通用元音尾词组合 boost（CLI 用）
+// 若 vowel_tail_combined 返回非空，且候选列表中没有该组合，则插入候选首位。
+inline void vowel_tail_boost(const std::string &input, std::vector<std::string> &cands) {
+    if (cands.empty()) return;
+    std::string combined = vowel_tail_combined(input);
+    if (combined.empty()) return;
+    // 避免重复（若候选已含组合则不再插入）
+    for (const auto &c : cands) {
+        if (c == combined) return;
+    }
+    cands.insert(cands.begin(), combined);
+}
+
 inline void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
     // 英文直通：常见英文词作为首选
     if (is_english_passthrough(input)) {
@@ -705,6 +755,8 @@ inline void boost_abbreviation(const std::string &input, std::vector<std::string
     suffix_boost(input, cands);
     // v0.9.52: 后缀匹配失败时，尝试前缀匹配 boost
     prefix_boost(input, cands);
+    // v0.9.114: 通用元音尾词组合 boost（如 jrmsha→家人们好啊）
+    vowel_tail_boost(input, cands);
 }
 
 // 计算 boostSwap：返回预设词在候选列表中的位置（0 表示无需交换）

@@ -427,10 +427,15 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
                 }
             }
         }
-            // v0.9.51: 预设词不在候选列表中：插入首位（与 CLI boost_abbreviation 一致）
-            if (boostSwap_ == 0 && !pword.empty()) {
-                if (pword != compact) boostInsertWord_ = pword;
-            }
+        // v0.9.51: 预设词不在候选列表中：插入首位（与 CLI boost_abbreviation 一致）
+        if (boostSwap_ == 0 && !pword.empty()) {
+            if (pword != compact) boostInsertWord_ = pword;
+        }
+        // v0.9.114: 完整匹配未命中时，尝试通用元音尾词组合（如 jrmsha→家人们好啊）
+        if (boostSwap_ == 0 && boostInsertWord_.empty()) {
+            std::string combined = pinyin_ime::vowel_tail_combined(compact);
+            if (!combined.empty() && combined != compact) boostInsertWord_ = combined;
+        }
         // v0.9.46: 完整匹配失败时，尝试后缀匹配
         if (boostSwap_ == 0) {
             std::vector<std::string> cand_strs;
