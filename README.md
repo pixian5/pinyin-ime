@@ -3,6 +3,36 @@
 
 ## 当前进度（截至 2026-10-19 v0.9.115）
 
+## 当前进度（截至 2026-10-20 v0.9.116）
+
+### v0.9.116（2026-10-20）：aarch64 全链路重建 — CLI + fcitx5 X11 + GTK3 IM module — Xvfb 31/31
+
+**目标**：在 openEuler 22.03 aarch64 上从源码完整重建输入法，验证真正能跑。
+
+**构建过程**：
+- micromamba conda 环境（gcc 16.2 + boost 1.85 + fmt + zstd + libuv + ECM 6.12 + cmake 4.2 + ninja）
+- fcitx5 5.1.23 headless 编译 → fcitx5 X11 补编（xcb-imdkit 1.0.3 + yoga + XIM/XCB/DBus 前端）
+- libime 1.1.17 编译（4-gram 补丁 + kenlm）；LM/dict 使用 S3 v0.9.83 预构建产物（download.fcitx-im.org 不稳定）
+- CLI（pinyin_ime_cli）+ fcitx5 addon（libpinyinime.so）编译
+- fcitx5-gtk 5.1.7 GTK3 IM module 编译（系统 gcc 10.3 + conda ECM，避免 ABI 冲突）
+- 中文字体（文泉驿微米黑）+ zh_CN.UTF-8 locale + Xvfb + dbus 就绪
+
+**验证**：
+- CLI：nihao→你好、zhongguo→中国、beijingdaxue→北京大学、zg→中国、yyds→永远的神、jrmsda→家人们谁懂啊、hello→hello、xi'an→西安、woshizg→我是中国，全过。
+- Xvfb XIM 端到端（21/21）：全拼/简拼/中英切换/中文标点/引号配对/Ctrl-E 表情/翻页/M3 纠错/撤回，全过。
+- GTK3 桌面端到端（10/10）：全拼/简拼/整句/纠错/中英切换/标点/先上屏再标点，全过。
+
+**产物（aarch64）**：
+- CLI: 908KB（cpp/build/pinyin_ime_cli）
+- Addon: 919KB（fcitx5-addon/build/libpinyinime.so）
+- fcitx5: 449KB（含 X11/XIM/DBus 前端）
+- GTK IM: 165KB（im-fcitx5.so）
+- LM: 34MB（zh_CN.lm，S3 v0.9.83）
+- Dict: 4.5MB（sc.dict，S3 v0.9.83）
+
+**已上传 S3**：cst:xbz/pinyin-ime/v0.9.116/（CLI + addon + fcitx5 + GTK im + LM + dict + SHA256）
+
+
 ### v0.9.115（2026-10-19）：回车键上屏原始输入 + 鼠标点击候选上屏 — 双环境 GTK 通过
 
 **用户反馈**：①回车键应上屏用户原始输入；②鼠标点击哪个候选词也能上屏。
