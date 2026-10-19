@@ -961,9 +961,47 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_space) ||
         event.key().check(FcitxKey_Return)) {
         if (!ctx.empty()) {
+            // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音
+            // （ll/oo/ee/tt/ss/pp/mm/nn 等），而 hello/good/look/apple 等常见英文
+            // 单词含双写。命中即判定为英文输入，跳过 M3 纠错（避免把 hello 误
+            // 纠成 henli 再选中生僻候选），直接交给下方混输分支上屏英文。
+            std::string compactRaw;
+            compactRaw.reserve(state->rawInput_.size());
+            for (char c : state->rawInput_) {
+                if (c >= 'a' && c <= 'z') compactRaw.push_back(c);
+            }
+            const bool englishDoubled =
+                !compactRaw.empty() && !is_valid_pinyin(compactRaw) &&
+                (compactRaw.find("aa") != std::string::npos ||
+                 compactRaw.find("bb") != std::string::npos ||
+                 compactRaw.find("cc") != std::string::npos ||
+                 compactRaw.find("dd") != std::string::npos ||
+                 compactRaw.find("ee") != std::string::npos ||
+                 compactRaw.find("ff") != std::string::npos ||
+                 compactRaw.find("gg") != std::string::npos ||
+                 compactRaw.find("hh") != std::string::npos ||
+                 compactRaw.find("ii") != std::string::npos ||
+                 compactRaw.find("jj") != std::string::npos ||
+                 compactRaw.find("kk") != std::string::npos ||
+                 compactRaw.find("ll") != std::string::npos ||
+                 compactRaw.find("mm") != std::string::npos ||
+                 compactRaw.find("nn") != std::string::npos ||
+                 compactRaw.find("oo") != std::string::npos ||
+                 compactRaw.find("pp") != std::string::npos ||
+                 compactRaw.find("qq") != std::string::npos ||
+                 compactRaw.find("rr") != std::string::npos ||
+                 compactRaw.find("ss") != std::string::npos ||
+                 compactRaw.find("tt") != std::string::npos ||
+                 compactRaw.find("uu") != std::string::npos ||
+                 compactRaw.find("vv") != std::string::npos ||
+                 compactRaw.find("ww") != std::string::npos ||
+                 compactRaw.find("xx") != std::string::npos ||
+                 compactRaw.find("yy") != std::string::npos ||
+                 compactRaw.find("zz") != std::string::npos);
             // M3 纠错（EnableCorrect）：全拼打错时解码前整串纠正。should_correct
             // 门控（含重错全拼扩展）保证简拼/混合输入不误伤（与 CLI --correct 语义一致）。
-            if (config().enableCorrect.value()) {
+            // 英文输入（含双写辅音）跳过纠错。
+            if (config().enableCorrect.value() && !englishDoubled) {
                 std::string cont;
                 for (char c : ctx.preedit()) {
                     if (c != '\'' && c != ' ') {
@@ -992,12 +1030,15 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     }
                 }
             }
-            // v0.9.100: 中英自动混输 — 用原始输入（未纠错）判断
-            // compactPy 是纠错后的 preedit（如 hello→henli），会误判为有效拼音
-            // rawInput_ 是用户实际键入的字符，用它判断是否英文
-            if (!state->rawInput_.empty() &&
-                !is_valid_pinyin(state->rawInput_) &&
-                (ctx.candidates().empty() || state->rawInput_.size() > 4)) {
+            // v0.9.108: 中英自动混输 — 用「紧凑拼音」（去隔音符/空格）判断。
+            // rawInput_ 含 ' 或空格（如 ni'hao、ni hao）会让 is_valid_pinyin
+            // 误判为英文（音节表不含 ' / 空格），导致按空格把原文上屏而非选候选。
+            // 这里先压缩再判断。englishDoubled（含双写辅音）已在上方判定为英文，
+            // 无论长度都直接上屏英文；其余非法拼音仅在候选为空或长度 >4 时才当英文。
+            if (englishDoubled ||
+                (!compactRaw.empty() &&
+                 !is_valid_pinyin(compactRaw) &&
+                 (ctx.candidates().empty() || compactRaw.size() > 4))) {
                 state->commitText(state->rawInput_);
                 state->reset();
                 event.filterAndAccept();

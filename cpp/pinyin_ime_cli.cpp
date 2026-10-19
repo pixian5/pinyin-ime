@@ -1578,6 +1578,45 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+            // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
+            // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
+            {
+                std::string compact;
+                compact.reserve(line.size());
+                for (char c : line) if (c >= 'a' && c <= 'z') compact.push_back(c);
+                const bool englishLineDoubled =
+                    !compact.empty() && !is_valid_pinyin(compact) &&
+                    (compact.find("aa") != std::string::npos ||
+                     compact.find("bb") != std::string::npos ||
+                     compact.find("cc") != std::string::npos ||
+                     compact.find("dd") != std::string::npos ||
+                     compact.find("ee") != std::string::npos ||
+                     compact.find("ff") != std::string::npos ||
+                     compact.find("gg") != std::string::npos ||
+                     compact.find("hh") != std::string::npos ||
+                     compact.find("ii") != std::string::npos ||
+                     compact.find("jj") != std::string::npos ||
+                     compact.find("kk") != std::string::npos ||
+                     compact.find("ll") != std::string::npos ||
+                     compact.find("mm") != std::string::npos ||
+                     compact.find("nn") != std::string::npos ||
+                     compact.find("oo") != std::string::npos ||
+                     compact.find("pp") != std::string::npos ||
+                     compact.find("qq") != std::string::npos ||
+                     compact.find("rr") != std::string::npos ||
+                     compact.find("ss") != std::string::npos ||
+                     compact.find("tt") != std::string::npos ||
+                     compact.find("uu") != std::string::npos ||
+                     compact.find("vv") != std::string::npos ||
+                     compact.find("ww") != std::string::npos ||
+                     compact.find("xx") != std::string::npos ||
+                     compact.find("yy") != std::string::npos ||
+                     compact.find("zz") != std::string::npos);
+                if (englishLineDoubled) {
+                    std::cout << line << "\n";
+                    continue;
+                }
+            }
             if (correctPinyin && pinyin_corrector::should_correct(line)) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
@@ -1803,6 +1842,45 @@ int main(int argc, char **argv) {
                         case '6': c = 'y'; break;
                         case '9': c = 'p'; break;
                     }
+                }
+            }
+            // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
+            // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
+            {
+                std::string compact;
+                compact.reserve(line.size());
+                for (char c : line) if (c >= 'a' && c <= 'z') compact.push_back(c);
+                const bool englishLineDoubled =
+                    !compact.empty() && !is_valid_pinyin(compact) &&
+                    (compact.find("aa") != std::string::npos ||
+                     compact.find("bb") != std::string::npos ||
+                     compact.find("cc") != std::string::npos ||
+                     compact.find("dd") != std::string::npos ||
+                     compact.find("ee") != std::string::npos ||
+                     compact.find("ff") != std::string::npos ||
+                     compact.find("gg") != std::string::npos ||
+                     compact.find("hh") != std::string::npos ||
+                     compact.find("ii") != std::string::npos ||
+                     compact.find("jj") != std::string::npos ||
+                     compact.find("kk") != std::string::npos ||
+                     compact.find("ll") != std::string::npos ||
+                     compact.find("mm") != std::string::npos ||
+                     compact.find("nn") != std::string::npos ||
+                     compact.find("oo") != std::string::npos ||
+                     compact.find("pp") != std::string::npos ||
+                     compact.find("qq") != std::string::npos ||
+                     compact.find("rr") != std::string::npos ||
+                     compact.find("ss") != std::string::npos ||
+                     compact.find("tt") != std::string::npos ||
+                     compact.find("uu") != std::string::npos ||
+                     compact.find("vv") != std::string::npos ||
+                     compact.find("ww") != std::string::npos ||
+                     compact.find("xx") != std::string::npos ||
+                     compact.find("yy") != std::string::npos ||
+                     compact.find("zz") != std::string::npos);
+                if (englishLineDoubled) {
+                    std::cout << line << "\n";
+                    continue;
                 }
             }
             if (correctPinyin && pinyin_corrector::should_correct(line)) {
@@ -2233,6 +2311,52 @@ int main(int argc, char **argv) {
                     // preedit 音节间可能带空格（显示 "sen me"）、隔音符 xi'an 带 '，都滤掉。
                     for (char c : ctx.preedit()) {
                         if (c != '\'' && c != ' ') cont.push_back(c);
+                    }
+                    // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音
+                    // （ll/oo/ee/tt/ss/pp/mm/nn 等），hello/good/look/apple 等常见英文
+                    // 单词含双写。命中即判定英文输入，跳过 M3 纠错，直接上屏英文。
+                    {
+                        std::string compactRaw;
+                        compactRaw.reserve(cont.size());
+                        for (char c : cont) {
+                            if (c >= 'a' && c <= 'z') compactRaw.push_back(c);
+                        }
+                        const bool englishDoubled =
+                            !compactRaw.empty() && !is_valid_pinyin_inline(compactRaw) &&
+                            (compactRaw.find("aa") != std::string::npos ||
+                             compactRaw.find("bb") != std::string::npos ||
+                             compactRaw.find("cc") != std::string::npos ||
+                             compactRaw.find("dd") != std::string::npos ||
+                             compactRaw.find("ee") != std::string::npos ||
+                             compactRaw.find("ff") != std::string::npos ||
+                             compactRaw.find("gg") != std::string::npos ||
+                             compactRaw.find("hh") != std::string::npos ||
+                             compactRaw.find("ii") != std::string::npos ||
+                             compactRaw.find("jj") != std::string::npos ||
+                             compactRaw.find("kk") != std::string::npos ||
+                             compactRaw.find("ll") != std::string::npos ||
+                             compactRaw.find("mm") != std::string::npos ||
+                             compactRaw.find("nn") != std::string::npos ||
+                             compactRaw.find("oo") != std::string::npos ||
+                             compactRaw.find("pp") != std::string::npos ||
+                             compactRaw.find("qq") != std::string::npos ||
+                             compactRaw.find("rr") != std::string::npos ||
+                             compactRaw.find("ss") != std::string::npos ||
+                             compactRaw.find("tt") != std::string::npos ||
+                             compactRaw.find("uu") != std::string::npos ||
+                             compactRaw.find("vv") != std::string::npos ||
+                             compactRaw.find("ww") != std::string::npos ||
+                             compactRaw.find("xx") != std::string::npos ||
+                             compactRaw.find("yy") != std::string::npos ||
+                             compactRaw.find("zz") != std::string::npos);
+                        if (englishDoubled) {
+                            output_line(compactRaw);
+                            ctx.clear();
+                            page = 0;
+                            candFocus = 0;
+                            render();
+                            continue;
+                        }
                     }
                     if (!cont.empty() && pinyin_corrector::should_correct(cont)) {
                         std::string fixed = pinyin_corrector::correct_to_string(cont);
