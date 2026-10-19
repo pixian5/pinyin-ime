@@ -1,5 +1,17 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.105）
+## 当前进度（截至 2026-10-19 v0.9.106）
+
+### v0.9.106（2026-10-19）：云电脑 XFCE 桌面部署 — noVNC 网页里直接可用的中文输入
+
+**云电脑模式（Xvfb :1 + XFCE 4 + x11vnc/noVNC :6080）已内置，无需重装；在桌面会话里部署 fcitx5 + pinyinime addon，GTK 实测 6/6 全过。** 现在打开 noVNC 网页（http://服务器:6080/vnc.html）即可用中文拼音输入。
+
+- 确认云电脑服务原样可用：X :1、VNC 5900/5901/5903、noVNC 6080（HTTP 200）、XFCE 会话。
+- 用 XFCE 会话 DBus 启动 fcitx5（不能接测试用的 :93 bus），pinyinime 加载成功。
+- 持久化输入法环境变量：`~/.xprofile`、`~/.profile`、`~/.config/environment.d/input-method.conf`（XMODIFIERS/GTK_IM_MODULE/QT_IM_MODULE=fcitx）。
+- 桌面实测（:1 GTK 应用 + xdotool）：nihao/zhongguo/zg/bjdx/senme/zhing 全部正确上屏。
+- 详见 `docs/2026年10月19日08时45分-云电脑XFCE桌面部署pinyinime输入法-Hermes.md`。
+
+### v0.9.105（2026-10-19）：GTK immodule 真实桌面 GUI e2e 11/11 + 候选窗截图视觉验证
 
 ### v0.9.105（2026-10-19）：GTK immodule 真实桌面 GUI e2e 11/11 + 候选窗截图视觉验证
 
