@@ -1,5 +1,17 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.106）
+## 当前进度（截至 2026-10-19 v0.9.107）
+
+### v0.9.107（2026-10-19）：重启云电脑桌面 — fcitx5 自启动恢复，GTK 实测 6/6
+
+**配置 XFCE XDG autostart 让 fcitx5 随桌面会话自启；重启云电脑（Xvfb :1 + XFCE 4）后输入法自动恢复，GTK 真实输入 6/6 全过。** noVNC 打开即可用中文拼音输入，无需手动启动输入法。
+
+- 创建 `~/.config/autostart/fcitx5.desktop`（XMODIFIERS/GTK_IM/QT_IM=fcitx + FCITX_ADDON_DIRS）。
+- 重启流程：`pkill -9 -x fcitx5` → 杀旧 xfce4-session/dbus-run-session → `setsid dbus-run-session -- startxfce4`。
+- 重启后 fcitx5 自动拉起（PID 2770524），接入新会话 DBus，org.fcitx.Fcitx5 注册。
+- 桌面实测（:1 GTK 应用 + xdotool）：nihao/zhongguo/zg/bjdx/senme/zhing 全部正确上屏，6/6。
+- 详见 `docs/2026年10月19日10时10分-重启云电脑桌面输入法自恢复验证-Hermes.md`。
+
+### v0.9.106（2026-10-19）：云电脑 XFCE 桌面部署 — noVNC 网页里直接可用的中文输入
 
 ### v0.9.106（2026-10-19）：云电脑 XFCE 桌面部署 — noVNC 网页里直接可用的中文输入
 
