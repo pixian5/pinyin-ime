@@ -1,5 +1,16 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.104）
+## 当前进度（截至 2026-10-19 v0.9.105）
+
+### v0.9.105（2026-10-19）：GTK immodule 真实桌面 GUI e2e 11/11 + 候选窗截图视觉验证
+
+**在 Ubuntu 24.04 x86_64 上走通真实桌面输入链路：GTK3 应用 → im-fcitx5 → DBus → fcitx5 → 自研 addon，11 项用例全过；并用 GUI 演示程序截图确认候选窗、拼音预编辑、上屏文字真实渲染。**
+
+- GTK immodule e2e（tools/gtk_ime_test_client + xdotool）：全拼 nihao/zhongguo、简拼 zg/bjdx、长句 woshiyige、M3 纠错 senme/zhing/zongguo、中文标点 ，。？，**11/11 全过**。
+- 踩坑记录：DBus 地址变量名（DBUS_SESSION_BUS_ADDRESS）、GTK 客户端默认 30s 超时、xdotool type 不经过 IM 键处理（标点用物理键）、每用例独立客户端、Ctrl+Space 用 xdotool key 注入。
+- GUI 视觉验证（tools/ime_gui_demo）：输入 nihao 候选窗出现（OCR：`ni hao` + 9 个候选）、空格上屏「你好」、再输 shijie 得「你好世界」，截图 5 张（screenshots/gui-104-*.png）。
+- 版本 0.9.105；详见 `docs/2026年10月19日08时30分GTK-immodule-真实桌面GUI候选窗截图验证-Hermes.md`。
+
+**待办：** GTK e2e 固化为脚本、x86_64 打包 .deb/.rpm、libime 升级 1.1.17 恢复完整能力。
 
 ### v0.9.104（2026-10-19）：Ubuntu 24.04 x86_64 全平台打通 — 系统 fcitx5 5.1.7 + XIM e2e 11/11
 
