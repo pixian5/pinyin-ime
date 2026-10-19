@@ -1,5 +1,16 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.107）
+## 当前进度（截至 2026-10-19 v0.9.108）
+
+### v0.9.108（2026-10-19）：修复云电脑桌面无法打字 — XFCE xinitrc 注入 IM 变量，实测 6/6
+
+**问题**：fcitx5 已运行但桌面应用无法用拼音打字。根因：桌面由 `dbus-run-session -- startxfce4` 启动，绕过 Xsession/im-config，导致 xfce4-session 及其子进程没有 `XMODIFIERS/GTK_IM_MODULE/QT_IM_MODULE`。
+
+**修复**：创建 `~/.config/xfce4/xinitrc`（XFCE 官方会话启动钩子），export IM 变量到整个桌面会话，并自动启动 fcitx5。重启桌面后 xfce4-session/panel/fcitx5 全部正确继承 IM 变量，云电脑桌面 GTK 真实输入 **6/6 全过**（nihao/zhongguo/zg/bjdx/senme/zhing）。
+
+- 详见 `docs/2026年10月19日11时00分-修复云电脑桌面无法打字注入IM环境变量-Hermes.md`。
+- 现在 noVNC 打开云电脑，任意应用按 Ctrl+Space 即可用 pinyinime 输入中文。
+
+### v0.9.107（2026-10-19）：重启云电脑桌面 — fcitx5 自启动恢复，GTK 实测 6/6
 
 ### v0.9.107（2026-10-19）：重启云电脑桌面 — fcitx5 自启动恢复，GTK 实测 6/6
 
