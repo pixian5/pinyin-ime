@@ -1030,15 +1030,19 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     }
                 }
             }
-            // v0.9.108: 中英自动混输 — 用「紧凑拼音」（去隔音符/空格）判断。
-            // rawInput_ 含 ' 或空格（如 ni'hao、ni hao）会让 is_valid_pinyin
-            // 误判为英文（音节表不含 ' / 空格），导致按空格把原文上屏而非选候选。
-            // 这里先压缩再判断。englishDoubled（含双写辅音）已在上方判定为英文，
-            // 无论长度都直接上屏英文；其余非法拼音仅在候选为空或长度 >4 时才当英文。
+            // v0.9.110: 中英自动混输 — 关键修复：只要当前有中文候选，就优先选候选，
+            // 不把原始输入当英文上屏。
+            // 此前条件 `candidates().empty() || size>4` 会误伤「含简拼的混合输入」
+            // （如 woshizg、nihaozg：is_valid_pinyin 因 zg 不是合法音节而判 false，
+            // 但 libime 实际能给出“我是中国/你好中国”等候选），导致按空格把
+            // 整个拼音串上屏。现在：
+            //   - englishDoubled（含双写辅音）→ 明确英文，上屏英文；
+            //   - 否则仅当「无任何候选」且「非合法拼音」才上屏英文；
+            //   - 只要候选非空（无论紧凑拼音是否合法）→ 选候选。
             if (englishDoubled ||
                 (!compactRaw.empty() &&
-                 !is_valid_pinyin(compactRaw) &&
-                 (ctx.candidates().empty() || compactRaw.size() > 4))) {
+                 ctx.candidates().empty() &&
+                 !is_valid_pinyin(compactRaw))) {
                 state->commitText(state->rawInput_);
                 state->reset();
                 event.filterAndAccept();

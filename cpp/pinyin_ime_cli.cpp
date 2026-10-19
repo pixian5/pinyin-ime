@@ -2374,7 +2374,12 @@ int main(int argc, char **argv) {
                     for (char c : ctx.preedit()) {
                         if (c != '\'' && c != ' ') compactPy.push_back(c);
                     }
-                    if (!compactPy.empty() && !is_valid_pinyin_inline(compactPy)) {
+                    // v0.9.110: 仅当「无任何中文候选」且非合法拼音时才上屏英文。
+                    // 含简拼的混合输入（woshizg/nihaozg）虽有非法音节段，但 libime
+                    // 能给出中文候选，必须走 commit 选候选，不能把原始输入上屏。
+                    const auto &candsNow = ctx.candidatesToCursor();
+                    if (!compactPy.empty() && candsNow.empty() &&
+                        !is_valid_pinyin_inline(compactPy)) {
                         output_line(compactPy);
                         ctx.clear();
                         page = 0;
