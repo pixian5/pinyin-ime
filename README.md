@@ -1,5 +1,17 @@
 # pinyin-ime
-## 当前进度（截至 2026-10-19 v0.9.110）
+> 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
+
+## 当前进度（截至 2026-10-19 v0.9.111）
+
+### v0.9.111（2026-10-19）：本机云电脑桌面与 Xvfb 测试环境双部署完成 — 双环境 GTK 7/7
+
+**完成目标**：pinyin-ime 从源码构建为 x86_64 可用版本（CLI + fcitx5 addon），并同时部署到本机云电脑桌面（Xvfb :1 + XFCE 4 + noVNC）与 Xvfb 测试环境（:93），双环境 GTK 真实输入 **7/7 全过**。
+
+- **本机云电脑桌面（:1）**：xfce4-session + fcitx5（含 pinyinime addon）运行中，IM 变量经 `~/.config/xfce4/xinitrc` 注入整个桌面会话；GTK 实测 woshizg→我是中国、nihaozg→你好中国、zhongguorenmin→中国人民、nihao→你好、xi'an→西安、hello→hello、zg→中国，**7/7**。
+- **Xvfb 测试环境（:93）**：独立 dbus + fcitx5 运行中，与 :1 共享用户级 addon（`~/.local/share/fcitx5/`），GTK 实测同样 **7/7**。
+- **排障要点**：`:93` 若用独立的 `XDG_CONFIG_HOME=/tmp/fcitx5-93-conf` 且该目录残留旧状态，会导致 fcitx5 加载系统内置 `pinyin` 并使其成为 Ctrl+Space 的默认切换目标（中文被系统拼音抢走、英文 `hello` 被纠成"荷兰咯"）。改用默认 `XDG_CONFIG_HOME`（共享 `~/.config/fcitx5`）后，pinyinime 成为唯一中文输入法，行为与 :1 完全一致。
+- **关键教训**：多 fcitx5 实例（:1 / :93）必须严格隔离环境变量，尤其 `XDG_CONFIG_HOME`/`XDG_DATA_HOME` 不能串，否则一个实例的配置污染另一个实例，导致输入法组/候选行为异常。
+- **版本**：VERSION / CMakeLists 同步 `0.9.111`。
 
 ### v0.9.110（2026-10-19）：修复混合输入按空格误上屏整个原始拼音 — GUI 7/7
 
@@ -46,8 +58,6 @@
 - 重启后 fcitx5 自动拉起（PID 2770524），接入新会话 DBus，org.fcitx.Fcitx5 注册。
 - 桌面实测（:1 GTK 应用 + xdotool）：nihao/zhongguo/zg/bjdx/senme/zhing 全部正确上屏，6/6。
 - 详见 `docs/2026年10月19日10时10分-重启云电脑桌面输入法自恢复验证-Hermes.md`。
-
-### v0.9.106（2026-10-19）：云电脑 XFCE 桌面部署 — noVNC 网页里直接可用的中文输入
 
 ### v0.9.106（2026-10-19）：云电脑 XFCE 桌面部署 — noVNC 网页里直接可用的中文输入
 
