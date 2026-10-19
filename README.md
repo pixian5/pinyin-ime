@@ -1,7 +1,25 @@
 # pinyin-ime
 > 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
 
-## 当前进度（截至 2026-10-19 v0.9.111）
+## 当前进度（截至 2026-10-19 v0.9.112）
+
+### v0.9.112（2026-10-19）：移除候选窗首选全拼标注 + 全拼→简拼动态记忆 — 双环境 7/7
+
+**问题 1**：候选窗第一项后面跟着这个词的完整全拼（如 `1.你好 nihao`），其他项没有，用户要求删除。
+
+**修复 1**：移除 v0.9.90 引入的「首选候选显示拼音标注」逻辑（`candidateFullPinyin` + `append(" "+candPy)`），候选文本直接显示词本身。经截图 OCR 验证，候选窗第一项变为 `1.你好`，不再带 `nihao`。
+
+**问题 2（优化）**：用户输入全拼选词后，希望把该词的简拼记忆下来，下次输入简拼时优先（置顶或加权）。
+
+**实现**：
+- `abbr_presets.h` 新增 `remember_abbr(key, word)`：把「简拼=词」写入内存 `user_abbr_map()` 并追加到 `~/.config/pinyin-ime/abbr.txt`（与 CLI 共享同一用户简拼文件，格式 `abbr=word`）。
+- addon 在 `selectCandidate` 里提前保存原始 `context_.preedit()`（含 `'` 分隔音节），选词成功且 `is_valid_pinyin(compact)` 为真（确认是全拼）时，按 `'` 切分音节、取每音节首字母组成简拼，调用 `remember_abbr` 记忆。
+- 下次输入该简拼时，`lookup_pinyin_boost` 会命中记忆的词并 boost 到首位。
+
+**验证**：
+- 候选窗截图 OCR：`ni hao` + `1.你好 2.拟好 ...`，第一项无全拼标注。
+- 记忆测试：输入 `zhongguo` 选"中国" → abbr 文件写入 `zg=中国`；再输入 `zg` → 上屏"中国"。
+- 完整回归（:1 云桌面 + :93 Xvfb）：woshizg/nihaozg/zhongguorenmin/nihao/xi'an/hello/zg 全部正确，双环境 **7/7**。
 
 ### v0.9.111（2026-10-19）：本机云电脑桌面与 Xvfb 测试环境双部署完成 — 双环境 GTK 7/7
 

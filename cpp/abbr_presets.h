@@ -22,6 +22,8 @@
 #include <unordered_set>
 #include <vector>
 #include <fstream>
+#include <filesystem>
+#include <system_error>
 
 namespace pinyin_ime {
 
@@ -118,7 +120,7 @@ inline std::string& abbr_file_path() {
 
 // 加载用户自定义简拼文件（~/.config/pinyin-ime/abbr.txt 或指定路径）
 // 格式：每行 "abbr=word"，# 开头为注释。返回空 map 若文件不存在。
-inline const std::unordered_map<std::string, std::string>& user_abbr_map() {
+inline std::unordered_map<std::string, std::string>& mutable_user_abbr_map() {
     static std::unordered_map<std::string, std::string> umap;
     static bool loaded = false;
     if (!loaded) {
@@ -142,6 +144,34 @@ inline const std::unordered_map<std::string, std::string>& user_abbr_map() {
         }
     }
     return umap;
+}
+
+// 只读访问用户自定义简拼表（供 lookup 用）
+inline const std::unordered_map<std::string, std::string>& user_abbr_map() {
+    return mutable_user_abbr_map();
+}
+
+// 记忆一条简拼→词（动态学习）。写入内存表并追加到 abbr 文件（若可写）。
+// v0.9.112: 用户输入全拼选词后，把「全拼首字母=词」动态记忆下来。
+inline void remember_abbr(const std::string &key, const std::string &word) {
+    if (key.empty() || word.empty()) return;
+    auto &umap = mutable_user_abbr_map();
+    // 已有相同/更优记忆则跳过（避免覆盖用户手工配置的更高优先级词）
+    auto it = umap.find(key);
+    if (it != umap.end() && it->second == word) return;
+    umap[key] = word;
+    std::string path = abbr_file_path();
+    if (path.empty()) {
+        const char *home = getenv("HOME");
+        if (home) path = std::string(home) + "/.config/pinyin-ime/abbr.txt";
+    }
+    if (path.empty()) return;
+    std::error_code ec;
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+    std::ofstream f(path, std::ios::app);
+    if (f) {
+        f << key << "=" << word << "\n";
+    }
 }
 
 // ── 简拼判断与 boost ────────────────────────────────────────

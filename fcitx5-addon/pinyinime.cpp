@@ -260,6 +260,40 @@ bool is_valid_pinyin(const std::string &raw) {
     return dp[0] >= 0;
 }
 
+// v0.9.112: 全拼→简拼动态记忆。
+// 用户输入完整全拼并选词后，把「全拼首字母缩写=词」记忆到 abbr 文件。
+// 只记忆真正的全拼（is_valid_pinyin 为 true），简拼/混合输入不记忆。
+// preedit 是 libime 的原始 preedit（音节间以 ' 分隔，如 zhong'guo），
+// 用它切分音节，取每音节首字母组成简拼。
+inline void try_remember_abbr_from_full(const std::string &preedit,
+                                        const std::string &word) {
+    if (preedit.empty() || word.empty()) return;
+    std::string compact;
+    for (char c : preedit) {
+        if (c != '\'' && c != ' ') compact.push_back(c);
+    }
+    // 仅全拼才记忆（合法音节串且非单音节——单音节简拼就是它自己，无意义）
+    if (!is_valid_pinyin(compact) || compact.size() < 2) return;
+    // 用 ' 切分音节；若 preedit 无 ' 则退化为整体（不切分，直接不记忆）
+    std::vector<std::string> syllables;
+    std::string cur;
+    for (char c : preedit) {
+        if (c == '\'') {
+            if (!cur.empty()) { syllables.push_back(cur); cur.clear(); }
+        } else if (c != ' ') {
+            cur.push_back(c);
+        }
+    }
+    if (!cur.empty()) syllables.push_back(cur);
+    if (syllables.size() < 2) return;
+    std::string abbr;
+    for (const auto &s : syllables) {
+        if (!s.empty()) abbr.push_back(s[0]);
+    }
+    if (abbr.size() < 2) return;
+    pinyin_ime::remember_abbr(abbr, word);
+}
+
 // ---------------- PinyinIMEState ----------------
 
 PinyinIMEState::PinyinIMEState(PinyinIMEEngine *engine, InputContext *ic)
@@ -421,14 +455,8 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
                 if (i == begin) displayIdx = boostSwap_;
                 else if (i == boostSwap_) displayIdx = begin;
             }
-            // v0.9.90: 首选候选显示拼音标注
+            // v0.9.111: 移除首选候选的拼音标注（用户反馈第一项后面跟着完整全拼）
             Text candText(cands[displayIdx].toString());
-            if (i == begin && page_ == 0) {
-                std::string candPy = context_.candidateFullPinyin(displayIdx);
-                if (!candPy.empty()) {
-                    candText.append(" " + candPy);
-                }
-            }
             // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
             candidateList->append<DisplayOnlyCandidateWord>(candText);
         }
@@ -463,6 +491,8 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
     if (context_.empty() || idx >= cands.size()) {
         return;
     }
+    // v0.9.112: 提前保存原始 preedit（含 ' 分隔音节），用于选词后记忆全拼→简拼
+    const std::string rawPreedit = context_.preedit();
     // v0.9.51: boost 插入词处理：用户选首位且 boostInsertWord_ 非空时，直接提交预设词
     if (!boostInsertWord_.empty() && page_ == 0 && idx == 0) {
         std::string pinyin;
@@ -495,6 +525,8 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
     if (context_.selected()) {
         const std::string text = context_.sentence();
         if (!text.empty()) {
+            // v0.9.112: 用户输入全拼并选词成功 → 记忆「全拼首字母=词」
+            try_remember_abbr_from_full(rawPreedit, text);
             // 与 CLI commit() 语义一致——仅「候选整句上屏」进栈
             // （英文/标点/表情不动），上限 32 条防膨胀。
             undoStack_.emplace_back(text, pinyin);
