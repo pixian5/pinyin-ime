@@ -335,8 +335,24 @@ void PinyinIMEState::reset() {
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
 }
 
-void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
-    FCITX_UNUSED(entry);
+// v0.9.115: 可点击候选词 —— 鼠标点击时回调 selectCandidate(显示索引)，
+// 使「点哪个词上屏哪个词」与数字键/空格行为一致。
+// 官方 DisplayOnlyCandidateWord 的 select() 是空实现，点击无反应。
+class PinyinCandidateWord : public CandidateWord {
+public:
+    PinyinCandidateWord(Text text, PinyinIMEState *state, size_t dispIdx)
+        : CandidateWord(std::move(text)), state_(state), dispIdx_(dispIdx) {}
+
+    void select(InputContext *) const override {
+        state_->selectCandidate(dispIdx_);
+    }
+
+private:
+    PinyinIMEState *state_;
+    size_t dispIdx_;
+};
+
+void PinyinIMEState::updateUI() {
 
     // 表情选择态：预编辑显示页签，候选列出当前页表情（数字选字在 keyEvent 处理）。
     if (emojiMode_) {
@@ -449,9 +465,15 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();
-        // v0.9.51: boost 插入词显示在首位
+        const size_t pageBase = page_ * ps;
+        size_t dispK = 0;
+        // v0.9.115: 鼠标点击候选上屏——用 PinyinCandidateWord（select() 回调
+        // selectCandidate(显示索引)）替代 DisplayOnlyCandidateWord（select() 空实现，
+        // 点击无效）。显示索引约定与数字键/空格一致：page*pageSize + 页内显示位。
         if (!boostInsertWord_.empty() && page_ == 0) {
-            candidateList->append<DisplayOnlyCandidateWord>(Text(boostInsertWord_));
+            candidateList->append<PinyinCandidateWord>(Text(boostInsertWord_),
+                                                       this, pageBase + dispK);
+            ++dispK;
         }
         for (size_t i = begin; i < end; ++i) {
             size_t displayIdx = i;
@@ -462,8 +484,9 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
             }
             // v0.9.111: 移除首选候选的拼音标注（用户反馈第一项后面跟着完整全拼）
             Text candText(cands[displayIdx].toString());
-            // 仅展示；数字选字在 keyEvent 里自行处理（与官方 pinyin 一致）。
-            candidateList->append<DisplayOnlyCandidateWord>(candText);
+            candidateList->append<PinyinCandidateWord>(candText, this,
+                                                       pageBase + dispK);
+            ++dispK;
         }
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
@@ -481,17 +504,17 @@ void PinyinIMEState::updateUI(const InputMethodEntry &entry) {
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
 }
 
-void PinyinIMEState::refreshUI(const InputMethodEntry &entry) {
+void PinyinIMEState::refreshUI() {
     const auto &cands = context_.candidatesToCursor();
     const size_t ps = pageSize();
     maxPage_ = cands.empty() ? 0 : (cands.size() - 1) / ps;
     if (page_ > maxPage_) {
         page_ = maxPage_;
     }
-    updateUI(entry);
+    updateUI();
 }
 
-void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) {
+void PinyinIMEState::selectCandidate(size_t idx) {
     const auto &cands = context_.candidatesToCursor();
     if (context_.empty() || idx >= cands.size()) {
         return;
@@ -510,7 +533,7 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
         rawInput_.clear();
         commitText(boostInsertWord_);
         boostInsertWord_.clear();
-        refreshUI(entry);
+        refreshUI();
         return;
     }
     // 简拼 boost 索引映射：显示位置 0↔boostSwap_ 交换
@@ -545,12 +568,12 @@ void PinyinIMEState::selectCandidate(const InputMethodEntry &entry, size_t idx) 
     } else {
         // 只选了一个分段、还有后续：继续让候选指向下一段。
         context_.learn();
-        refreshUI(entry);
+        refreshUI();
     }
     engine_->saveUserData();
 }
 
-void PinyinIMEState::flipPage(const InputMethodEntry &entry, int dir) {
+void PinyinIMEState::flipPage(int dir) {
     if (dir < 0) {
         if (page_ > 0) {
             --page_;
@@ -561,22 +584,21 @@ void PinyinIMEState::flipPage(const InputMethodEntry &entry, int dir) {
         }
     }
     candFocus_ = 0; // 翻页后焦点回到页首
-    updateUI(entry);
+    updateUI();
 }
 
-void PinyinIMEState::commitPunctuation(const InputMethodEntry &entry,
-                                       const std::string &fullwidth) {
+void PinyinIMEState::commitPunctuation(const std::string &fullwidth) {
     // 打拼音中：先上屏首选；空闲：直接上屏标点。与 CLI 的 select_and_commit 语义一致。
     if (!context_.empty()) {
-        selectCandidate(entry, 0);
+        selectCandidate(0);
     }
     commitText(fullwidth);
     if (!context_.empty()) {
-        refreshUI(entry);
+        refreshUI();
     }
 }
 
-void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
+void PinyinIMEState::undoLastCommit() {
     // 正在输入拼音时不撤回（避免误伤当前编辑）；无撤回历史直接忽略。
     if (!context_.empty() || undoStack_.empty()) {
         return;
@@ -602,7 +624,7 @@ void PinyinIMEState::undoLastCommit(const InputMethodEntry &entry) {
             }
         }
     }
-    refreshUI(entry);
+    refreshUI();
 }
 
 // ---------------- PinyinIMEEngine ----------------
@@ -744,6 +766,7 @@ std::vector<InputMethodEntry> PinyinIMEEngine::listInputMethods() {
 }
 
 void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
+    FCITX_UNUSED(entry);
     if (event.isRelease()) {
         return;
     }
@@ -769,7 +792,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         if (state->emojiMode_) {
             state->emojiPage_ = 0;
         }
-        state->refreshUI(entry);
+        state->refreshUI();
         event.filterAndAccept();
         return;
     }
@@ -777,7 +800,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     // 误上屏撤回（Ctrl-Z）：与 Ctrl-E 一样在「组合键交给框架」守卫之前拦截。
     if (event.key().check(FcitxKey_Z, KeyState::Ctrl) ||
         event.key().check(FcitxKey_z, KeyState::Ctrl)) {
-        state->undoLastCommit(entry);
+        state->undoLastCommit();
         event.filterAndAccept();
         return;
     }
@@ -787,7 +810,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
          event.key().check(FcitxKey_s, KeyState::Ctrl_Shift))) {
         state->shuangpinEnabled_ = !state->shuangpinEnabled_;
         ctx.setUseShuangpin(state->shuangpinEnabled_);
-        state->refreshUI(entry);
+        state->refreshUI();
         event.filterAndAccept();
         return;
     }
@@ -810,7 +833,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 }
             }
         }
-        state->refreshUI(entry);
+        state->refreshUI();
         event.filterAndAccept();
         return;
     }
@@ -834,7 +857,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             state->englishMode_ = true;
             state->engBuf_.clear();
         }
-        state->refreshUI(entry);
+        state->refreshUI();
         event.filterAndAccept();
         return;
     }
@@ -845,7 +868,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             // Esc：清缓冲并切回中文
             state->engBuf_.clear();
             state->englishMode_ = false;
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -853,7 +876,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             if (!state->engBuf_.empty()) {
                 state->engBuf_.pop_back();
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -863,14 +886,14 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 state->commitText(state->engBuf_);
                 state->engBuf_.clear();
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
         const std::string ascii = asciiFromKey(sym, shifted);
         if (!ascii.empty()) {
             state->engBuf_ += ascii;
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -885,7 +908,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         const size_t ps = state->pageSize();
         if (event.key().check(FcitxKey_Escape)) {
             state->emojiMode_ = false;
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -894,7 +917,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             if (state->emojiPage_ > 0) {
                 --state->emojiPage_;
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -904,7 +927,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             if (state->emojiPage_ < maxPage) {
                 ++state->emojiPage_;
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -915,7 +938,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 state->commitText(list[idx].glyph);
                 state->emojiMode_ = false;
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
             return;
         }
@@ -929,7 +952,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         if (!ctx.empty()) {
             ctx.backspace();
             state->candFocus_ = 0;
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
         }
         return;
@@ -961,7 +984,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     ctx.setCursor(static_cast<size_t>(a));
                 }
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
         }
         return;
@@ -977,7 +1000,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             } else {
                 ctx.setCursor(static_cast<size_t>(ctx.size()));
             }
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
         }
         return;
@@ -987,16 +1010,32 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_Page_Up) ||
         event.key().check(FcitxKey_Page_Down)) {
         if (!ctx.empty()) {
-            state->flipPage(entry,
+            state->flipPage(
                             event.key().check(FcitxKey_Page_Up) ? -1 : 1);
             event.filterAndAccept();
         }
         return;
     }
 
-    // 空格 / 回车：上屏「焦点候选」（默认焦点 0 = 首选，与旧行为一致）
-    if (event.key().check(FcitxKey_space) ||
-        event.key().check(FcitxKey_Return)) {
+    // v0.9.115: 回车：上屏「用户原始输入」（字母 + 隔音符，去掉空格），不选中文候选；
+    // 从 ctx.preedit() 取（始终与当前输入一致，退格后也准确），空则回退 rawInput_。
+    // 无拼音时不消费（交给应用换行）。
+    if (event.key().check(FcitxKey_Return)) {
+        if (!ctx.empty()) {
+            std::string raw;
+            for (char c : ctx.preedit()) {
+                if ((c >= 'a' && c <= 'z') || c == '\'') raw.push_back(c);
+            }
+            if (raw.empty()) raw = state->rawInput_;
+            state->commitText(raw);
+            state->reset();
+            event.filterAndAccept();
+        }
+        return;
+    }
+
+    // 空格：上屏「焦点候选」（默认焦点 0 = 首选，与旧行为一致）
+    if (event.key().check(FcitxKey_space)) {
         if (!ctx.empty()) {
             // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音
             // （ll/oo/ee/tt/ss/pp/mm/nn 等），而 hello/good/look/apple 等常见英文
@@ -1093,7 +1132,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 event.filterAndAccept();
                 return;
             }
-            state->selectCandidate(entry,
+            state->selectCandidate(
                                    state->page_ * state->pageSize() + state->candFocus_);
             event.filterAndAccept();
         }
@@ -1106,7 +1145,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             const size_t idx =
                 state->page_ * state->pageSize() +
                 static_cast<size_t>(sym - FcitxKey_1);
-            state->selectCandidate(entry, idx);
+            state->selectCandidate(idx);
             event.filterAndAccept();
         }
         return;
@@ -1119,11 +1158,11 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     // 引号 "：开“/闭”交替（空闲上屏；打拼音中先上屏首选再出引号）
     if (ascii == "\"") {
         if (!ctx.empty()) {
-            state->selectCandidate(entry, 0);
+            state->selectCandidate(0);
         }
         state->commitText(state->quoteOpen_ ? "”" : "“");
         state->quoteOpen_ = !state->quoteOpen_;
-        state->refreshUI(entry);
+        state->refreshUI();
         event.filterAndAccept();
         return;
     }
@@ -1134,13 +1173,13 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (prevKey || nextKey) {
         if (!ctx.empty()) {
             // 打拼音中：翻页
-            state->flipPage(entry, prevKey ? -1 : 1);
+            state->flipPage( prevKey ? -1 : 1);
             event.filterAndAccept();
             return;
         }
         if (!fp.empty()) {
             // 空闲：, . [ ] 上屏全角标点；- = 无标点映射则透传
-            state->commitPunctuation(entry, fp);
+            state->commitPunctuation(fp);
             event.filterAndAccept();
             return;
         }
@@ -1149,7 +1188,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
 
     if (!fp.empty()) {
         // 其余标点（; : ? ! ( ) \）：空闲直接上屏，打拼音中先上屏首选再出标点
-        state->commitPunctuation(entry, fp);
+        state->commitPunctuation(fp);
         event.filterAndAccept();
         return;
     }
@@ -1160,10 +1199,10 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         if (ctx.empty()) {
             state->commitText(state->singleQuoteOpen_ ? "’" : "‘");
             state->singleQuoteOpen_ = !state->singleQuoteOpen_;
-            state->refreshUI(entry);
+            state->refreshUI();
         } else {
             ctx.type("'");
-            state->refreshUI(entry);
+            state->refreshUI();
         }
         event.filterAndAccept();
         return;
@@ -1194,7 +1233,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 }
             }
             state->candFocus_ = 0; // 新拼音改变候选，焦点回到首选
-            state->refreshUI(entry);
+            state->refreshUI();
             event.filterAndAccept();
         }
         return;

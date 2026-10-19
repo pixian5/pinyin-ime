@@ -79,11 +79,11 @@ public:
     // 清空当前输入状态并清掉 UI。
     void reset();
     // 重建候选（更新 page_/maxPage_），并刷新 preedit + candidate UI。
-    void refreshUI(const InputMethodEntry &entry);
+    void refreshUI();
     // 选中第 idx（全局索引，已含翻页偏移）个候选；整句选完即上屏。
-    void selectCandidate(const InputMethodEntry &entry, size_t idx);
+    void selectCandidate(size_t idx);
     // 翻页：dir=-1 上一页 / +1 下一页。
-    void flipPage(const InputMethodEntry &entry, int dir);
+    void flipPage(int dir);
 
     PinyinIMEEngine *engine_;
     InputContext *inputContext_;
@@ -116,13 +116,12 @@ public:
     // 上屏一段已提交文本（整句 / 英文整行 / 标点），清面板并 commitString。
     void commitText(const std::string &text);
     // 上屏中文标点：打拼音中先上屏首选，空闲直接上屏。
-    void commitPunctuation(const InputMethodEntry &entry,
-                           const std::string &fullwidth);
+    void commitPunctuation(const std::string &fullwidth);
     // 误上屏撤回（Ctrl-Z）：通知应用删除刚上屏的文本、恢复拼音重新编辑。
-    void undoLastCommit(const InputMethodEntry &entry);
+    void undoLastCommit();
 
 private:
-    void updateUI(const InputMethodEntry &entry);
+    void updateUI();
 };
 
 class PinyinIMEEngine final : public InputMethodEngine {
