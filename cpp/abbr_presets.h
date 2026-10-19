@@ -176,9 +176,10 @@ inline void remember_abbr(const std::string &key, const std::string &word) {
 
 // ── 简拼判断与 boost ────────────────────────────────────────
 
-// 判断输入是否为简拼（全小写字母，长度 2-6，无隔音符）
+// 判断输入是否为简拼（全小写字母，长度 2-10，无隔音符）
+// v0.9.113: 放宽到 10，以支持更长网络热词/句简拼（如 jrmsda）
 inline bool is_abbreviated_pinyin(const std::string &input) {
-    if (input.size() < 2 || input.size() > 6) return false;
+    if (input.size() < 2 || input.size() > 10) return false;
     for (char c : input) {
         if (c < 'a' || c > 'z') return false;
     }
@@ -518,6 +519,25 @@ inline const std::unordered_map<std::string, std::string>& full_pinyin_preset_ma
         // v0.9.65: 城市名+是 消歧
         {"chengdushimeishi", "成都是美食"},   // 成都市美食→成都是美食
         {"chengdushi", "成都是"},             // 成都市→成都是 (context)
+        // v0.9.113: 网络热词/口语简拼（元音独立成字，如 a=啊）
+        // libime LM 通常没有这些词的 n-gram，必须靠 boost 插入首位。
+        {"jrmsda", "家人们谁懂啊"},   // 家人们谁懂啊（d=懂 + a=啊，da 被误合并成"大"）
+        {"jrms", "家人们"},            // 家人们
+        {"srds", "虽然但是"},           // 虽然但是
+        {"yyds", "永远的神"},           // 永远的神
+        {"xswl", "笑死我了"},           // 笑死我了
+        {"awsl", "啊我死了"},           // 啊我死了（a=啊 独立）
+        {"zqsg", "真情实感"},           // 真情实感
+        {"u1s1", "有一说一"},           // 有一说一
+        {"dbq", "对不起"},              // 对不起
+        {"bzd", "不知道"},              // 不知道
+        {"xdm", "兄弟们"},              // 兄弟们
+        {"jrm", "家人们"},              // 家人们
+        {"gkd", "搞快点"},              // 搞快点
+        {"zxb", "在不在"},              // 在不在
+        {"byy", "不要呀"},              // 不要呀（y+呀）
+        {"ky", "可以"},                 // 可以
+        {"buky", "不可以"},             // 不可以
     };
     return map;
 }

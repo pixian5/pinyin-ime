@@ -1002,8 +1002,16 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             for (char c : state->rawInput_) {
                 if (c >= 'a' && c <= 'z') compactRaw.push_back(c);
             }
+            // v0.9.113: 若命中 boost 预设（已知中文简拼，如 yyds=永远的神），
+            // 不判为英文（yy 双写在 yyds/yy 中是合法简拼，不是英文双写）。
+            // 注意：英文直通（hello→hello）返回值等于输入，不算 knownAbbr。
+            const bool knownAbbr = !compactRaw.empty() &&
+                [&compactRaw]() {
+                    const auto &w = pinyin_ime::lookup_pinyin_boost(compactRaw);
+                    return !w.empty() && w != compactRaw;
+                }();
             const bool englishDoubled =
-                !compactRaw.empty() && !is_valid_pinyin(compactRaw) &&
+                !compactRaw.empty() && !knownAbbr && !is_valid_pinyin(compactRaw) &&
                 (compactRaw.find("aa") != std::string::npos ||
                  compactRaw.find("bb") != std::string::npos ||
                  compactRaw.find("cc") != std::string::npos ||

@@ -1580,12 +1580,19 @@ int main(int argc, char **argv) {
             }
             // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
             // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
+            // v0.9.113: 若命中 boost 预设（已知中文简拼，如 yyds=永远的神），
+            // 不判为英文（yy 双写在 yyds/yy 中是合法简拼，不是英文双写）。
             {
                 std::string compact;
                 compact.reserve(line.size());
                 for (char c : line) if (c >= 'a' && c <= 'z') compact.push_back(c);
+                const bool knownAbbr = !compact.empty() &&
+                    [&compact]() {
+                        const auto &w = pinyin_ime::lookup_pinyin_boost(compact);
+                        return !w.empty() && w != compact;
+                    }();
                 const bool englishLineDoubled =
-                    !compact.empty() && !is_valid_pinyin(compact) &&
+                    !compact.empty() && !knownAbbr && !is_valid_pinyin(compact) &&
                     (compact.find("aa") != std::string::npos ||
                      compact.find("bb") != std::string::npos ||
                      compact.find("cc") != std::string::npos ||
@@ -1846,12 +1853,19 @@ int main(int argc, char **argv) {
             }
             // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
             // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
+            // v0.9.113: 若命中 boost 预设（已知中文简拼，如 yyds=永远的神），
+            // 不判为英文（yy 双写在 yyds/yy 中是合法简拼，不是英文双写）。
             {
                 std::string compact;
                 compact.reserve(line.size());
                 for (char c : line) if (c >= 'a' && c <= 'z') compact.push_back(c);
+                const bool knownAbbr = !compact.empty() &&
+                    [&compact]() {
+                        const auto &w = pinyin_ime::lookup_pinyin_boost(compact);
+                        return !w.empty() && w != compact;
+                    }();
                 const bool englishLineDoubled =
-                    !compact.empty() && !is_valid_pinyin(compact) &&
+                    !compact.empty() && !knownAbbr && !is_valid_pinyin(compact) &&
                     (compact.find("aa") != std::string::npos ||
                      compact.find("bb") != std::string::npos ||
                      compact.find("cc") != std::string::npos ||
