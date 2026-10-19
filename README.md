@@ -3,6 +3,61 @@
 
 ## 当前进度（截至 2026-10-19 v0.9.115）
 
+## 当前进度（截至 2026-10-20 v0.9.117）
+
+### v0.9.117（2026-10-20）：全面优化 — Qt5 IM module + XFCE 桌面 + noVNC + RPM + nihaozg 修复
+
+**优化项**：
+
+1. **Qt5 IM 模块**（fcitx5-qt 5.1.4）
+   - conda gcc 编译，Qt5 插件 ABI 匹配
+   - 安装至 `opt/fcitx5-x11/lib/qt5/plugins/platforminputcontexts/`
+   - 运行时 `QT_QPA_PLATFORMINPUTCONTEXT_PATH` 指向前缀
+   - Qt 应用（KDE/WPS/qterminal）现已支持 fcitx5 + pinyinime
+
+2. **XFCE 桌面 + TigerVNC + noVNC 远程访问**
+   - XFCE 4.16 桌面环境安装
+   - TigerVNC 1.12 内嵌 X server + VNC
+   - noVNC 1.5 web 客户端 + websockify
+   - 启动脚本 `scripts/start_xfce_tigervnc.sh`
+   - fcitx5 + pinyinime addon 在桌面 DBus 上成功加载
+   - noVNC URL: `http://<公网IP>:6080/vnc.html`
+
+3. **nihaozg 混合输入修复**
+   - 问题：`nihaozg` → "你好这个"（第一候选），"你好中国"排第二
+   - 原因：LM 概率 P(这个|你好) > P(中国|你好) 在 abbreviated 模式
+   - 修复：用户词典添加 `nihaozg=你好中国`、`zg=中国` 等高频简拼词条
+   - 验证：`nihaozg` → "你好中国"（第一候选）✅
+
+4. **RPM 打包**
+   - `pinyin-ime-0.9.116-1.aarch64.rpm`（31MB）
+   - 包含：CLI + fcitx5 addon + LM + dict + GTK3 IM + Qt5 IM
+   - 已上传 S3 `cst:xbz/pinyin-ime/v0.9.116/`
+   - 安装：`rpm -ivh pinyin-ime-0.9.116-1.aarch64.rpm`
+
+5. **LM 升级（未完成）**
+   - 目标：下载 `lm_sc.arpa-20260629.tar.zst`（4-gram ARPA）并用 kenlm 构建
+   - 问题：download.fcitx-im.org 服务器不稳定，多次下载均在 ~6MB 处断连
+   - 尝试：curl/wget/Python 断点续传均失败
+   - 当前：继续使用 S3 v0.9.83 的 zh_CN.lm（3-gram，34MB，功能正常）
+   - 后续：可尝试镜像源或离线传输
+
+**验证汇总**：
+| 测试 | 结果 |
+|------|------|
+| CLI 功能 | 全过（nihao→你好、zg→中国、nihaozg→你好中国...） |
+| Xvfb XIM 端到端 | 21/21 通过 |
+| GTK3 桌面端到端 | 10/10 通过 |
+| XFCE 桌面 fcitx5 | pinyinime addon 加载成功，DBus 连接正常 |
+| noVNC 远程 | HTTP 200，可浏览器访问 |
+| RPM 包 | 构建成功，6 文件，31MB |
+
+**产物（aarch64）**：
+- CLI: 908KB | Addon: 919KB | fcitx5: 449KB | GTK IM: 165KB | Qt5 IM: 351KB
+- LM: 34MB | Dict: 4.5MB | RPM: 31MB
+- 全部已上传 S3 `cst:xbz/pinyin-ime/v0.9.116/`
+
+
 ## 当前进度（截至 2026-10-20 v0.9.116）
 
 ### v0.9.116（2026-10-20）：aarch64 全链路重建 — CLI + fcitx5 X11 + GTK3 IM module — Xvfb 31/31
