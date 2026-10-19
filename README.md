@@ -12,8 +12,6 @@
 
 ### v0.9.107（2026-10-19）：重启云电脑桌面 — fcitx5 自启动恢复，GTK 实测 6/6
 
-### v0.9.107（2026-10-19）：重启云电脑桌面 — fcitx5 自启动恢复，GTK 实测 6/6
-
 **配置 XFCE XDG autostart 让 fcitx5 随桌面会话自启；重启云电脑（Xvfb :1 + XFCE 4）后输入法自动恢复，GTK 真实输入 6/6 全过。** noVNC 打开即可用中文拼音输入，无需手动启动输入法。
 
 - 创建 `~/.config/autostart/fcitx5.desktop`（XMODIFIERS/GTK_IM/QT_IM=fcitx + FCITX_ADDON_DIRS）。
