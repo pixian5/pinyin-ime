@@ -1,6 +1,60 @@
 # pinyin-ime
 > 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
 
+## 当前进度（截至 2026-10-21 v0.9.119）
+
+### v0.9.119（2026-10-21）：S3 预构建产物快速恢复 — CLI 31/31 + DBus e2e 7/7 + XIM 注册
+
+**目标**：从 S3 预构建产物快速恢复完整输入法运行环境，无需从源码编译。
+
+**恢复过程**：
+- rclone（Go 源码编译 v1.68.2）配置 CSTCloud S3 远程
+- 下载 S3 预构建产物：v0.9.118（CLI + addon + RPM + RO runtime）+ v0.9.116（LM + dict）+ v0.9.83（desktop bundle）
+- 解压 v0.9.83 desktop bundle → fcitx5-x11 + deps-lib（58 个依赖库）
+- 解压 v0.9.118 RPM → CLI + addon + LM + dict + 配置
+- 搭建 native-build 目录结构（libIME 库 + fcitx5 全部 addon + 数据文件）
+- 修复 addon 配置（Library=libpinyinime 去掉 .so 后缀）
+- 修复数据文件路径（复制到 addon 搜索的所有路径）
+- 安装系统依赖（Xvfb + dbus-x11 + screen + fontconfig）
+
+**环境**：
+- Xvfb :99（1280x1024x24）
+- dbus session（dbus-daemon --session）
+- fcitx5 5.1.23 + 全部 addon（pinyinime + xim + xcb + classicui + keyboard + ...）
+- LM: zh_CN.lm（34MB，S3 v0.9.116）
+- Dict: sc.dict（4.5MB，S3 v0.9.84a）
+
+**验证**：
+- CLI：31/31 通过（nihao→你好、zhongguo→中国、zg→中国、nihaozg→你好中国、woshizhongguoren→我是中国人、清华大学→qinghuadaxue、计算机→jisuanji...）
+- DBus e2e：7/7 通过（nihao→你好、zhongguo→中国、shurufa→输入法、beijing→北京、shanghai→上海、pinyin→拼音、zhongwen→中文）
+- XIM：已注册（XIM_SERVERS = @server=fcitx）
+- fcitx5 addon：pinyinime 加载成功，LM/dict 正常加载
+- fcitx5-remote：可用（返回状态 0）
+
+**服务启动**：
+```bash
+bash scripts/start_services.sh start   # 启动 Xvfb + dbus + fcitx5
+bash scripts/start_services.sh test    # 运行 CLI 测试
+bash scripts/start_services.sh status  # 查看状态
+bash scripts/start_services.sh stop    # 停止服务
+```
+
+**产物（aarch64，全部来自 S3 预构建）**：
+- CLI: 906KB（v0.9.118 RPM）
+- Addon: 917KB（v0.9.118 RPM）
+- fcitx5: 449KB（v0.9.83 desktop bundle）
+- LM: 34MB（v0.9.116 S3）
+- Dict: 4.5MB（v0.9.84a S3）
+- deps-lib: 58 个库（v0.9.83 desktop bundle）
+
+**关键修复**：
+1. rclone 安装：GitHub release zip 损坏 → Go 源码编译（`go install github.com/rclone/rclone@v1.68.2`）
+2. addon Library 配置：`Library=libpinyinime.so` → `Library=libpinyinime`（fcitx5 自动追加 .so）
+3. 数据文件路径：复制到 addon 搜索的所有路径（/workspace/native-build/、/root/.local/pinyin-ime/、/usr/share/libime/）
+4. dbus 地址提取：dbus-daemon stderr 混入地址 → grep "^unix:" 提取纯地址
+5. XDG_RUNTIME_DIR：创建 /run/user/0 供 dbus 使用
+
+
 ## 当前进度（截至 2026-10-20 v0.9.118）
 
 ### v0.9.118（2026-10-20）：从源码完整重建 — CLI + fcitx5 X11 + XIM 端到端 18/18 通过

@@ -101,3 +101,7 @@ pinyin-ime-s3/pinyin-ime_0.9.103_arm64.deb
 rpm_extracted/
 pinyin-ime-s3/v0.9.116/
 rpm/
+.secrets.env
+pinyin-ime-s3/v0.9.118/
+pinyin-ime-s3/v0.9.116/
+pinyin-ime-s3/v0.9.83/
