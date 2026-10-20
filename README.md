@@ -1,6 +1,44 @@
 # pinyin-ime
 > 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
 
+## 源码编译验证（2026-10-21）
+
+### ✅ 在 openEuler 22.03 aarch64 (GCC 10.3) 上源码编译成功
+
+**编译步骤**：
+1. 获取 libime 头文件：`git clone https://github.com/fcitx/libime.git`
+2. 安装依赖：`dnf install boost-devel`
+3. 创建 cmake config + export 头文件（指向预构建 .so）
+4. 创建 `<source_location>` 桩文件（GCC 10.3 不支持 C++20 source_location）
+5. `cmake -S cpp -B cpp/build && cmake --build cpp/build`
+6. 手动链接：显式指定 mamba-env libstdc++.so.6 (GLIBCXX_3.4.36)
+
+**结果**：
+- `pinyin_corrector_test`：编译链接成功（无 libime 依赖）
+- `pinyin_ime_cli`：编译链接成功，12/12 测试通过
+- 源码编译 CLI (776K) 与预构建 CLI (888K) 输出完全一致
+
+### Debian/Ubuntu 源码编译
+
+**Debian 12 (bookworm)** — `apt install` 即可：
+```bash
+apt install cmake g++ pkg-config libimepinyin-dev libimecore-dev \
+    libboost-dev libfcitx5utils-dev libime-data libime-data-language-model
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build
+```
+注：Debian 12 的 libime 是 1.0.16，需要额外补装 `libimecore-dev`（core 头文件）。
+
+**Ubuntu 24.04 (noble)** — 一次装齐：
+```bash
+apt install cmake g++ pkg-config libimepinyin-dev libimecore-dev \
+    libboost-dev libfcitx5utils-dev libime-data libime-data-language-model
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build
+```
+Ubuntu 24.04 的 libime 是 1.1.5，打包完整，无需额外补装。
+
+
 ## 当前进度（截至 2026-10-21 v0.9.119）
 
 ### v0.9.119（2026-10-21）：S3 预构建产物快速恢复 — CLI 31/31 + DBus e2e 7/7 + XIM 注册
