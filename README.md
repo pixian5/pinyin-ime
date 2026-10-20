@@ -1,6 +1,47 @@
 # pinyin-ime
 > 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
 
+## 当前进度（截至 2026-10-20 v0.9.118）
+
+### v0.9.118（2026-10-20）：从源码完整重建 — CLI + fcitx5 X11 + XIM 端到端 18/18 通过
+
+**目标**：在 openEuler 22.03 aarch64 上从源码完整重建输入法，验证真正能跑。
+
+**构建过程**：
+- micromamba conda 环境（gcc 16.2 + boost 1.85 + fmt 12 + zstd + libuv + ECM 6.12 + cmake 4.2 + ninja）
+- fcitx5 5.1.23 headless 编译 → fcitx5 X11 补编（xcb-imdkit 1.0.3 + yoga + XIM/XCB/DBus 前端）
+- libime 1.1.17 编译（4-gram 补丁 + kenlm）；LM/dict 使用 S3 v0.9.116 预构建产物
+- CLI（pinyin_ime_cli）+ fcitx5 addon（libpinyinime.so）编译（针对 X11 fcitx5）
+- Xvfb + dbus + fcitx5 + XIM 端到端环境搭建
+- 中文字体 + zh_CN.UTF-8 locale 就绪
+
+**验证**：
+- CLI：14/14 通过（nihao→你好、zhongguo→中国、zg→中国、woshizg→我是中国、hello→hello...）
+- XIM 端到端：18/18 通过（全拼/简拼/整句/中英切换/中文标点/先上屏再标点/纠错，全过）
+- fcitx5 addon 加载成功，LM/dict 正常加载
+
+**产物（aarch64）**：
+- CLI: 908KB（cpp/build/pinyin_ime_cli）
+- Addon: 919KB（fcitx5-addon/build/libpinyinime.so）
+- fcitx5 X11: 449KB（含 XIM/XCB/DBus/Server 前端）
+- LM: 34MB（zh_CN.lm，S3 v0.9.116）
+- Dict: 4.5MB（sc.dict，S3 v0.9.116）
+
+**环境启动**：
+```bash
+source scripts/run_env.sh env    # 设置环境变量
+bash scripts/run_env.sh start    # 启动 Xvfb + dbus + fcitx5
+bash scripts/run_env.sh test     # 运行所有测试
+bash scripts/run_env.sh status   # 查看状态
+```
+
+**构建路径**：
+- NB=/root/workspace/native-build
+- conda env: $NB/mamba-env
+- fcitx5 X11: $NB/opt/fcitx5-x11
+- libime: $NB/opt/libime
+- xcb-imdkit: $NB/opt/xcb-imdkit
+
 ## 当前进度（截至 2026-10-19 v0.9.115）
 
 ## 当前进度（截至 2026-10-20 v0.9.117）
