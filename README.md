@@ -25,7 +25,7 @@
 - Dict: sc.dict（4.5MB，S3 v0.9.84a）
 
 **验证**：
-- CLI：31/31 通过（nihao→你好、zhongguo→中国、zg→中国、nihaozg→你好中国、woshizhongguoren→我是中国人、清华大学→qinghuadaxue、计算机→jisuanji...）
+- CLI：36/36 通过（nihao→你好、zhongguo→中国、zg→中国、nihaozg→你好中国、woshizhongguoren→我是中国人、清华大学→qinghuadaxue、计算机→jisuanji...）
 - DBus e2e：7/7 通过（nihao→你好、zhongguo→中国、shurufa→输入法、beijing→北京、shanghai→上海、pinyin→拼音、zhongwen→中文）
 - XIM：已注册（XIM_SERVERS = @server=fcitx）
 - fcitx5 addon：pinyinime 加载成功，LM/dict 正常加载
