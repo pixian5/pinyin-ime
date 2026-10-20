@@ -42,6 +42,20 @@ bash scripts/run_env.sh status   # 查看状态
 - libime: $NB/opt/libime
 - xcb-imdkit: $NB/opt/xcb-imdkit
 
+**noVNC 可视化演示**：
+```bash
+bash scripts/start_novnc.sh    # 启动 VNC + WebSocket + HTTP
+# 浏览器打开: http://<公网IP>:6081/vnc.html
+# VNC 密码: pinyin123
+# 按 Ctrl+Space 切换中英文输入
+```
+
+**RPM 包 (aarch64)**：
+- 文件: pinyin-ime-0.9.118-1.aarch64.rpm (31MB)
+- 内容: CLI + fcitx5 addon + LM + dict + 配置
+- 安装: `rpm -ivh pinyin-ime-0.9.118-1.aarch64.rpm`
+- S3: cst:xbz/pinyin-ime/v0.9.118/pinyin-ime-0.9.118-1.aarch64.rpm
+
 ## 当前进度（截至 2026-10-19 v0.9.115）
 
 ## 当前进度（截至 2026-10-20 v0.9.117）
