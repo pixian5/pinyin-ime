@@ -67,6 +67,7 @@
 #include "emoji_list.h"
 #include "abbr_presets.h"
 #include "pinyin_corrector.h"
+#include "quick_input.h"
 
 #ifdef __unix__
 #include <sys/select.h>
@@ -1839,6 +1840,28 @@ int main(int argc, char **argv) {
         std::string line;
         while (std::getline(std::cin, line)) {
             ctx.clear();
+            // 搜狗式快捷输入：日期/时间/计算器（在纠错预处理之前检查原始输入）
+            {
+                std::string compactRaw;
+                compactRaw.reserve(line.size());
+                for (char c : line) if (c >= 'a' && c <= 'z') compactRaw.push_back(c);
+                // 日期/时间
+                {
+                    std::string dtResult = pinyin_ime::datetime_lookup(compactRaw);
+                    if (!dtResult.empty()) {
+                        output_line(dtResult);
+                        continue;
+                    }
+                }
+                // 计算器（检查原始行，含数字和运算符）
+                if (pinyin_ime::is_calculator_input(line)) {
+                    std::string calcResult = pinyin_ime::calculator_eval(line);
+                    if (!calcResult.empty()) {
+                        output_line(line + "=" + calcResult);
+                        continue;
+                    }
+                }
+            }
             // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
             // v0.9.47: 数字→字母预处理（手机键盘误触）
             if (correctPinyin) {
@@ -2363,6 +2386,30 @@ int main(int argc, char **argv) {
                              compactRaw.find("xx") != std::string::npos ||
                              compactRaw.find("yy") != std::string::npos ||
                              compactRaw.find("zz") != std::string::npos);
+                        // 搜狗式快捷输入：日期/时间
+                        {
+                            std::string dtResult = pinyin_ime::datetime_lookup(compactRaw);
+                            if (!dtResult.empty()) {
+                                output_line(dtResult);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // 搜狗式计算器
+                        if (pinyin_ime::is_calculator_input(compactRaw)) {
+                            std::string calcResult = pinyin_ime::calculator_eval(compactRaw);
+                            if (!calcResult.empty()) {
+                                output_line(compactRaw + "=" + calcResult);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
                         if (englishDoubled) {
                             output_line(compactRaw);
                             ctx.clear();

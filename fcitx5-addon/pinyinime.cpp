@@ -27,6 +27,7 @@
 #include "emoji_list.h"
 #include "pinyin_corrector.h"
 #include "abbr_presets.h"
+#include "quick_input.h"
 
 namespace fcitx {
 
@@ -330,6 +331,9 @@ void PinyinIMEState::reset() {
     candFocus_ = 0;
     englishMode_ = false;
     engBuf_.clear();
+    vMode_ = false;
+    vModeSub_.clear();
+    vModePage_ = 0;
     inputContext_->inputPanel().reset();
     inputContext_->updatePreedit();
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -389,6 +393,41 @@ void PinyinIMEState::updateUI() {
         Text preeditText("英文: " + engBuf_);
         inputContext_->inputPanel().reset();
         inputContext_->inputPanel().setPreedit(preeditText);
+        inputContext_->updatePreedit();
+        inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
+        return;
+    }
+
+    // v 模式（搜狗式符号输入）：预编辑显示提示，候选列出符号组。
+    if (vMode_) {
+        std::string preeditStr = "v" + vModeSub_;
+        if (vModeSub_.empty()) {
+            preeditStr = "v[1圈码 2星号 3箭头 4数学 5希腊 6罗马 7单位 8括号 9点线 d日期 f分数]";
+        }
+        Text preeditText(preeditStr);
+        auto candidateList = std::make_unique<CommonCandidateList>();
+        const size_t ps = pageSize();
+        if (!vModeSub_.empty()) {
+            auto [symbols, label] = pinyin_ime::v_mode_lookup(vModeSub_);
+            if (!symbols.empty()) {
+                const size_t maxPage = (symbols.size() - 1) / ps;
+                if (vModePage_ > maxPage) vModePage_ = maxPage;
+                const size_t begin = vModePage_ * ps;
+                const size_t end = std::min<size_t>(symbols.size(), begin + ps);
+                for (size_t i = begin; i < end; ++i) {
+                    candidateList->append<DisplayOnlyCandidateWord>(
+                        Text(symbols[i]));
+                }
+                candidateList->setPageSize(static_cast<int>(ps));
+                candidateList->setSelectionKey(selectionKeys_);
+                candidateList->setCursorIncludeUnselected(true);
+            }
+        }
+        inputContext_->inputPanel().reset();
+        inputContext_->inputPanel().setPreedit(preeditText);
+        if (!vModeSub_.empty()) {
+            inputContext_->inputPanel().setCandidateList(std::move(candidateList));
+        }
         inputContext_->updatePreedit();
         inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
         return;
@@ -947,6 +986,119 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         return;
     }
 
+    // ---- v 模式（搜狗式符号输入）----
+    // 入口：空闲时按 v 进入 v 模式（不传给解码器）
+    if (!state->vMode_ && ctx.empty() && event.key().check(FcitxKey_v)) {
+        state->vMode_ = true;
+        state->vModeSub_.clear();
+        state->vModePage_ = 0;
+        state->refreshUI();
+        event.filterAndAccept();
+        return;
+    }
+    // v 模式中的按键处理
+    if (state->vMode_) {
+        // Esc：退出 v 模式
+        if (event.key().check(FcitxKey_Escape)) {
+            state->vMode_ = false;
+            state->vModeSub_.clear();
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // Backspace：删子输入或退出
+        if (event.key().check(FcitxKey_BackSpace)) {
+            if (!state->vModeSub_.empty()) {
+                state->vModeSub_.pop_back();
+                state->vModePage_ = 0;
+            } else {
+                state->vMode_ = false;
+            }
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // 翻页
+        if (event.key().check(FcitxKey_comma) || event.key().check(FcitxKey_bracketleft) ||
+            event.key().check(FcitxKey_minus) || event.key().check(FcitxKey_Page_Up)) {
+            if (state->vModePage_ > 0) --state->vModePage_;
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        if (event.key().check(FcitxKey_period) || event.key().check(FcitxKey_bracketright) ||
+            event.key().check(FcitxKey_equal) || event.key().check(FcitxKey_Page_Down)) {
+            ++state->vModePage_;
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // 数字 1-9：选符号（如果已有子输入）或设置子输入
+        if (sym >= FcitxKey_1 && sym <= FcitxKey_9) {
+            if (state->vModeSub_.empty()) {
+                // 第一次输入：设置符号组
+                state->vModeSub_ = std::string(1, '0' + (sym - FcitxKey_0));
+                state->vModePage_ = 0;
+                state->refreshUI();
+                event.filterAndAccept();
+                return;
+            }
+            // 已有子输入：选符号
+            auto [symbols, label] = pinyin_ime::v_mode_lookup(state->vModeSub_);
+            if (!symbols.empty()) {
+                const size_t ps = state->pageSize();
+                const size_t idx = state->vModePage_ * ps + static_cast<size_t>(sym - FcitxKey_1);
+                if (idx < symbols.size()) {
+                    state->commitText(symbols[idx]);
+                    state->vMode_ = false;
+                    state->vModeSub_.clear();
+                }
+            }
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // 字母 d/f：设置符号组
+        if (sym == FcitxKey_d || sym == FcitxKey_f) {
+            if (state->vModeSub_.empty()) {
+                state->vModeSub_ = std::string(1, static_cast<char>(sym));
+                state->vModePage_ = 0;
+                state->refreshUI();
+                event.filterAndAccept();
+                return;
+            }
+        }
+        // 空格：选第一个符号
+        if (event.key().check(FcitxKey_space) && !state->vModeSub_.empty()) {
+            auto [symbols, label] = pinyin_ime::v_mode_lookup(state->vModeSub_);
+            if (!symbols.empty()) {
+                const size_t ps = state->pageSize();
+                const size_t idx = state->vModePage_ * ps;
+                if (idx < symbols.size()) {
+                    state->commitText(symbols[idx]);
+                    state->vMode_ = false;
+                    state->vModeSub_.clear();
+                }
+            }
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // 回车：上屏原始 v 输入
+        if (event.key().check(FcitxKey_Return)) {
+            std::string raw = "v" + state->vModeSub_;
+            state->commitText(raw);
+            state->vMode_ = false;
+            state->vModeSub_.clear();
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // v 模式其他键：吃掉
+        event.filterAndAccept();
+        return;
+    }
+
     // 退格：删一个拼音字符
     if (event.key().check(FcitxKey_BackSpace)) {
         if (!ctx.empty()) {
@@ -1123,6 +1275,28 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             //   - englishDoubled（含双写辅音）→ 明确英文，上屏英文；
             //   - 否则仅当「无任何候选」且「非合法拼音」才上屏英文；
             //   - 只要候选非空（无论紧凑拼音是否合法）→ 选候选。
+
+            // 搜狗式快捷输入：日期/时间（date/rq/time/sj/week/xq/now/dt）
+            {
+                std::string dtResult = pinyin_ime::datetime_lookup(compactRaw);
+                if (!dtResult.empty()) {
+                    state->commitText(dtResult);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // 搜狗式计算器：输入为算式时，结果作为首选上屏
+            if (pinyin_ime::is_calculator_input(compactRaw)) {
+                std::string calcResult = pinyin_ime::calculator_eval(compactRaw);
+                if (!calcResult.empty()) {
+                    state->commitText(compactRaw + "=" + calcResult);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+
             if (englishDoubled ||
                 (!compactRaw.empty() &&
                  ctx.candidates().empty() &&

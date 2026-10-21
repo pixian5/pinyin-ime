@@ -109,6 +109,10 @@ public:
     // 双拼运行时开关（Ctrl+Shift+S 切换，初始值来自配置）
     bool shuangpinEnabled_ = false;
     size_t emojiPage_ = 0;
+    // v 模式（搜狗式符号输入）：输入 v 后跟数字/字母进入符号选择。
+    bool vMode_ = false;
+    std::string vModeSub_;    // v 后的子输入（如 "1"）
+    size_t vModePage_ = 0;    // v 模式翻页
     // 误上屏撤回栈：(上屏文本, 拼音串)，最近在上；deactivate（失焦）时清空。
     std::vector<std::pair<std::string, std::string>> undoStack_;
 
