@@ -47,6 +47,7 @@ tools/keysend_target
 tools/xim_test_client.o
 tools/keysend_target.o
 tools/ime_gui_demo
+tools/xim_gui_demo
 tools/xterm_drive
 
 # 本机构建环境变量（NB/MIRROR/PROXY，不入库）

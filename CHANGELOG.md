@@ -1,6 +1,17 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.120 (2026-10-21)
+
+### 无 Docker 一键复现预构建运行时 — CLI 9/9 + XIM 8/8 + DBus 7/7
+- 新增 `scripts/setup_sandbox_deps.sh`：在 `/usr`、`/etc` 只读的 openEuler aarch64 上把 Xvfb/DBus/X11/中文字体安装到 `/workspace/sysroot`，生成排除 glibc 的 `/workspace/xvfb-libs`，并编译 `xkbcomp` 重定向 shim。
+- 新增 `scripts/run_prebuilt.sh`：幂等完成 S3 产物下载/校验、addon 配置修正、数据路径准备、Xvfb + DBus + fcitx5 启动，以及 CLI/XIM/DBus/GUI 验证。
+- 运行时组合：fcitx5 5.1.23（v0.9.83 bundle）+ libIME 1.1.17（v0.9.84a）+ CLI/addon v0.9.118 + LM/dict v0.9.116。
+- 验证：CLI 9/9、XIM 8/8、DBus InputContext 7/7（按键 65/65），并提交真实候选窗/上屏截图。
+- 修复：RPM 内 `Library=libpinyinime.so` 配置错误、sysroot loader 符号链接探测、addon 启动竞态、glibc 混用、Xvfb 硬编码 xkbcomp、`status` 读取旧日志误报。
+- 已知差异：`nihaozg` 在 CLI 输出“你好这个”，在 XIM 交互式分词下输出“你好中国”。
+
+
 ## v0.9.93 (2026-10-15)
 
 ### 第六台机器复现：只读 /usr 沙箱（140.245.88.50）——输入法真正跑起来

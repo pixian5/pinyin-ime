@@ -39,6 +39,90 @@ cmake --build cpp/build
 Ubuntu 24.04 的 libime 是 1.1.5，打包完整，无需额外补装。
 
 
+## 当前进度（截至 2026-10-21 v0.9.120）
+
+### v0.9.120（2026-10-21）：无 Docker 一键复现预构建运行时 — CLI 9/9 + XIM 8/8 + DBus 7/7
+
+**目标**：在 openEuler 22.03 LTS aarch64、`/usr` 与 `/etc` 只读的沙箱里，不装 Docker、不重新编译，直接用 S3 预构建产物跑出可交互的中文输入法，并把过程固化成可重复执行的脚本。本节结果取代 v0.9.119 中的临时手工步骤；v0.9.119 保留为历史记录。
+
+**本机环境**
+- OS/架构：openEuler 22.03 LTS，aarch64
+- 公网 IP：`114.116.247.146`（已置顶 `ip.txt`）。NAT 出口池还会出现 `124.70.64.180`、`120.46.166.154`、`1.94.255.132`、`113.44.163.253`，公网出口随目标站点变化
+- 限制：`/usr`、`/etc` 只读；无 Docker；系统无 X11/DBus 运行库
+- 可写路径：`/workspace`、`/usr/local/bin`、`/run/user/0`
+
+**运行时组合（全部来自 S3 `cst:xbz/pinyin-ime`）**
+
+| 组件 | 版本 / 来源 | 说明 |
+|---|---|---|
+| fcitx5 | 5.1.23 / `v0.9.83` desktop bundle | 含 X11、XIM、XCB、DBus、classicui、keyboard |
+| libIME | 1.1.17 / `v0.9.84a` | `libIMEPinyin.so.1.1.17` |
+| CLI + addon | `v0.9.118` | `pinyin_ime_cli` + `libpinyinime.so` |
+| 语言模型 | `v0.9.116` | `zh_CN.lm`（34MB，SHA256 校验通过） |
+| 词典 | `v0.9.116` | `sc.dict`（SHA256 校验通过） |
+| Xvfb / DBus / 字体 | openEuler 22.03 仓库 | 安装到 `/workspace/sysroot`，不写系统 `/usr` |
+| rclone | 1.75.2 | 安装到 `/usr/local/bin`，用于拉取 S3 产物 |
+
+**新增脚本**
+- `scripts/setup_sandbox_deps.sh`：用 `dnf --installroot=/workspace/sysroot` 安装 Xvfb、DBus、X11、中文字体、ImageMagick；生成只含非 glibc 库的 `/workspace/xvfb-libs`，并编译 `xkbcomp` 重定向 shim。
+- `scripts/run_prebuilt.sh`：幂等的 `setup / start / stop / restart / status / test / gui / env` 入口。自动下载 S3 产物、校验 LM/dict、修正 addon 配置与数据路径、启动 Xvfb + DBus + fcitx5，并执行 CLI / XIM / DBus 测试。
+- `tools/xim_gui_demo.c`：XIM 图形演示客户端，用于在 Xvfb 中截取真实候选窗与上屏结果。
+
+**验证结果**
+
+| 测试 | 结果 | 覆盖 |
+|---|---|---|
+| CLI 冒烟 | **9/9** | 全拼、简拼、整句、中英混输透传 |
+| XIM e2e | **8/8** | 真实 XTest 按键 → XIM → fcitx5 → pinyinime → 上屏 |
+| DBus InputContext e2e | **7/7** | `你好/中国/输入法/北京/上海/拼音/中文`，按键 65/65 |
+| GUI 截图 | **2 张** | 候选窗与“你好”上屏，均为 Xvfb 中真实渲染 |
+
+```text
+CLI: 9/9   XIM: 8/8   DBus: 7/7   Keys consumed: 65/65
+```
+
+真实截图：
+
+![候选窗](docs/assets/prebuilt-v0.9.118-candidate.png)
+
+![上屏](docs/assets/prebuilt-v0.9.118-commit.png)
+
+**关键修复**
+1. **addon 配置**：S3 `v0.9.118` RPM 内的 `pinyinime.conf` 写成 `Library=libpinyinime.so`，fcitx5 会自动追加 `.so`，导致加载失败；运行时改为 `Library=libpinyinime`，并把依赖改为与运行时一致的 `0=core:5.1.23`。源码模板 `fcitx5-addon/pinyinime.conf.in` 本身是正确的，问题只在打包产物。
+2. **loader 探测**：`/workspace/sysroot/lib` 是指向 `usr/lib` 的符号链接，`find -maxdepth 1` 默认不跟随起始符号链接，改为 glob 查找 `ld-linux-*.so.*`。
+3. **启动竞态**：`pgrep fcitx5` 成功不代表 addon 已注册；启动器改为等待日志中同时出现 `Loaded addon pinyinime` 与 `loaded lm=...`。
+4. **glibc 混用**：系统 loader 下不能把 `sysroot/usr/lib64` 放进 `LD_LIBRARY_PATH`（会触发 `GLIBC_PRIVATE` / `__tunable_is_initialized` 错误）。Xvfb 使用 `/workspace/xvfb-libs`（排除 glibc），DBus 则显式使用 sysroot loader。
+5. **Xvfb 硬编码 xkbcomp**：通过 `LD_PRELOAD=/workspace/xkbcomp_redirect.so` 把 `/usr/bin/xkbcomp` 重定向到 sysroot，避免写只读 `/usr`。
+6. **状态误报**：日志跨 `stop/start` 保留，`status` 必须同时确认 fcitx5 进程存活，不能只 grep 旧日志。
+7. **CLI 与 XIM 分词差异**：同一串 `nihaozg`，CLI 按整串最长路径输出“你好这个”，XIM 交互式分词输出“你好中国”；测试分别断言，避免把差异当失败。
+
+**用法**
+
+```bash
+cd /workspace/pinyin-ime
+bash scripts/setup_sandbox_deps.sh     # 首次：准备 sysroot 依赖（幂等）
+bash scripts/run_prebuilt.sh start     # 下载/解包/修正配置并启动
+bash scripts/run_prebuilt.sh status
+bash scripts/run_prebuilt.sh test      # CLI + XIM + DBus
+bash scripts/run_prebuilt.sh gui       # 重新生成截图
+bash scripts/run_prebuilt.sh stop
+source /workspace/fcitx5-runtime/runtime.env  # 进入可输入环境
+```
+
+**依赖变更**
+- 新增 sysroot 包：`xorg-x11-server-Xvfb`、`xorg-x11-server-common`、`xkeyboard-config`、`dbus`、`dbus-x11`、`dbus-tools`、`xorg-x11-utils`、`xterm`、`xauth`、`dejavu-sans-fonts`、`wqy-microhei-fonts`、`wqy-zenhei-fonts`、`fontconfig`、`libX11-devel`、`libXtst-devel`、`libXext-devel`、`xorg-x11-proto-devel`、`libXft-devel`、`freetype-devel`、`fontconfig-devel`、`libXrender-devel`、`ImageMagick`、`xorg-x11-apps`。
+- 新增工具：rclone 1.75.2、`gcc` 编译的 `xkbcomp` shim、XIM/GUI 测试客户端。
+- 未修改系统 `/usr`、`/etc`；未使用 Docker/conda。
+
+**TODO**
+- [ ] 修复 `v0.9.118` RPM 打包：写入正确的 `Library=libpinyinime` 与 `0=core:5.1.23`，避免部署后再改配置。
+- [ ] 把 libIME、fcitx5、addon、LM/dict 合并为真正自包含的运行时包，减少对 `/workspace/sysroot` 和三个 `LD_LIBRARY_PATH` 目录的依赖。
+- [ ] 统一 CLI 与 XIM 的分词/简拼策略，或为 `nihaozg` 这类歧义串提供显式分隔符。
+- [ ] 为 S3 产物生成相对路径校验文件；当前 `v0.9.118` 的 checksum 文件仍引用旧绝对路径。
+- [ ] 在 CI 中加入 aarch64 容器冒烟测试（`start` + `test`），并覆盖 GTK/Qt 真实应用与候选窗定位。
+- [ ] 评估 Wayland 前端；当前只验证了 X11/XIM。
+- [ ] 完善 `fcitx5-remote` 状态检查与多用户/多显示器场景。
+
 ## 当前进度（截至 2026-10-21 v0.9.119）
 
 ### v0.9.119（2026-10-21）：S3 预构建产物快速恢复 — CLI 31/31 + DBus e2e 7/7 + XIM 注册
