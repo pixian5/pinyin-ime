@@ -42,13 +42,29 @@ log(){ echo -e "\033[36m[package]\033[0m $*"; }
 ADDON_SO="fcitx5-addon/build/libpinyinime.so"
 ADDON_CONF="fcitx5-addon/build/pinyinime.conf"
 CONF_TPL="fcitx5-addon/conf/pinyinime.conf"
+INPUTMETHOD="fcitx5-addon/pinyinime.inputmethod"
 CLI="cpp/build/pinyin_ime_cli"
 README_FILE="README.md"
+DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/pinyin-ime-s3/v0.9.116}"
+LM="$DATA_DIR/zh_CN.lm"
+DICT="$DATA_DIR/sc.dict"
 
-for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$CLI" "$README_FILE"; do
-    [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon；CLI 见 cpp/build）"; exit 1; }
+for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE" "$LM" "$DICT"; do
+    [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon/CLI；数据见 pinyin-ime-s3/v0.9.116）"; exit 1; }
 done
 mkdir -p "$DIST"
+
+# 发布前硬校验：v0.9.118 的 RPM 曾把 Library 写成 libpinyinime.so，fcitx5 会再追加
+# 一次后缀导致 addon 加载失败。这里直接拒绝错误产物，避免再次发布坏包。
+validate_addon_conf() {
+    grep -qx 'Library=libpinyinime' "$ADDON_CONF" ||
+        { echo "!! $ADDON_CONF 的 Library 必须是 libpinyinime（不能带 .so）"; exit 1; }
+    grep -q '^0=core:' "$ADDON_CONF" ||
+        { echo "!! $ADDON_CONF 缺少 [Addon/Dependencies] core 版本"; exit 1; }
+    grep -qx "Version=$VERSION" "$ADDON_CONF" ||
+        { echo "!! $ADDON_CONF 的 Version 与 VERSION=$VERSION 不一致"; exit 1; }
+}
+validate_addon_conf
 
 # 组装安装树 rootfs：$1=目标目录 $2=addon 安装目录（rpm/deb 布局不同）
 stage_rootfs() {
@@ -57,6 +73,9 @@ stage_rootfs() {
     install -D -m755 "$ADDON_SO"   "$root$addon_dir/libpinyinime.so"
     install -D -m644 "$ADDON_CONF" "$root/usr/share/fcitx5/addon/pinyinime.conf"
     install -D -m644 "$CONF_TPL"   "$root/usr/share/fcitx5/conf/pinyinime.conf"
+    install -D -m644 "$INPUTMETHOD" "$root/usr/share/fcitx5/inputmethod/pinyinime.inputmethod"
+    install -D -m644 "$LM"         "$root/usr/share/libime/zh_CN.lm"
+    install -D -m644 "$DICT"       "$root/usr/share/libime/sc.dict"
     install -D -m644 "$README_FILE" "$root/usr/share/doc/pinyin-ime/README.md"
     install -D -m755 "$CLI"        "$root/usr/bin/pinyin_ime_cli"
 }
@@ -113,12 +132,12 @@ build_deb() {
         --rootfs "$stage" \
         --output "$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb" \
         --name pinyin-ime --version "$VERSION" --arch "$ARCH_DEB" \
-        --depends "fcitx5" --recommends "libime-data" \
+        --depends "fcitx5, libime" \
         --maintainer "laotongtian <laotongtian@gitcode.com>" \
         --short-desc "Pinyin input method for Linux based on libime (fcitx5 addon)" \
         --long-desc "pinyin-ime 是基于 libime 引擎的 Linux 拼音输入法（fcitx5 addon）。
  功能：全拼/简拼/整句解码、拼写纠错、模糊音按对开关、双拼、用户词典与自学习。
- 数据文件由发行版 libime 数据包提供（标准路径自动搜索），或设置 DataDir 指定。"
+ 数据文件 zh_CN.lm / sc.dict 随包安装到 /usr/share/libime，开箱即用。"
 }
 
 # ---------- 校验 ----------

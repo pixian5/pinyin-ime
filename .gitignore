@@ -106,3 +106,8 @@ rpm/
 pinyin-ime-s3/v0.9.118/
 pinyin-ime-s3/v0.9.116/
 pinyin-ime-s3/v0.9.83/
+
+# 发布产物通过 GitCode Release / S3 分发，不入库
+# （历史版本的 rpm/deb 已在库中，保持不动）
+dist/*.rpm
+dist/*.deb

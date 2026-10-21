@@ -9,10 +9,17 @@
 #
 # 实机（Ubuntu 26.04）用法见 README「Fcitx5 addon：实机安装」。
 cmake_minimum_required(VERSION 3.16)
-project(pinyinime VERSION 0.9.115 LANGUAGES CXX)
+project(pinyinime VERSION 0.9.121 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 版本号唯一来源是仓库根目录的 VERSION；避免 addon conf 里的 Version 与发布版本漂移。
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" PINYINIME_VERSION LIMIT_COUNT 1)
+string(STRIP "${PINYINIME_VERSION}" PINYINIME_VERSION)
+if(NOT PINYINIME_VERSION)
+  set(PINYINIME_VERSION "${PROJECT_VERSION}")
+endif()
 
 find_package(Fcitx5Core REQUIRED)
 find_package(Fcitx5Config REQUIRED)
@@ -49,3 +56,5 @@ install(TARGETS pinyinime DESTINATION "${FCITX_INSTALL_ADDONDIR}")
 configure_file(pinyinime.conf.in pinyinime.conf @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pinyinime.conf"
         DESTINATION "${FCITX_INSTALL_PKGDATADIR}/addon")
+install(FILES pinyinime.inputmethod
+        DESTINATION "${FCITX_INSTALL_PKGDATADIR}/inputmethod")

@@ -1,6 +1,48 @@
 # pinyin-ime
 > 文档索引：**[文档索引.md](文档索引.md)** 汇总 docs/ 下全部问题/经验/修复/进度文档，按需查阅。
 
+## 当前版本：v0.9.121（2026-10-21）—— 发布工程与 GitCode Release
+
+**Release 地址**：<https://gitcode.com/laotongtian/pinyin-ime/releases/tag/v0.9.121>
+
+v0.9.121 在 v0.9.120 已验证运行时（CLI 9/9、XIM 8/8、DBus 7/7，方法见下文 v0.9.120 节）之上，补齐「可安装、可分发、可复现」：
+
+| 产物 | 说明 |
+|---|---|
+| `pinyin-ime-0.9.121-1.aarch64.rpm` | addon + CLI + 输入法描述 + LM/dict，开箱即用 |
+| `pinyin-ime_0.9.121_arm64.deb` | 同上（deb 布局 `/usr/lib/aarch64-linux-gnu/fcitx5/`） |
+| `pinyin-ime-runtime-v0.9.121-aarch64.tar.gz` | 自包含便携运行时（fcitx5 + libIME + addon + 数据 + 中文字体） |
+| `SHA256SUMS_v0.9.121` | 上述三件套校验和 |
+
+**本版修复 / 新增**
+- 修复 v0.9.118 RPM 的坏 addon 配置（`Library=libpinyinime.so` 导致 fcitx5 再拼一次后缀、加载失败）：打包前硬校验 `Library=libpinyinime`、`Version=<VERSION>`、`0=core:<fcitx5 版本>`。
+- addon 的 `Version` 改为读取仓库根 `VERSION`，不再写死。
+- 新增 `pinyinime.inputmethod`；RPM/DEB 随包安装 LM/dict 到 `/usr/share/libime`，不再依赖发行版数据包。
+- 新增 `scripts/build_release.sh`：一条命令完成 编译 → RPM/DEB → 便携运行时 tarball → SHA256SUMS。
+- 新增 GitCode Actions 静态检查（`.gitcode/workflows/ci.yml` → `scripts/ci_static.sh`）与本地运行时冒烟（`scripts/ci_runtime.sh`）。
+
+**v0.9.121 实测（本机 aarch64）**
+- 源码编译 CLI + addon（GCC 10.3 + libime 1.1.17 头文件）→ `build_release.sh` 端到端通过。
+- bundle 内 CLI：9/9（你好/中国/输入法/北京大学/nihaozg…）。
+- bundle fcitx5：17 个 addon 全部加载（含 classicui/dbus/xcb/pinyinime），LM/dict 来自 bundle。
+- XIM 客户端：8/8；DBus InputContext e2e：7/7（65/65 按键）。
+- RPM 在全新 root `rpm -ivh --nodeps` 安装 → 文件/配置核对 → `rpm -e` 干净卸载。
+- 便携运行时 `scripts/start.sh` / `stop.sh` 可重复启动、可靠停止（只杀 bundle 自己的 fcitx5）。
+
+**安装 / 使用**
+```bash
+# 1) 安装包（有 fcitx5 + libime 的 openEuler/Fedora）
+sudo rpm -ivh pinyin-ime-0.9.121-1.aarch64.rpm     # 或 dpkg -i pinyin-ime_0.9.121_arm64.deb
+
+# 2) 便携运行时（不写 /usr、/etc）
+tar xzf pinyin-ime-runtime-v0.9.121-aarch64.tar.gz
+cd pinyin-ime-runtime-v0.9.121-aarch64 && ./scripts/start.sh   # 需已进入图形会话
+```
+便携包内含隔离配置（`./config`）、数据（`./share/libime/libime`）、字体与全部运行库；详见包内 `README.md`。
+
+**本版已知限制**：仅验证 X11/XIM；Wayland 未验证；CLI 与 XIM 断言不同（CLI `nihaozg`→“你好这个”，XIM →“你好中国”，属分词策略差异，见 v0.9.120 节）。
+
+
 ## 源码编译验证（2026-10-21）
 
 ### ✅ 在 openEuler 22.03 aarch64 (GCC 10.3) 上源码编译成功

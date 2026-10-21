@@ -1,11 +1,47 @@
 # pinyin-ime 项目状态
 
-> 更新时间：2026-10-10 v0.9.83（X11 桌面三通道全通 + 免 CLI 安装）
+> 更新时间：2026-10-21 **v0.9.121**（发布工程：RPM/DEB/便携运行时 + GitCode Release）
 
 ## 项目概述
 
 基于 libime 的 Linux 拼音输入法，支持 CLI 和 fcitx5 addon 两种前端。
 目标：在 openEuler 22.03 aarch64 上实现真正可用的中文拼音输入法。
+
+## 当前发布状态（v0.9.121，2026-10-21）
+
+**运行时组合**（全部来自 S3 `cst:xbz/pinyin-ime`，无 Docker）：
+
+| 组件 | 版本 | 来源 |
+|---|---|---|
+| fcitx5 | 5.1.23 | `v0.9.83` desktop bundle（X11/XIM/XCB/DBus/classicui） |
+| libIME | 1.1.17 | `v0.9.84a` |
+| LM / dict | `zh_CN.lm` 34M + `sc.dict` 4.3M | `v0.9.116` |
+| CLI / addon | 本机源码编译（GCC 10.3 + libime 1.1.17 头） | `cpp/` + `fcitx5-addon/` |
+
+**发布产物**（[GitCode Release v0.9.121](https://gitcode.com/laotongtian/pinyin-ime/releases/tag/v0.9.121)，S3 `v0.9.121/` 同步）：
+
+- `pinyin-ime-0.9.121-1.aarch64.rpm` / `pinyin-ime_0.9.121_arm64.deb`（addon + CLI + inputmethod + LM/dict）
+- `pinyin-ime-runtime-v0.9.121-aarch64.tar.gz`（自包含便携运行时，82M，`scripts/start.sh` 一键启动）
+- `SHA256SUMS_v0.9.121`
+
+**验证矩阵（v0.9.121 实测）**：
+
+| 项 | 结果 |
+|---|---|
+| `scripts/build_release.sh` 端到端（编译→RPM/DEB→bundle→校验和） | ✅ |
+| bundle CLI 9/9、XIM 8/8、DBus e2e 7/7（65/65 按键） | ✅ |
+| bundle fcitx5：17 addon 全加载（classicui/dbus/xcb/pinyinime + LM/dict） | ✅ |
+| RPM 全新 root 安装/核对/卸载（`rpm -ivh --nodeps` → `rpm -e`） | ✅ |
+| addon conf 硬校验（`Library=libpinyinime`、`Version=0.9.121`、`0=core:5.1.23`） | ✅ |
+| GitCode Actions 静态检查 `.gitcode/workflows/ci.yml` | ✅ 脚本已备 |
+
+**入口脚本**：
+
+- `scripts/build_release.sh` — 构建全部发布产物（沙箱 rpmbuild 自动使用 `$NB/rpmtools`）
+- `scripts/run_prebuilt.sh` — S3 预构建运行时的 start/stop/status/test/gui
+- `scripts/ci_static.sh` / `scripts/ci_runtime.sh` — 静态检查 / 运行时冒烟
+
+**已知限制**：仅验证 X11/XIM（Wayland 未验证）；CLI 与 XIM 断言不同（`nihaozg` → CLI“你好这个”/XIM“你好中国”，分词策略差异）；本机 `/usr` `/etc` 只读，便携运行时是推荐分发方式。
 
 ## 功能清单
 
@@ -83,10 +119,11 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| Tarball | ✅ | scripts/package.sh --tarball（4.4MB） |
-| RPM spec | ✅ | packaging/pinyin-ime.spec（需目标系统完整依赖） |
-| DEB control | ✅ | packaging/debian/control（目录结构已准备） |
-| 一键打包 | ✅ | scripts/package.sh --all |
+| 一键发布 | ✅ | `scripts/build_release.sh`（编译 + RPM + DEB + 便携运行时 + SHA256SUMS，v0.9.121 起） |
+| RPM | ✅ | `scripts/build_packages.sh rpm`（addon + CLI + inputmethod + LM/dict；spec 含硬校验） |
+| DEB | ✅ | `scripts/build_packages.sh deb`（纯 Python `make_deb.py`，无需 dpkg） |
+| 便携运行时 | ✅ | `pinyin-ime-runtime-v<ver>-aarch64.tar.gz`（fcitx5+libIME+数据+字体，不写 /usr） |
+| 旧 tarball | ⚠️ | `scripts/package.sh`（写死 /root/workspace，仅历史保留，勿用） |
 
 ## 评测结果
 

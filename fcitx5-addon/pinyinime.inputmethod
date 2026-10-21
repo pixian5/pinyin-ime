@@ -1,0 +1,7 @@
+[InputMethod]
+Name=Pinyin IME
+Icon=pinyin
+Label=拼
+LangCode=zh_CN
+Addon=pinyinime
+Configurable=True

@@ -1,0 +1,51 @@
+#!/bin/bash
+# ci_static.sh — 无图形环境的静态回归：语法、版本、打包配置、文档链接。
+# 运行时 e2e 需要 Xvfb/DBus，见 scripts/ci_runtime.sh。
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+fail=0
+
+check() {
+    local name="$1"; shift
+    if "$@"; then
+        printf '  ✅ %s\n' "$name"
+    else
+        printf '  ❌ %s\n' "$name"; fail=1
+    fi
+}
+
+echo "=== shell 语法 ==="
+for f in scripts/run_prebuilt.sh scripts/setup_sandbox_deps.sh \
+         scripts/build_release.sh scripts/build_packages.sh scripts/ci_static.sh \
+         packaging/runtime-start.sh packaging/runtime-stop.sh; do
+    check "bash -n $f" bash -n "$f"
+done
+
+echo "=== 版本一致性 ==="
+version="$(cat VERSION)"
+check "VERSION 非空" test -n "$version"
+check "addon CMake 读取 VERSION" grep -q 'file(STRINGS.*VERSION' fcitx5-addon/CMakeLists.txt
+check "addon 模板 Library 正确" grep -qx 'Library=libpinyinime' fcitx5-addon/pinyinime.conf.in
+check "inputmethod 存在" test -f fcitx5-addon/pinyinime.inputmethod
+
+echo "=== 打包配置 ==="
+check "spec 包含 inputmethod" grep -q 'pinyinime.inputmethod' packaging/pinyin-ime.spec
+check "spec 包含 LM" grep -q 'zh_CN.lm' packaging/pinyin-ime.spec
+check "build_packages 校验 Library" grep -q 'Library=libpinyinime' scripts/build_packages.sh
+check "build_packages 校验 Version" grep -q 'Version=\$VERSION' scripts/build_packages.sh
+
+echo "=== 文档 ==="
+check "README 存在" test -s README.md
+check "CHANGELOG 存在" test -s CHANGELOG.md
+check "文档索引存在" test -s 文档索引.md
+
+echo "=== git 空白检查 ==="
+check "git diff --check" git diff --check
+
+if [ "$fail" != 0 ]; then
+    echo "静态检查失败" >&2
+    exit 1
+fi
+echo "静态检查全部通过"
