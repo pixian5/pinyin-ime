@@ -8,9 +8,10 @@
 - addon 的 `Version` 改为读取仓库根 `VERSION`，不再写死 0.9.115。
 - 新增 `pinyinime.inputmethod`，RPM/DEB 同时安装输入法描述、addon 配置、CLI、LM/dict，做到开箱即用。
 - 新增 `scripts/build_release.sh`：构建 RPM/DEB/自包含运行时 tarball，生成 SHA256SUMS 和发布说明。
-- 新增 GitCode Actions 静态检查 workflow 与本地 `scripts/ci_smoke.sh`。
+- 新增 GitCode Actions 静态检查 workflow（`.gitcode/workflows/ci.yml` → `scripts/ci_static.sh`）与本地运行时冒烟 `scripts/ci_runtime.sh`。
 - 收敛 README/CHANGELOG/PROJECT_STATUS 的当前版本口径：README 顶部新增 v0.9.121 当前版本与产物章节，PROJECT_STATUS 头部、打包与发布章节更新到 v0.9.121（历史内容原地保留）。
-- 发布 GitCode Release `v0.9.121`，附 RPM、DEB、运行时 tarball、校验和。
+- 发布 GitCode Release `v0.9.121`，附 RPM、DEB、运行时 tarball、校验和；仓库转为公开，4 个资产匿名下载 + SHA256 校验实测通过。
+- 产物同步到 S3 `cst:xbz/pinyin-ime/v0.9.121/`（`rclone check` 0 差异），Release 与 S3 双通道分发。
 
 
 ## v0.9.120 (2026-10-21)

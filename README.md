@@ -14,6 +14,10 @@ v0.9.121 在 v0.9.120 已验证运行时（CLI 9/9、XIM 8/8、DBus 7/7，方法
 | `pinyin-ime-runtime-v0.9.121-aarch64.tar.gz` | 自包含便携运行时（fcitx5 + libIME + addon + 数据 + 中文字体） |
 | `SHA256SUMS_v0.9.121` | 上述三件套校验和 |
 
+下载地址：
+- GitCode Release：<https://gitcode.com/laotongtian/pinyin-ime/releases/download/v0.9.121/…>（匿名可下载，已实测 4 件 SHA256 全对）
+- S3 镜像：`cst:xbz/pinyin-ime/v0.9.121/`（`rclone copy` 已同步，`rclone check` 0 差异）
+
 **本版修复 / 新增**
 - 修复 v0.9.118 RPM 的坏 addon 配置（`Library=libpinyinime.so` 导致 fcitx5 再拼一次后缀、加载失败）：打包前硬校验 `Library=libpinyinime`、`Version=<VERSION>`、`0=core:<fcitx5 版本>`。
 - addon 的 `Version` 改为读取仓库根 `VERSION`，不再写死。
