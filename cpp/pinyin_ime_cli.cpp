@@ -1861,6 +1861,38 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
+                // v0.9.123: 货币转换（123rmb → 壹佰贰拾叁元）
+                {
+                    auto curResults = pinyin_ime::currency_candidates(line);
+                    if (!curResults.empty()) {
+                        for (size_t ci = 0; ci < curResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << curResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.123: 单位换算（1km → 1千米=1000米）
+                {
+                    auto unitResults = pinyin_ime::unit_conversion(line);
+                    if (!unitResults.empty()) {
+                        for (size_t ci = 0; ci < unitResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << unitResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.123: 百分比转中文（50p → 百分之五十）
+                {
+                    std::string pctResult = pinyin_ime::percent_to_chinese(line);
+                    if (!pctResult.empty()) {
+                        output_line(pctResult);
+                        continue;
+                    }
+                }
             }
             // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
             // v0.9.47: 数字→字母预处理（手机键盘误触）
@@ -2403,6 +2435,42 @@ int main(int argc, char **argv) {
                             std::string calcResult = pinyin_ime::calculator_eval(compactRaw);
                             if (!calcResult.empty()) {
                                 output_line(compactRaw + "=" + calcResult);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.123: 货币转换
+                        {
+                            auto curResults = pinyin_ime::currency_candidates(compactRaw);
+                            if (!curResults.empty()) {
+                                output_line(curResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.123: 单位换算
+                        {
+                            auto unitResults = pinyin_ime::unit_conversion(compactRaw);
+                            if (!unitResults.empty()) {
+                                output_line(unitResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.123: 百分比转中文
+                        {
+                            std::string pctResult = pinyin_ime::percent_to_chinese(compactRaw);
+                            if (!pctResult.empty()) {
+                                output_line(pctResult);
                                 ctx.clear();
                                 page = 0;
                                 candFocus = 0;
