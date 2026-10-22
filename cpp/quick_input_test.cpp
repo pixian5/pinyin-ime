@@ -100,6 +100,128 @@ int main() {
     check("emoji list > 90", emojis.size() > 90);
     std::cout << "  emoji count = " << emojis.size() << "\n";
 
+    // v0.9.123 扩展 v 模式符号组
+    auto [symsa, labela] = v_mode_lookup("a");
+    check("va 拼音: 30 symbols", symsa.size() == 30);
+    check("va label=拼音", labela == "拼音");
+    check("va[0]=ā", symsa[0] == "ā");
+
+    auto [symsb, labelb] = v_mode_lookup("b");
+    check("vb 方括: 30 symbols", symsb.size() == 30);
+    check("vb[0]=【", symsb[0] == "【");
+
+    auto [symsc, labelc] = v_mode_lookup("c");
+    check("vc 棋牌: 30 symbols", symsc.size() == 30);
+    check("vc[0]=♠", symsc[0] == "♠");
+
+    auto [symse, labele] = v_mode_lookup("e");
+    check("ve 自然: 30 symbols", symse.size() == 30);
+
+    auto [symsy, labely] = v_mode_lookup("y");
+    check("vy 生肖: 30 symbols", symsy.size() == 30);
+    check("vy[0]=鼠", symsy[0] == "鼠");
+    check("vy[11]=猪", symsy[11] == "猪");
+
+    auto [symsz, labelz] = v_mode_lookup("z");
+    check("vz 杂项: 30 symbols", symsz.size() == 30);
+
+    // 统计符号组总数
+    auto &all_groups = symbol_groups();
+    std::cout << "  symbol groups = " << all_groups.size() << "\n";
+    check("symbol groups >= 29 (11+18)", all_groups.size() >= 29);
+
+    // v0.9.123 货币转换
+    auto cur1 = currency_candidates("123rmb");
+    check("currency 123rmb has results", !cur1.empty());
+    check("currency 123rmb[0] contains 元", cur1[0].find("元") != std::string::npos);
+    std::cout << "  123rmb → " << cur1[0] << " / " << (cur1.size()>1?cur1[1]:"") << "\n";
+
+    auto cur2 = currency_candidates("99$");
+    check("currency 99$ has results", !cur2.empty());
+    check("currency 99$[0] starts with $", cur2[0].substr(0,1) == "$");
+    std::cout << "  99$ → " << cur2[0] << "\n";
+
+    auto cur3 = currency_candidates("100usd");
+    check("currency 100usd has results", !cur3.empty());
+    std::cout << "  100usd → " << cur3[0];
+    if (cur3.size() > 1) std::cout << " / " << cur3[1];
+    std::cout << "\n";
+
+    auto cur4 = currency_candidates("50eur");
+    check("currency 50eur has results", !cur4.empty());
+    check("is_currency(123rmb)", is_currency_input("123rmb"));
+    check("!is_currency(hello)", !is_currency_input("hello"));
+
+    // v0.9.123 单位换算
+    auto u1 = unit_conversion("1km");
+    check("unit 1km has results", !u1.empty());
+    check("unit 1km contains 千米", u1[0].find("千米") != std::string::npos);
+    std::cout << "  1km → " << u1[0] << "\n";
+
+    auto u2 = unit_conversion("1kg");
+    check("unit 1kg has results", !u2.empty());
+    std::cout << "  1kg → " << u2[0] << "\n";
+
+    auto u3 = unit_conversion("1mile");
+    check("unit 1mile has results", !u3.empty());
+    std::cout << "  1mile → " << u3[0] << "\n";
+
+    auto u4 = unit_conversion("100C");
+    check("unit 100C has results", !u4.empty());
+    std::cout << "  100C → " << u4[0] << "\n";
+
+    auto u5 = unit_conversion("100F");
+    check("unit 100F has results", !u5.empty());
+    std::cout << "  100F → " << u5[0] << "\n";
+    check("is_unit(1km)", is_unit_conversion("1km"));
+    check("!is_unit(hello)", !is_unit_conversion("hello"));
+
+    // v0.9.123 百分比转中文
+    std::string pct1 = percent_to_chinese("50p");
+    check("percent 50p = 百分之五十", pct1 == "百分之五十");
+    std::cout << "  50p → " << pct1 << "\n";
+
+    std::string pct2 = percent_to_chinese("100p");
+    check("percent 100p = 百分之一百", pct2 == "百分之一百");
+
+    std::string pct3 = percent_to_chinese("12p");
+    check("percent 12p = 百分之十二", pct3 == "百分之十二");
+    check("is_percent(50p)", is_percent_input("50p"));
+    check("!is_percent(hello)", !is_percent_input("hello"));
+
+    // v0.9.123 统一快速输入入口
+    auto qc1 = quick_candidates("date");
+    check("quick(date) not empty", !qc1.empty());
+
+    auto qc2 = quick_candidates("123rmb");
+    check("quick(123rmb) not empty", !qc2.empty());
+
+    auto qc3 = quick_candidates("1km");
+    check("quick(1km) not empty", !qc3.empty());
+
+    auto qc4 = quick_candidates("50p");
+    check("quick(50p) not empty", !qc4.empty());
+
+    auto qc5 = quick_candidates("1+2");
+    check("quick(1+2) = 1+2=3", qc5.size() > 0 && qc5[0] == "1+2=3");
+
+    auto qc6 = quick_candidates("123");
+    check("quick(123) has chinese", !qc6.empty() && qc6[0].find("百") != std::string::npos);
+
+    auto qc7 = quick_candidates("hello");
+    check("quick(hello) empty", qc7.empty());
+
+    // v0.9.123 扩展日期/时间
+    check("datetime(year) not empty", !datetime_lookup("year").empty());
+    check("datetime(yn) not empty", !datetime_lookup("yn").empty());
+    check("datetime(month) not empty", !datetime_lookup("month").empty());
+    check("datetime(ts) not empty", !datetime_lookup("ts").empty());
+    check("datetime(hour) not empty", !datetime_lookup("hour").empty());
+    check("datetime(noon) not empty", !datetime_lookup("noon").empty());
+    std::cout << "  year → " << datetime_lookup("year") << "\n";
+    std::cout << "  ts → " << datetime_lookup("ts") << "\n";
+    std::cout << "  noon → " << datetime_lookup("noon") << "\n";
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

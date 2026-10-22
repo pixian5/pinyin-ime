@@ -111,3 +111,6 @@ pinyin-ime-s3/v0.9.83/
 # （历史版本的 rpm/deb 已在库中，保持不动）
 dist/*.rpm
 dist/*.deb
+
+# S3 v0.9.122 prebuilt runtime (use rclone to download)
+pinyin-ime-s3/v0.9.122/
