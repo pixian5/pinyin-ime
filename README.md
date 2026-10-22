@@ -34,6 +34,47 @@
 - S3 预构建产物：v0.9.122 便携运行时（85MB）已下载校验，boost 库已补齐
 - 构建环境：libime 1.1.17 头文件 + boost 1.78.0 + source_location 桩
 
+### 当前进度与待办（v0.9.123）
+
+**已完成**
+- ✅ S3 预构建产物 v0.9.122 下载校验（SHA256 全部 OK）
+- ✅ rclone v1.75.2 安装配置（CSTCloud S3 远程 cst）
+- ✅ 预构建 CLI 运行验证（nihao→你好、date→日期、1+2→3 等）
+- ✅ boost 1.78.0 库补齐（filesystem/system/atomic → 运行时 bundle）
+- ✅ libime 1.1.17 头文件获取（GitHub clone via proxy）
+- ✅ quick_input 独立编译测试通过（96/96）
+- ✅ v 模式扩展 18 组符号（va–vz，共 29 组）
+- ✅ 货币转换 / 单位换算 / 百分比转中文
+- ✅ 统一快速输入入口 quick_candidates()
+- ✅ GitCode 推送成功
+
+**未来优化方向**
+1. **fcitx5 addon 集成**：将 quick_candidates() 接入 fcitx5 addon 的 keyEvent，使桌面输入法支持货币/单位/百分比快捷输入
+2. **CLI 集成**：将 quick_candidates() 接入 pinyin_ime_cli.cpp 的候选生成逻辑
+3. **更多搜狗式功能**：
+   - u 模式笔画输入（不知读音时按笔画输入汉字）
+   - Tab 英文自动补全（输入英文单词时自动补全候选）
+   - 联想词（上屏后显示关联词候选）
+   - 自定义快捷词（用户可配置快捷输入映射）
+4. **词库升级**：评估更大系统词典对准确率的影响
+5. **Wayland 支持**：构建 fcitx5 wayland module / text-input-v3
+6. **云拼音**：云端候选词补充（需网络服务）
+
+**待办事项**
+- [ ] 将 quick_candidates() 接入 fcitx5 addon pinyinime.cpp
+- [ ] 将 quick_candidates() 接入 CLI pinyin_ime_cli.cpp
+- [ ] 补齐 fcitx-utils 头文件以编译 addon（当前仅 quick_input 可独立编译）
+- [ ] 编译并测试更新后的 CLI + addon
+- [ ] 生成 v0.9.123 发布产物（RPM/DEB/便携运行时）
+- [ ] 上传 v0.9.123 产物到 S3
+
+**所需依赖**
+- rclone v1.75.2（S3 下载，已安装）
+- libime 1.1.17 头文件（已获取，GitHub clone）
+- boost 1.78.0（filesystem/system/atomic，已从 openEuler RPM 提取）
+- fcitx-utils 头文件（**缺失**，需从 GitHub/镜像获取以编译 CLI/addon）
+- GCC 10.3.1 + source_location 桩（已配置）
+
 ---
 
 ## 历史版本
