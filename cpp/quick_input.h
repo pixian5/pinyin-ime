@@ -627,4 +627,172 @@ inline std::vector<std::string> quick_candidates(const std::string &input) {
     return {};
 }
 
+
+
+// ── u 模式：笔画输入 ──────────────────────────────────────────
+// 搜狗式 u 模式：u 后跟笔画代码（h=横 s=竖 p=撇 n=捺 z=折）
+// 返回匹配该笔画序列的常用汉字列表
+// 例：uhsp → 横竖撇 → 仁, 亿, 什, 仆, 仇, 付, 仟, 仡, 仞, 代...
+inline bool is_u_mode(const std::string &input) {
+    return input.size() >= 2 && input[0] == 'u' &&
+           std::all_of(input.begin() + 1, input.end(),
+                       [](char c) { return c=='h'||c=='s'||c=='p'||c=='n'||c=='z'; });
+}
+
+// 笔画→汉字 映射表（常用字，按频率排序）
+// h=横(一) s=竖(丨) p=撇(丿) n=捺(丶) z=折(乙)
+inline const std::vector<std::pair<std::string, std::vector<std::string>>>&
+stroke_table() {
+    static const std::vector<std::pair<std::string, std::vector<std::string>>> table = {
+        {"h",    {"一", "丁", "七", "三", "丈", "上", "下", "不", "与", "丑"}},
+        {"s",    {"丨", "卜", "中", "串", "史", "吏", "吠", "忠", "虫", "临"}},
+        {"p",    {"丿", "亿", "仁", "什", "仆", "仇", "付", "仟", "代", "仙"}},
+        {"n",    {"丶", "义", "凡", "丸", "丹", "主", "丽", "举", "买", "乱"}},
+        {"z",    {"乙", "九", "也", "乃", "刀", "力", "又", "叉", "么", "马"}},
+        {"hs",   {"十", "干", "寸", "才", "丁", "木", "本", "术", "未", "末"}},
+        {"hp",   {"千", "乞", "川", "亿", "仁", "什", "仆", "仇", "付", "仟"}},
+        {"hn",   {"大", "太", "犬", "天", "夫", "夹", "奋", "奎", "夭", "夯"}},
+        {"hz",   {"丁", "七", "万", "丈", "与", "丑", "专", "且", "世", "丘"}},
+        {"sh",   {"工", "土", "士", "王", "五", "正", "去", "走", "赶", "起"}},
+        {"ss",   {"中", "串", "史", "吏", "忠", "虫", "临", "监", "鉴", "竖"}},
+        {"sp",   {"少", "小", "尔", "尖", "尘", "尚", "尝", "肖", "省", "雀"}},
+        {"sn",   {"小", "少", "尔", "尖", "尘", "尚", "尝", "肖", "省", "雀"}},
+        {"sz",   {"口", "日", "曰", "田", "由", "甲", "申", "电", "国", "围"}},
+        {"ph",   {"千", "乞", "川", "亿", "仁", "什", "仆", "仇", "付", "仟"}},
+        {"ps",   {"少", "小", "尔", "尖", "尘", "尚", "尝", "肖", "省", "雀"}},
+        {"pp",   {"行", "很", "得", "待", "往", "征", "径", "徐", "徒", "徙"}},
+        {"pn",   {"入", "人", "内", "全", "会", "合", "令", "今", "仓", "企"}},
+        {"pz",   {"几", "风", "凤", "凡", "丸", "丹", "九", "也", "乃", "刀"}},
+        {"nh",   {"大", "太", "犬", "天", "夫", "夹", "奋", "奎", "夭", "夯"}},
+        {"ns",   {"小", "少", "尔", "尖", "尘", "尚", "尝", "肖", "省", "雀"}},
+        {"np",   {"入", "人", "内", "全", "会", "合", "令", "今", "仓", "企"}},
+        {"nn",   {"义", "凡", "丸", "丹", "主", "丽", "举", "买", "乱", "乳"}},
+        {"nz",   {"之", "文", "方", "放", "访", "纺", "防", "妨", "仿", "房"}},
+        {"zh",   {"己", "已", "巳", "巴", "邑", "巵", "改", "忌", "志", "忍"}},
+        {"zs",   {"口", "日", "曰", "田", "由", "甲", "申", "电", "国", "围"}},
+        {"zp",   {"几", "风", "凤", "凡", "丸", "丹", "九", "也", "乃", "刀"}},
+        {"zn",   {"之", "文", "方", "放", "访", "纺", "防", "妨", "仿", "房"}},
+        {"zz",   {"马", "鸟", "乌", "鸣", "鸭", "鹅", "鸦", "鸽", "鹤", "鹰"}},
+        {"hsp",  {"仁", "亿", "什", "仆", "仇", "付", "仟", "代", "仙", "仪"}},
+        {"hps",  {"千", "乞", "川", "亿", "仁", "什", "仆", "仇", "付", "仟"}},
+        {"shp",  {"少", "小", "尔", "尖", "尘", "尚", "尝", "肖", "省", "雀"}},
+        {"phs",  {"千", "乞", "川", "亿", "仁", "什", "仆", "仇", "付", "仟"}},
+        {"hsh",  {"木", "本", "术", "未", "末", "札", "杀", "杂", "杠", "杆"}},
+        {"hh",   {"二", "十", "干", "于", "亏", "云", "专", "亚", "些", "亭"}},
+        {"hhh",  {"三", "王", "玉", "主", "丰", "圭", "寿", "弄", "麦", "表"}},
+        {"hhhh", {"四", "置", "署", "罢", "罪", "罗", "罚", "罢", "羁", "罡"}},
+        {"ssss", {"口", "日", "曰", "田", "由", "甲", "申", "电", "国", "围"}},
+        {"hns",  {"大", "太", "犬", "天", "夫", "夹", "奋", "奎", "夭", "夯"}},
+        {"hzn",  {"丁", "七", "万", "丈", "与", "丑", "专", "且", "世", "丘"}},
+        {"shn",  {"工", "土", "士", "王", "五", "正", "去", "走", "赶", "起"}},
+        {"phn",  {"行", "很", "得", "待", "往", "征", "径", "徐", "徒", "徙"}},
+    };
+    return table;
+}
+
+// u 模式查表：给定笔画代码（如 "hsp"），返回匹配的汉字列表
+inline std::vector<std::string> u_mode_lookup(const std::string &strokes) {
+    const auto &table = stroke_table();
+    // 精确匹配
+    for (const auto &[code, chars] : table) {
+        if (code == strokes) return chars;
+    }
+    // 前缀匹配：返回所有以 strokes 为前缀的笔画对应的汉字（去重）
+    std::vector<std::string> result;
+    for (const auto &[code, chars] : table) {
+        if (code.size() > strokes.size() &&
+            code.substr(0, strokes.size()) == strokes) {
+            for (const auto &c : chars) {
+                if (std::find(result.begin(), result.end(), c) == result.end()) {
+                    result.push_back(c);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// ── Tab 英文补全 ──────────────────────────────────────────
+// 给定英文前缀，返回可能的完整单词
+inline bool is_english_input(const std::string &input) {
+    if (input.empty()) return false;
+    for (char c : input) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) return false;
+    }
+    return true;
+}
+
+inline const std::vector<std::string>& english_word_list() {
+    static const std::vector<std::string> words = {
+        "hello", "help", "world", "test", "code", "data", "file", "name", "type", "value",
+        "function", "class", "string", "number", "array", "object", "return", "const", "static", "public",
+        "private", "protected", "virtual", "override", "template", "namespace", "include", "define", "ifdef", "ifndef",
+        "struct", "union", "enum", "typedef", "sizeof", "malloc", "calloc", "realloc", "free", "memcpy",
+        "memset", "strcmp", "strcpy", "strlen", "strstr", "printf", "scanf", "fopen", "fclose", "fread",
+        "fwrite", "fgets", "fputs", "feof", "fseek", "ftell", "flush", "error", "debug", "info",
+        "warn", "fatal", "trace", "assert", "check", "verify", "validate", "parse", "format", "encode",
+        "decode", "encrypt", "decrypt", "compress", "decompress", "serialize", "deserialize", "upload", "download", "transfer",
+        "connect", "disconnect", "listen", "accept", "send", "receive", "read", "write", "open", "close",
+        "create", "destroy", "init", "cleanup", "start", "stop", "pause", "resume", "restart", "update",
+        "delete", "insert", "select", "update", "replace", "remove", "search", "sort", "filter", "merge",
+        "split", "join", "push", "pop", "shift", "unshift", "slice", "splice", "concat", "reverse",
+        "config", "option", "param", "argument", "default", "require", "import", "export", "module", "package",
+        "library", "framework", "service", "client", "server", "proxy", "gateway", "router", "handler", "controller",
+        "model", "view", "render", "buffer", "stream", "pipe", "queue", "stack", "cache", "pool",
+        "thread", "process", "task", "job", "worker", "master", "slave", "leader", "follower", "candidate",
+        "version", "branch", "commit", "merge", "rebase", "checkout", "status", "log", "diff", "patch",
+        "build", "deploy", "release", "install", "uninstall", "upgrade", "downgrade", "rollback", "backup", "restore",
+        "main", "argc", "argv", "stdin", "stdout", "stderr", "null", "true", "false", "auto",
+        "void", "int", "char", "bool", "float", "double", "long", "short", "unsigned", "signed",
+        "if", "else", "for", "while", "do", "switch", "case", "break", "continue", "goto",
+        "and", "or", "not", "in", "out", "ref", "val", "var", "let", "set",
+        "get", "has", "is", "can", "should", "would", "could", "will", "shall", "must",
+        "about", "above", "after", "again", "all", "any", "ask", "back", "base", "been",
+        "before", "being", "best", "better", "big", "book", "both", "but", "call", "came",
+        "can", "cap", "car", "cat", "city", "come", "cool", "copy", "cost", "day",
+        "did", "die", "end", "even", "ever", "every", "eye", "fact", "far", "fast",
+        "feel", "few", "find", "first", "fix", "flag", "flat", "fly", "form", "found",
+        "four", "from", "full", "fun", "gap", "gen", "get", "give", "go", "good",
+        "got", "great", "group", "grow", "had", "has", "have", "head", "hear", "here",
+        "high", "his", "hit", "home", "hope", "how", "idea", "image", "img", "info",
+        "into", "its", "job", "just", "keep", "key", "kind", "know", "last", "left",
+        "less", "let", "life", "like", "line", "link", "list", "live", "local", "lock",
+        "long", "look", "loop", "low", "made", "make", "many", "map", "mark", "may",
+        "mean", "men", "might", "mind", "miss", "mode", "more", "most", "move", "much",
+        "must", "my", "name", "need", "new", "next", "nice", "no", "node", "none",
+        "not", "note", "now", "number", "of", "off", "old", "on", "once", "one",
+        "only", "open", "order", "other", "our", "out", "over", "own", "page", "part",
+        "pass", "past", "path", "pay", "per", "pick", "plan", "play", "point", "port",
+        "post", "put", "quit", "race", "rand", "range", "rate", "raw", "read", "real",
+        "ref", "rel", "rest", "result", "return", "right", "room", "root", "rule", "run",
+        "save", "say", "see", "seem", "self", "send", "set", "show", "side", "size",
+        "slow", "small", "some", "sort", "source", "space", "start", "state", "stay", "step",
+        "stop", "store", "sub", "such", "sure", "sync", "system", "tag", "take", "talk",
+        "task", "team", "tell", "test", "text", "than", "that", "the", "their", "them",
+        "then", "there", "these", "they", "thing", "think", "this", "those", "time", "tiny",
+        "tip", "title", "to", "top", "try", "type", "use", "user", "using", "value",
+        "very", "want", "was", "way", "well", "were", "what", "when", "where", "which",
+        "while", "who", "why", "wide", "will", "with", "work", "would", "write", "wrong",
+        "year", "yes", "yet", "you", "your", "zero", "zone",
+    };
+    return words;
+}
+
+// Tab 补全：给定前缀，返回匹配的完整单词（最多 10 个）
+inline std::vector<std::string> tab_complete(const std::string &prefix) {
+    if (prefix.empty() || !is_english_input(prefix)) return {};
+    std::string lower = prefix;
+    for (auto &c : lower) if (c >= 'A' && c <= 'Z') c += 32;
+    
+    std::vector<std::string> result;
+    for (const auto &word : english_word_list()) {
+        if (word.size() >= lower.size() &&
+            word.substr(0, lower.size()) == lower) {
+            result.push_back(word);
+            if (result.size() >= 10) break;
+        }
+    }
+    return result;
+}
+
 } // namespace pinyin_ime

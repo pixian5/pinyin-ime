@@ -648,6 +648,142 @@ int read_key() {
 
 }  // namespace
 
+// ── P1: 长句兜底分词 ──────────────────────────────────────────
+// 当 libime 候选含拉丁字母时（说明部分输入无法切分为有效拼音音节），
+// 在失败点尝试元音补全（i→in/ing, e→en/eng, u→un/uo 等），
+// 重新解码取最佳结果。
+//
+// 策略：
+// 1. 检查首选候选是否含拉丁字母
+// 2. 若含，找到输出中拉丁字母的起始位置，映射回输入位置
+// 3. 对未切分部分尝试常见元音补全，重新解码
+// 4. 取不含拉丁字母的最佳结果
+namespace {
+
+// 检查字符串是否含 ASCII 拉丁字母
+bool has_latin(const std::string &s) {
+    for (char c : s) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return true;
+    }
+    return false;
+}
+
+// 常见元音补全：单个字母 → 可能的完整音节
+std::vector<std::string> vowel_completions(char c) {
+    switch (c) {
+        case 'a': return {"a", "ai", "ao", "an", "ang"};
+        case 'e': return {"e", "en", "eng", "er"};
+        case 'i': return {"in", "ing", "ie", "iao", "iu"};
+        case 'o': return {"ou", "ong"};
+        case 'u': return {"un", "uo", "ui"};
+        case 'v': return {"ve", "vn"};
+        case 'b': return {"ba", "bo", "bi", "bu", "be"};
+        case 'p': return {"pa", "po", "pi", "pu", "pe"};
+        case 'm': return {"ma", "mo", "mi", "mu", "me"};
+        case 'f': return {"fa", "fo", "fu", "fe"};
+        case 'd': return {"da", "de", "di", "du", "do"};
+        case 't': return {"ta", "te", "ti", "tu", "to"};
+        case 'n': return {"na", "ne", "ni", "nu", "no"};
+        case 'l': return {"la", "le", "li", "lu", "lo"};
+        case 'g': return {"ga", "ge", "gu", "go"};
+        case 'k': return {"ka", "ke", "ku", "ko", "kong"};
+        case 'h': return {"ha", "he", "hu", "ho"};
+        case 'j': return {"ji", "ja", "ju", "je"};
+        case 'q': return {"qi", "qa", "qu", "qe"};
+        case 'x': return {"xi", "xa", "xu", "xe"};
+        case 'r': return {"ra", "re", "ri", "ru", "ro"};
+        case 'z': return {"za", "ze", "zi", "zu", "zo"};
+        case 'c': return {"ca", "ce", "ci", "cu", "co"};
+        case 's': return {"sa", "se", "si", "su", "so"};
+        case 'w': return {"wa", "wo", "wu", "we"};
+        case 'y': return {"ya", "yo", "yu", "ye"};
+        default: return {};
+    }
+}
+
+// 兜底分词：尝试在失败点补全，返回更好的候选列表
+// v2: 尝试 (1) 单字符元音补全 (2) 双字符替换为完整音节
+std::vector<std::string> fallback_segment(
+    PinyinContext &ctx, const std::string &input, size_t nbest) {
+    
+    std::vector<std::string> best_cands;
+    
+    // 完整拼音音节表（用于双字符替换）
+    static const std::vector<std::string> syllables = {
+        "a","ai","an","ang","ao","ba","bai","ban","bang","bao","bei","ben","beng","bi","bian","biao","bie","bin","bing","bo","bu",
+        "ca","cai","can","cang","cao","ce","ceng","cha","chai","chan","chang","chao","che","chen","cheng","chi","chong","chou","chu","chua","chuai","chuan","chuang","chui","chun","chuo","ci","cong","cou","cu","cuan","cui","cun","cuo",
+        "da","dai","dan","dang","dao","de","dei","den","deng","di","dia","dian","diao","die","ding","diu","dong","dou","du","duan","dui","dun","duo",
+        "e","ei","en","eng","er","fa","fan","fang","fei","fen","feng","fo","fou","fu","ga","gai","gan","gang","gao","ge","gei","gen","geng","gong","gou","gu","gua","guai","guan","guang","gui","gun","guo",
+        "ha","hai","han","hang","hao","he","hei","hen","heng","hong","hou","hu","hua","huai","huan","huang","hui","hun","huo",
+        "ji","jia","jian","jiang","jiao","jie","jin","jing","jiong","jiu","ju","juan","jue","jun",
+        "ka","kai","kan","kang","kao","ke","ken","keng","kong","kou","ku","kua","kuai","kuan","kuang","kui","kun","kuo",
+        "la","lai","lan","lang","lao","le","lei","leng","li","lia","lian","liang","liao","lie","lin","ling","liu","long","lou","lu","luan","lui","lun","luo","lv","lve",
+        "ma","mai","man","mang","mao","me","mei","men","meng","mi","mian","miao","mie","min","ming","miu","mo","mou","mu",
+        "na","nai","nan","nang","nao","ne","nei","nen","neng","ni","nian","niang","niao","nie","nin","ning","niu","nong","nou","nu","nuan","nun","nuo","nv","nve",
+        "o","ou","pa","pai","pan","pang","pao","pei","pen","peng","pi","pian","piao","pie","pin","ping","po","pou","pu",
+        "qi","qia","qian","qiang","qiao","qie","qin","qing","qiong","qiu","qu","quan","que","qun",
+        "ran","rang","rao","re","ren","reng","ri","rong","rou","ru","rua","ruan","rui","run","ruo",
+        "sa","sai","san","sang","sao","se","sen","seng","sha","shai","shan","shang","shao","she","shei","shen","sheng","shi","shou","shu","shua","shuai","shuan","shuang","shui","shun","shuo","si","song","sou","su","suan","sui","sun","suo",
+        "ta","tai","tan","tang","tao","te","teng","ti","tian","tiao","tie","ting","tong","tou","tu","tuan","tui","tun","tuo",
+        "wa","wai","wan","wang","wei","wen","weng","wo","wu",
+        "xi","xia","xian","xiang","xiao","xie","xin","xing","xiong","xiu","xu","xuan","xue","xun",
+        "ya","yan","yang","yao","ye","yi","yin","ying","yo","yong","you","yu","yuan","yue","yun",
+        "za","zai","zan","zang","zao","ze","zei","zen","zeng","zha","zhai","zhan","zhang","zhao","zhe","zhei","zhen","zheng","zhi","zhong","zhou","zhu","zhua","zhuai","zhuan","zhuang","zhui","zhun","zhuo","zi","zong","zou","zu","zuan","zui","zun","zuo"
+    };
+    
+    size_t start = input.size() > 14 ? input.size() - 14 : 0;
+    
+    // 策略1: 单字符补全
+    for (size_t split = start; split < input.size(); ++split) {
+        char c = input[split];
+        if (c < 'a' || c > 'z') continue;
+        
+        auto completions = vowel_completions(c);
+        std::string prefix = input.substr(0, split);
+        std::string suffix = input.substr(split + 1);
+        
+        for (const auto &comp : completions) {
+            std::string modified = prefix + comp + suffix;
+            ctx.clear();
+            for (char ch : modified) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+            auto cands = collect_candidates(ctx, nbest);
+            if (!cands.empty() && !has_latin(cands[0])) {
+                best_cands = cands;
+                break;
+            }
+        }
+        if (!best_cands.empty()) break;
+    }
+    
+    // 策略2: 双字符替换为完整音节
+    if (best_cands.empty()) {
+        for (size_t split = start; split + 1 < input.size(); ++split) {
+            char c0 = input[split], c1 = input[split + 1];
+            if (c0 < 'a' || c0 > 'z' || c1 < 'a' || c1 > 'z') continue;
+            
+            std::string prefix = input.substr(0, split);
+            std::string suffix = input.substr(split + 2);
+            
+            for (const auto &syl : syllables) {
+                if (syl[0] != c0) continue;  // 首字母匹配
+                std::string modified = prefix + syl + suffix;
+                ctx.clear();
+                for (char ch : modified) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                auto cands = collect_candidates(ctx, nbest);
+                if (!cands.empty() && !has_latin(cands[0])) {
+                    best_cands = cands;
+                    break;
+                }
+            }
+            if (!best_cands.empty()) break;
+        }
+    }
+    
+    return best_cands;
+}
+
+}  // namespace
+
 int main(int argc, char **argv) {
     // 解析参数：支持 -h/--help、-f/--fuzzy、--user-data DIR；位置参数为 [lm][dict][nbest]。
     bool fuzzy = false;
@@ -1840,11 +1976,61 @@ int main(int argc, char **argv) {
         std::string line;
         while (std::getline(std::cin, line)) {
             ctx.clear();
-            // 搜狗式快捷输入：日期/时间/计算器（在纠错预处理之前检查原始输入）
+            // 搜狗式快捷输入：v模式/u模式/Tab补全/日期/时间/计算器/数字转中文
             {
                 std::string compactRaw;
                 compactRaw.reserve(line.size());
                 for (char c : line) if (c >= 'a' && c <= 'z') compactRaw.push_back(c);
+                // v模式符号（va→āáǎà, vb→【】, vc→♠♥ ...）
+                if (pinyin_ime::is_v_mode(line)) {
+                    std::string sub = line.substr(1);
+                    auto [syms, label] = pinyin_ime::v_mode_lookup(sub);
+                    if (!syms.empty()) {
+                        for (size_t ci = 0; ci < syms.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << syms[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // u模式笔画输入（uhsp→横竖撇→仁亿什...）
+                if (pinyin_ime::is_u_mode(line)) {
+                    std::string strokes = line.substr(1);
+                    auto chars = pinyin_ime::u_mode_lookup(strokes);
+                    if (!chars.empty()) {
+                        for (size_t ci = 0; ci < chars.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << chars[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // Tab英文补全（至少3字符，且首选不等于输入本身）
+                if (pinyin_ime::is_english_input(line) && line.size() >= 3) {
+                    auto words = pinyin_ime::tab_complete(line);
+                    if (!words.empty() && words[0] != line) {
+                        for (size_t ci = 0; ci < words.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << words[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // 纯数字转中文（123→一百二十三/壹佰贰拾叁）
+                {
+                    auto numResults = pinyin_ime::number_candidates(line);
+                    if (!numResults.empty()) {
+                        for (size_t ci = 0; ci < numResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << numResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
                 // 日期/时间
                 {
                     std::string dtResult = pinyin_ime::datetime_lookup(compactRaw);
@@ -1853,7 +2039,7 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
-                // 计算器（检查原始行，含数字和运算符）
+                // 计算器
                 if (pinyin_ime::is_calculator_input(line)) {
                     std::string calcResult = pinyin_ime::calculator_eval(line);
                     if (!calcResult.empty()) {
@@ -1861,7 +2047,7 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
-                // v0.9.123: 货币转换（123rmb → 壹佰贰拾叁元）
+                // 货币转换（123rmb → 壹佰贰拾叁元）
                 {
                     auto curResults = pinyin_ime::currency_candidates(line);
                     if (!curResults.empty()) {
@@ -1873,7 +2059,7 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
-                // v0.9.123: 单位换算（1km → 1千米=1000米）
+                // 单位换算（1km → 1千米=1000米）
                 {
                     auto unitResults = pinyin_ime::unit_conversion(line);
                     if (!unitResults.empty()) {
@@ -1885,7 +2071,7 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
-                // v0.9.123: 百分比转中文（50p → 百分之五十）
+                // 百分比转中文（50p → 百分之五十）
                 {
                     std::string pctResult = pinyin_ime::percent_to_chinese(line);
                     if (!pctResult.empty()) {
@@ -2093,6 +2279,14 @@ int main(int argc, char **argv) {
                 }
                 cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                 boost_abbreviation(line, cands);
+            }
+            // P1: 长句兜底分词 — 候选含拉丁字母时尝试元音补全
+            if (!cands.empty() && has_latin(cands[0]) && !correctPinyin) {
+                auto fbCands = fallback_segment(ctx, line, static_cast<size_t>(nbest));
+                if (!fbCands.empty()) {
+                    cands = fbCands;
+                    boost_abbreviation(line, cands);
+                }
             }
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0];
@@ -2418,6 +2612,38 @@ int main(int argc, char **argv) {
                              compactRaw.find("xx") != std::string::npos ||
                              compactRaw.find("yy") != std::string::npos ||
                              compactRaw.find("zz") != std::string::npos);
+                        // v模式符号（va→āáǎà, vb→【】...）
+                        if (pinyin_ime::is_v_mode(cont)) {
+                            std::string sub = cont.substr(1);
+                            auto [syms, label] = pinyin_ime::v_mode_lookup(sub);
+                            if (!syms.empty()) {
+                                // 显示符号候选
+                                for (size_t ci = 0; ci < syms.size() && ci < 9; ++ci) {
+                                    std::cout << (ci + 1) << "." << syms[ci] << " ";
+                                }
+                                std::cout << "\n";
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // 纯数字转中文
+                        {
+                            auto numResults = pinyin_ime::number_candidates(cont);
+                            if (!numResults.empty()) {
+                                for (size_t ci = 0; ci < numResults.size(); ++ci) {
+                                    std::cout << (ci + 1) << "." << numResults[ci] << " ";
+                                }
+                                std::cout << "\n";
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
                         // 搜狗式快捷输入：日期/时间
                         {
                             std::string dtResult = pinyin_ime::datetime_lookup(compactRaw);

@@ -1296,6 +1296,61 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     return;
                 }
             }
+            // v0.9.123: 货币转换（123rmb → 壹佰贰拾叁元）
+            {
+                auto curResults = pinyin_ime::currency_candidates(compactRaw);
+                if (!curResults.empty()) {
+                    std::string joined;
+                    for (size_t ci = 0; ci < curResults.size(); ++ci) {
+                        if (ci > 0) joined += " ";
+                        joined += curResults[ci];
+                    }
+                    state->commitText(joined);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.123: 单位换算（1km → 1千米=1000米）
+            {
+                auto unitResults = pinyin_ime::unit_conversion(compactRaw);
+                if (!unitResults.empty()) {
+                    std::string joined;
+                    for (size_t ci = 0; ci < unitResults.size(); ++ci) {
+                        if (ci > 0) joined += " ";
+                        joined += unitResults[ci];
+                    }
+                    state->commitText(joined);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.123: 百分比转中文（50p → 百分之五十）
+            {
+                std::string pctResult = pinyin_ime::percent_to_chinese(compactRaw);
+                if (!pctResult.empty()) {
+                    state->commitText(pctResult);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.123: 纯数字转中文（123 → 一百二十三 壹佰贰拾叁）
+            {
+                auto numResults = pinyin_ime::number_candidates(compactRaw);
+                if (!numResults.empty()) {
+                    std::string joined;
+                    for (size_t ci = 0; ci < numResults.size(); ++ci) {
+                        if (ci > 0) joined += " ";
+                        joined += numResults[ci];
+                    }
+                    state->commitText(joined);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
 
             if (englishDoubled ||
                 (!compactRaw.empty() &&
