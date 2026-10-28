@@ -1907,6 +1907,11 @@ int main(int argc, char **argv) {
     std::string undoNotice;
     size_t boostSwap = 0;       // 简拼 boost：候选 boostSwap 与 0 交换显示（0=不交换）
 
+    // v0.9.124: 联想词模式 — 上屏后自动显示关联词候选
+    bool assocMode = false;          // 是否处于联想词模式
+    std::vector<std::string> assocCands;  // 联想候选列表
+    std::string lastCommitted;       // 最近上屏的文本（供联想用）
+
     // 上屏即落盘：崩溃/被 kill 时最多丢「最后一次上屏」的增量（防丢措施，与 addon 对齐）。
     // 成功上屏时把 (文本, 拼音) 压入撤回栈，供 Ctrl-Z 撤回后恢复拼音重新编辑。
     auto commit = [&](size_t idx) {
@@ -2359,10 +2364,6 @@ int main(int argc, char **argv) {
     bool quoteOpen = false;    // 双引号智能配对：开“/闭”交替
     bool singleQuoteOpen = false;  // 单引号智能配对：开‘/闭’交替（空闲时；打拼音中仍是隔音符）
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
-    // v0.9.124: 联想词模式 — 上屏后自动显示关联词候选
-    bool assocMode = false;          // 是否处于联想词模式
-    std::vector<std::string> assocCands;  // 联想候选列表
-    std::string lastCommitted;       // 最近上屏的文本（供联想用）
     // v0.9.124: i模式快捷短语 — 输入i后跟字母缩写
     bool iMode = false;              // 是否处于i模式
     std::string iModeBuf;            // i模式累积缓冲（i后面的字母）

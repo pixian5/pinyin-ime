@@ -795,7 +795,6 @@ inline std::vector<std::string> tab_complete(const std::string &prefix) {
     return result;
 }
 
-} // namespace pinyin_ime
 
 
 // ── i 模式：搜狗式快捷短语 ──────────────────────────────────
@@ -1058,3 +1057,5 @@ inline std::vector<std::string> association_lookup(const std::string &committedT
 
     return {};
 }
+
+} // namespace pinyin_ime

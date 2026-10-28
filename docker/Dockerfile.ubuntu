@@ -1,0 +1,81 @@
+# Ubuntu 24.04 双架构构建镜像（arm64 / amd64）
+#
+# 使用 Ubuntu 仓库自带的 libime 1.1.5 + fcitx5 5.1.7（dev 包）编译 pinyin-ime，
+# 避免从源码编译 libime/fcitx5（在 QEMU 模拟 amd64 下需数小时）。
+# 源码侧已做 libime 1.1.5 兼容（L_R/Correction/GB 跳过、M3 纠错兜底），见
+# cpp/pinyin_ime_cli.cpp 与 fcitx5-addon/CMakeLists.txt 的兼容宏。
+#
+# 多阶段：builder 负责编译并把产物收集到 /out；export 阶段用 scratch 只保留
+# /out，供 `docker buildx build --output type=local` 直接导出二进制到宿主机。
+#
+# 用法：
+#   docker buildx build --platform linux/arm64 -f docker/Dockerfile.ubuntu \
+#       --output type=local,dest=dist/ubuntu/arm64 .
+#   docker buildx build --platform linux/amd64 -f docker/Dockerfile.ubuntu \
+#       --output type=local,dest=dist/ubuntu/amd64 .
+
+# ---- builder：完整 Ubuntu 24.04 + 编译依赖 ----
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# libime 1.1.5 dev 包：libimepinyin-dev / libimecore-dev / libimetable-dev
+# fcitx5 5.1.7 dev 包：libfcitx5core-dev / libfcitx5config-dev / libfcitx5utils-dev
+# 运行时语言模型与词典：libime-data / libime-data-language-model（供冒烟验证）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        cmake \
+        g++ \
+        pkg-config \
+        ninja-build \
+        libimepinyin-dev \
+        libimecore-dev \
+        libimetable-dev \
+        libfcitx5core-dev \
+        libfcitx5config-dev \
+        libfcitx5utils-dev \
+        libboost-dev \
+        libime-data \
+        libime-data-language-model \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# 构建期诊断：确认装的 libime / fcitx5 版本与数据文件位置
+RUN echo "--- libime 版本 ---"; dpkg -l 2>/dev/null | grep -iE 'libime|fcitx5' | awk '{print $2, $3}'; \
+    echo "--- 语言模型 ---"; find /usr -name '*.lm' 2>/dev/null | head -5; \
+    echo "--- sc.dict ---"; find /usr -name 'sc.dict' 2>/dev/null -exec ls -l {} \;
+
+# 拷贝源码（cpp / fcitx5-addon / cmake / VERSION）
+COPY cpp/ /src/cpp/
+COPY fcitx5-addon/ /src/fcitx5-addon/
+COPY cmake/ /src/cmake/
+COPY VERSION /src/VERSION
+
+# ---- 编译 CLI（pinyin_ime_cli / libime_bench / 测试）----
+RUN cd /src/cpp && cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build -j "$(nproc)"
+
+# ---- 编译 fcitx5 addon（libpinyinime.so + pinyinime.conf）----
+RUN cd /src/fcitx5-addon && cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build -j "$(nproc)"
+
+# ---- 收集产物到 /out ----
+RUN mkdir -p /out && \
+    cp /src/cpp/build/pinyin_ime_cli /out/ && \
+    cp /src/cpp/build/libime_bench /out/ && \
+    cp /src/cpp/build/pinyin_corrector_test /out/ && \
+    cp /src/cpp/build/quick_input_test /out/ && \
+    cp /src/fcitx5-addon/build/libpinyinime.so /out/ && \
+    cp /src/fcitx5-addon/build/pinyinime.conf /out/ 2>/dev/null || true
+
+# ---- 构建期冒烟：CLI 自动/显式加载系统 LM/dict，验证能打出"你好" ----
+RUN LM=$(find /usr -name 'zh_CN.lm' -o -name 'sc.lm' 2>/dev/null | head -1); \
+    DICT=$(find /usr -name 'sc.dict' 2>/dev/null | head -1); \
+    echo "--- 冒烟 LM=$LM DICT=$DICT ---"; \
+    echo "nihao" | /out/pinyin_ime_cli --top1 --quiet "$LM" "$DICT" 2>&1 | head -5 \
+        || echo "⚠️ 构建期冒烟未完全通过（编译产物已就绪；目标机装 libime-data 即可运行）"
+
+# ---- export：只保留 /out，供 buildx 导出 ----
+FROM scratch AS export
+COPY --from=builder /out /

@@ -128,3 +128,6 @@ node_modules/
 .coverage
 htmlcov/
 *.egg-info/
+
+# Ubuntu 双架构编译产物（docker buildx 导出，二进制不入库）
+dist/ubuntu/
