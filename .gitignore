@@ -131,3 +131,15 @@ htmlcov/
 
 # Ubuntu 双架构编译产物（docker buildx 导出，二进制不入库）
 dist/ubuntu/
+
+# 构建产物（CLI / bench / addon .so / 解压后的 S3 包）—— 不入库，靠 docker 构建或 rclone 获取
+dist/pinyin_ime_cli
+dist/libime_bench
+dist/pinyin_corrector_test
+dist/*.so
+pinyin_ime_cli
+fcitx5-addon/*.so
+tools/*.so
+
+# S3 下载产物（用 rclone 获取，不入库）
+pinyin-ime-s3/
