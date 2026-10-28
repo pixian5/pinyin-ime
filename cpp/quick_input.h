@@ -796,3 +796,265 @@ inline std::vector<std::string> tab_complete(const std::string &prefix) {
 }
 
 } // namespace pinyin_ime
+
+
+// ── i 模式：搜狗式快捷短语 ──────────────────────────────────
+// 搜狗 i 模式：输入 i 后跟拼音首字母缩写，返回常用短语。
+// 例如：ih→你好  ix→谢谢  iz→再见  izw→早上好
+// 用户也可自定义短语文件（~/.config/pinyin-ime/quick_phrases.txt）。
+//
+// 设计原则：纯函数、无副作用；自定义文件由调用方加载后传入。
+
+struct QuickPhrase {
+    std::string abbr;       // 缩写（如 "h", "x", "zw"）
+    std::string phrase;     // 完整短语
+    std::string pinyin;     // 完整拼音（供学习/调试）
+};
+
+// 内置快捷短语表（按使用频率排序）
+inline const std::vector<QuickPhrase>& builtin_quick_phrases() {
+    static const std::vector<QuickPhrase> phrases = {
+        // 问候
+        {"h",  "你好",       "nihao"},
+        {"hh", "你好你好",   "nihaonihao"},
+        {"x",  "谢谢",       "xiexie"},
+        {"z",  "再见",       "zaijian"},
+        {"zw", "早上好",     "zaoshanghao"},
+        {"xw", "下午好",     "xiawuhao"},
+        {"ww", "晚上好",     "wanshanghao"},
+        {"wa", "晚安",       "wanan"},
+        {"hj", "好久不见",   "haojiubujian"},
+        // 礼貌
+        {"q",  "请",         "qing"},
+        {"qq", "起请",       "qiqing"},
+        {"d",  "对的",       "duide"},
+        {"dy", "当然",       "dangran"},
+        {"bd", "不对",       "budui"},
+        {"by", "不用",       "buyong"},
+        {"my", "没有",       "meiyou"},
+        {"kl", "客气了",     "keqile"},
+        {"bk", "不客气",     "bukeqi"},
+        {"sg", "应该的",     "yinggaide"},
+        // 道歉/回应
+        {"sq", "对不起",     "duibuqi"},
+        {"my", "没关系",     "meiguanxi"},
+        {"hl", "好了",       "haole"},
+        {"ok", "好的",       "haode"},
+        {"xk", "辛苦了",     "xinkule"},
+        {"lx", "麻烦了",     "mafanle"},
+        // 工作/日常
+        {"sy", "收到",       "shoudao"},
+        {"zl", "知道了",     "zhidaole"},
+        {"ml", "明白了",     "mingbaile"},
+        {"dl", "到了",       "daole"},
+        {"wl", "完了",       "wanle"},
+        {"ks", "开始",       "kaishi"},
+        {"js", "结束",       "jieshu"},
+        {"cx", "继续",       "jixu"},
+        {"dy", "等一下",     "dengyixia"},
+        {"mt", "没问题",     "meiwenti"},
+        // 情感
+        {"gx", "高兴",       "gaoxing"},
+        {"kk", "开心",       "kaixin"},
+        {"ns", "难受",       "nanshou"},
+        {"sl", "算了",       "suanle"},
+        {"hy", "好的呀",     "haodeya"},
+        {"xa", "想啊",       "xianga"},
+        // 常用句
+        {"wm", "我们",       "women"},
+        {"nm", "你们",       "nimen"},
+        {"tm", "他们",       "tamen"},
+        {"sh", "是的",       "shide"},
+        {"bs", "不是",       "bushi"},
+        {"zy", "这样",       "zheyang"},
+        {"ny", "那样",       "nayang"},
+        {"sm", "什么",       "shenme"},
+        {"ws", "为什么",     "weishenme"},
+        {"zm", "怎么",       "zenme"},
+        {"zy", "怎么样",     "zenmeyang"},
+        {"ky", "可以",       "keyi"},
+        {"by", "不用谢",     "buyongxie"},
+        {"gr", "个人",       "geren"},
+        {"jt", "今天",       "jintian"},
+        {"mt", "明天",       "mingtian"},
+        {"zt", "昨天",       "zuotian"},
+        {"xw", "现在",       "xianzai"},
+        {"yl", "以后",       "yihou"},
+        {"yq", "以前",       "yiqian"},
+        // 网络/聊天
+        {"lx", "联系",       "lianxi"},
+        {"dh", "电话",       "dianhua"},
+        {"yx", "邮箱",       "youxiang"},
+        {"dz", "地址",       "dizhi"},
+        {"wd", "我的",       "wode"},
+        {"nd", "你的",       "nide"},
+        {"td", "他的",       "tade"},
+        {"aj", "啊就",       "ajiu"},
+        {"ha", "哈哈",       "haha"},
+        {"he", "呵呵",       "hehe"},
+        {"xi", "嘻嘻",       "xixi"},
+        {"en", "嗯嗯",       "enen"},
+        {"oh", "哦哦",       "ohoho"},
+    };
+    return phrases;
+}
+
+// 判断是否为 i 模式输入：以 'i' 开头，后跟小写字母
+inline bool is_i_mode(const std::string &input) {
+    if (input.size() < 2 || input[0] != 'i') return false;
+    for (size_t k = 1; k < input.size(); ++k) {
+        char c = input[k];
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) return false;
+    }
+    return true;
+}
+
+// i 模式查表：给定缩写（如 "h"），返回匹配的短语列表
+// 匹配规则：精确匹配优先，然后前缀匹配
+inline std::vector<std::string> i_mode_lookup(const std::string &abbr,
+    const std::vector<QuickPhrase> *customPhrases = nullptr) {
+    if (abbr.empty()) return {};
+
+    std::vector<std::string> result;
+    const auto &builtin = builtin_quick_phrases();
+
+    // 精确匹配（内置 + 自定义）
+    for (const auto &p : builtin) {
+        if (p.abbr == abbr) result.push_back(p.phrase);
+    }
+    if (customPhrases) {
+        for (const auto &p : *customPhrases) {
+            if (p.abbr == abbr) result.push_back(p.phrase);
+        }
+    }
+
+    // 前缀匹配（内置 + 自定义），去重
+    for (const auto &p : builtin) {
+        if (p.abbr.size() > abbr.size() &&
+            p.abbr.substr(0, abbr.size()) == abbr) {
+            // 去重
+            if (std::find(result.begin(), result.end(), p.phrase) == result.end()) {
+                result.push_back(p.phrase);
+            }
+        }
+    }
+    if (customPhrases) {
+        for (const auto &p : *customPhrases) {
+            if (p.abbr.size() > abbr.size() &&
+                p.abbr.substr(0, abbr.size()) == abbr) {
+                if (std::find(result.begin(), result.end(), p.phrase) == result.end()) {
+                    result.push_back(p.phrase);
+                }
+            }
+        }
+    }
+
+    // 限制最多 20 个
+    if (result.size() > 20) result.resize(20);
+    return result;
+}
+
+// ── 联想词：基于已上屏文本预测下一个词 ──────────────────────
+// 搜狗式联想：上屏后自动显示关联词候选，用户按数字键直接选词。
+// 联想词表（内置常用搭配），可由调用方扩展。
+struct AssociationRule {
+    std::string trigger;    // 触发词（已上屏的最后一个词）
+    std::vector<std::string> associates;  // 联想候选
+};
+
+inline const std::vector<AssociationRule>& builtin_associations() {
+    static const std::vector<AssociationRule> rules = {
+        // 代词 → 常见搭配
+        {"我",   {"的", "们", "是", "想", "会", "能", "要", "去", "在", "有"}},
+        {"你",   {"好", "的", "们", "是", "想", "会", "能", "要", "去", "在"}},
+        {"他",   {"的", "们", "是", "说", "想", "会", "能", "要", "去", "在"}},
+        {"她",   {"的", "是", "说", "想", "会", "能", "要", "去", "在", "好"}},
+        {"它",   {"的", "是", "们", "能", "要", "在", "有", "会", "可", "应"}},
+        {"我们", {"的", "是", "要", "去", "在", "有", "能", "会", "都", "应"}},
+        {"你们", {"的", "是", "要", "去", "在", "有", "能", "会", "都", "应"}},
+        {"他们", {"的", "是", "要", "去", "在", "有", "能", "会", "都", "说"}},
+        // 问候 → 回应
+        {"你好", {"啊", "吗", "的", "，", "！", "呀", "呢", "，再见", "，谢谢", "，你好"}},
+        {"谢谢", {"你", "啊", "！", "，不用谢", "，不客气", "，应该的", "，没问题", "，辛苦了", "，好的", "，再见"}},
+        {"再见", {"！", "，下次见", "，拜拜", "，保重", "，一路平安", "，回头见", "，明天见", "，好的", "，嗯"}},
+        {"早安", {"！", "，你好", "，新的一天", "，加油", "，好的", "，嗯", "，再见", "，谢谢", "，辛苦了"}},
+        {"晚安", {"！", "，好梦", "，早点休息", "，明天见", "，好的", "，嗯", "，再见", "，谢谢", "，辛苦了"}},
+        // 动词 → 常见宾语
+        {"想",   {"要", "到", "起", "去", "说", "做", "看", "听", "买", "吃"}},
+        {"要",   {"去", "做", "看", "说", "想", "买", "吃", "喝", "用", "给"}},
+        {"去",   {"哪", "了", "看", "做", "买", "吃", "喝", "玩", "学", "上班"}},
+        {"做",   {"什么", "了", "的", "好", "到", "事", "梦", "饭", "作业", "决定"}},
+        {"看",   {"看", "了", "到", "书", "电影", "电视", "新闻", "报告", "一下", "情况"}},
+        {"说",   {"了", "的", "到", "什么", "话", "法", "明", "是", "好", "吧"}},
+        {"吃",   {"了", "饭", "什么", "好", "的", "到", "东西", "早餐", "午餐", "晚餐"}},
+        {"喝",   {"了", "水", "茶", "咖啡", "酒", "汤", "什么", "好", "的", "到"}},
+        {"买",   {"了", "什么", "的", "到", "东西", "书", "票", "菜", "水果", "衣服"}},
+        {"学",   {"习", "了", "的", "到", "会", "好", "生", "校", "习", "中文"}},
+        // 形容词 → 常见搭配
+        {"好",   {"的", "了", "吗", "啊", "，", "！", "呀", "呢", "吧", "很好"}},
+        {"不",   {"好", "是", "要", "能", "会", "想", "去", "做", "看", "说"}},
+        {"很",   {"好", "棒", "快", "慢", "多", "少", "大", "小", "高", "低"}},
+        {"真",   {"好", "棒", "的", "是", "想", "可", "不", "会", "能", "要"}},
+        // 名词 → 常见搭配
+        {"今天", {"天气", "是", "的", "怎么样", "好", "忙", "累", "开心", "高兴", "下午"}},
+        {"明天", {"见", "是", "的", "怎么样", "好", "忙", "累", "开心", "高兴", "下午"}},
+        {"现在", {"是", "的", "几点", "怎么样", "好", "忙", "累", "开心", "高兴", "可以"}},
+        {"时间", {"是", "的", "到", "不", "够", "好", "长", "短", "快", "慢"}},
+        {"工作", {"是", "的", "很", "好", "忙", "累", "开心", "顺利", "完成", "问题"}},
+        {"生活", {"是", "的", "很", "好", "忙", "累", "开心", "幸福", "美好", "问题"}},
+        // 否定/疑问
+        {"不是", {"的", "吗", "吧", "，", "，是", "，对", "，好", "，嗯", "，真的", "，可能"}},
+        {"没有", {"的", "吗", "吧", "，", "，是", "，对", "，好", "，嗯", "，真的", "，可能"}},
+        {"怎么", {"了", "样", "办", "回事", "说", "做", "去", "用", "能", "会"}},
+        {"什么", {"的", "吗", "呢", "吧", "，", "意思", "时候", "地方", "人", "事"}},
+        {"为什么", {"呢", "吗", "，", "不", "要", "会", "能", "是", "这样", "那样"}},
+    };
+    return rules;
+}
+
+// 联想词查找：给定已上屏文本，返回联想候选列表
+// 取文本末尾 1-4 个字符作为触发词，匹配联想规则
+inline std::vector<std::string> association_lookup(const std::string &committedText) {
+    if (committedText.empty()) return {};
+
+    // 提取末尾的中文词（UTF-8，每个汉字 3 字节）
+    // 尝试末尾 1-4 个字符作为触发词
+    std::vector<std::string> triggers;
+    // 计算汉字数量
+    size_t charCount = 0;
+    for (size_t i = 0; i < committedText.size(); ) {
+        unsigned char c = committedText[i];
+        int len = 1;
+        if (c >= 0xF0) len = 4;
+        else if (c >= 0xE0) len = 3;
+        else if (c >= 0xC0) len = 2;
+        if (i + len > committedText.size()) break;
+        charCount++;
+        i += len;
+    }
+
+    // 提取末尾 1-4 个汉字
+    for (size_t n = 1; n <= std::min<size_t>(4, charCount); ++n) {
+        // 跳到倒数第 n 个汉字
+        size_t pos = committedText.size();
+        for (size_t k = 0; k < n; ++k) {
+            if (pos == 0) break;
+            // 回退一个 UTF-8 字符
+            --pos;
+            while (pos > 0 && (static_cast<unsigned char>(committedText[pos]) & 0xC0) == 0x80) --pos;
+        }
+        triggers.push_back(committedText.substr(pos));
+    }
+
+    // 按触发词长度从长到短匹配（优先长词匹配）
+    const auto &rules = builtin_associations();
+    for (auto it = triggers.rbegin(); it != triggers.rend(); ++it) {
+        for (const auto &rule : rules) {
+            if (rule.trigger == *it) {
+                return rule.associates;
+            }
+        }
+    }
+
+    return {};
+}

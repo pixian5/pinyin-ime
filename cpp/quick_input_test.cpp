@@ -222,6 +222,76 @@ int main() {
     std::cout << "  ts → " << datetime_lookup("ts") << "\n";
     std::cout << "  noon → " << datetime_lookup("noon") << "\n";
 
+
+    // v0.9.124 i模式快捷短语测试
+    std::cout << "\n--- i模式快捷短语 ---\n";
+    check("is_i_mode(ih)", is_i_mode("ih"));
+    check("is_i_mode(ix)", is_i_mode("ix"));
+    check("is_i_mode(izw)", is_i_mode("izw"));
+    check("!is_i_mode(hello)", !is_i_mode("hello"));
+    check("!is_i_mode(i)", !is_i_mode("i"));
+    check("!is_i_mode(i1)", !is_i_mode("i1"));
+
+    auto ip1 = i_mode_lookup("h");
+    check("i_mode(h) has 你好", !ip1.empty() && ip1[0] == "你好");
+    std::cout << "  ih → " << (ip1.empty() ? "(empty)" : ip1[0]) << "\n";
+
+    auto ip2 = i_mode_lookup("x");
+    check("i_mode(x) has 谢谢", !ip2.empty() && ip2[0] == "谢谢");
+    std::cout << "  ix → " << (ip2.empty() ? "(empty)" : ip2[0]) << "\n";
+
+    auto ip3 = i_mode_lookup("z");
+    check("i_mode(z) has 再见", !ip3.empty() && ip3[0] == "再见");
+    std::cout << "  iz → " << (ip3.empty() ? "(empty)" : ip3[0]) << "\n";
+
+    auto ip4 = i_mode_lookup("zw");
+    check("i_mode(zw) has 早上好", !ip4.empty() && ip4[0] == "早上好");
+    std::cout << "  izw → " << (ip4.empty() ? "(empty)" : ip4[0]) << "\n";
+
+    auto ip5 = i_mode_lookup("ok");
+    check("i_mode(ok) has 好的", !ip5.empty() && ip5[0] == "好的");
+    std::cout << "  iok → " << (ip5.empty() ? "(empty)" : ip5[0]) << "\n";
+
+    auto ip6 = i_mode_lookup("mt");
+    check("i_mode(mt) not empty", !ip6.empty());
+    std::cout << "  imt → " << (ip6.empty() ? "(empty)" : ip6[0]) << "\n";
+
+    auto ip7 = i_mode_lookup("ha");
+    check("i_mode(ha) has 哈哈", !ip7.empty() && ip7[0] == "哈哈");
+    std::cout << "  iha → " << (ip7.empty() ? "(empty)" : ip7[0]) << "\n";
+
+    // v0.9.124 联想词测试
+    std::cout << "\n--- 联想词 ---\n";
+    auto ap1 = association_lookup("你好");
+    check("assoc(你好) not empty", !ap1.empty());
+    check("assoc(你好) has 啊", !ap1.empty() && ap1[0] == "啊");
+    std::cout << "  你好 → " << (ap1.empty() ? "(empty)" : ap1[0]) << " " << (ap1.size() > 1 ? ap1[1] : "") << "\n";
+
+    auto ap2 = association_lookup("我");
+    check("assoc(我) not empty", !ap2.empty());
+    check("assoc(我) has 的", !ap2.empty() && ap2[0] == "的");
+    std::cout << "  我 → " << (ap2.empty() ? "(empty)" : ap2[0]) << " " << (ap2.size() > 1 ? ap2[1] : "") << "\n";
+
+    auto ap3 = association_lookup("谢谢");
+    check("assoc(谢谢) not empty", !ap3.empty());
+    std::cout << "  谢谢 → " << (ap3.empty() ? "(empty)" : ap3[0]) << " " << (ap3.size() > 1 ? ap3[1] : "") << "\n";
+
+    auto ap4 = association_lookup("想");
+    check("assoc(想) not empty", !ap4.empty());
+    check("assoc(想) has 要", !ap4.empty() && ap4[0] == "要");
+    std::cout << "  想 → " << (ap4.empty() ? "(empty)" : ap4[0]) << " " << (ap4.size() > 1 ? ap4[1] : "") << "\n";
+
+    auto ap5 = association_lookup("今天");
+    check("assoc(今天) not empty", !ap5.empty());
+    std::cout << "  今天 → " << (ap5.empty() ? "(empty)" : ap5[0]) << " " << (ap5.size() > 1 ? ap5[1] : "") << "\n";
+
+    auto ap6 = association_lookup("");
+    check("assoc(empty) empty", ap6.empty());
+
+    auto ap7 = association_lookup("怎么");
+    check("assoc(怎么) not empty", !ap7.empty());
+    std::cout << "  怎么 → " << (ap7.empty() ? "(empty)" : ap7[0]) << " " << (ap7.size() > 1 ? ap7[1] : "") << "\n";
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

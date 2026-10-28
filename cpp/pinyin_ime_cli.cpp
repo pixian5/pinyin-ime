@@ -1924,6 +1924,10 @@ int main(int argc, char **argv) {
                 if (undoStack.size() > 32) undoStack.erase(undoStack.begin());
             }
             save_user_data();
+            // v0.9.124: 联想词 — 上屏后自动显示关联词候选
+            lastCommitted = preText;
+            assocCands = pinyin_ime::association_lookup(preText);
+            assocMode = !assocCands.empty();
         }
     };
 
@@ -2002,6 +2006,19 @@ int main(int argc, char **argv) {
                         for (size_t ci = 0; ci < chars.size(); ++ci) {
                             if (ci > 0) std::cout << "\t";
                             std::cout << chars[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // i模式快捷短语（ih→你好 ix→谢谢 iz→再见）
+                if (pinyin_ime::is_i_mode(line)) {
+                    std::string abbr = line.substr(1);
+                    auto phrases = pinyin_ime::i_mode_lookup(abbr);
+                    if (!phrases.empty()) {
+                        for (size_t ci = 0; ci < phrases.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << phrases[ci];
                         }
                         std::cout << "\n";
                         continue;
@@ -2342,6 +2359,13 @@ int main(int argc, char **argv) {
     bool quoteOpen = false;    // 双引号智能配对：开“/闭”交替
     bool singleQuoteOpen = false;  // 单引号智能配对：开‘/闭’交替（空闲时；打拼音中仍是隔音符）
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
+    // v0.9.124: 联想词模式 — 上屏后自动显示关联词候选
+    bool assocMode = false;          // 是否处于联想词模式
+    std::vector<std::string> assocCands;  // 联想候选列表
+    std::string lastCommitted;       // 最近上屏的文本（供联想用）
+    // v0.9.124: i模式快捷短语 — 输入i后跟字母缩写
+    bool iMode = false;              // 是否处于i模式
+    std::string iModeBuf;            // i模式累积缓冲（i后面的字母）
 
     auto render = [&]() {
         std::cout << "\r\x1b[2K";  // 清当前行
@@ -2361,6 +2385,32 @@ int main(int argc, char **argv) {
                           << list[i].label << " ";
             }
             std::cout << "  [1-9 选 / ,. 翻页 / Esc 返回]";
+            std::cout.flush();
+            return;
+        }
+        // v0.9.124: i模式快捷短语渲染
+        if (iMode) {
+            std::cout << "快捷[i" << (iModeBuf.empty() ? "" : iModeBuf) << "]: ";
+            auto phrases = pinyin_ime::i_mode_lookup(iModeBuf);
+            if (phrases.empty()) {
+                std::cout << "(无匹配)  [输入字母 / Esc 返回]";
+            } else {
+                for (size_t i = 0; i < std::min<size_t>(phrases.size(), 9); ++i) {
+                    std::cout << (i + 1) << "." << phrases[i] << " ";
+                }
+                if (phrases.size() > 9) std::cout << "... ";
+                std::cout << " [1-9 选 / Esc 返回]";
+            }
+            std::cout.flush();
+            return;
+        }
+        // v0.9.124: 联想词渲染（上屏后空闲态自动显示关联词）
+        if (assocMode && ctx.empty() && !assocCands.empty()) {
+            std::cout << "联想: ";
+            for (size_t i = 0; i < std::min<size_t>(assocCands.size(), 9); ++i) {
+                std::cout << (i + 1) << "." << assocCands[i] << " ";
+            }
+            std::cout << " [1-9 选词 / 任意字母继续输入 / Esc 取消]";
             std::cout.flush();
             return;
         }
@@ -2478,7 +2528,9 @@ int main(int argc, char **argv) {
                 }
             }
         } else if (key == kKeyEsc) {  // 中文模式 Esc：清空当前输入
-            ctx.clear();
+            if (iMode) { iMode = false; iModeBuf.clear(); }
+            else if (assocMode) { assocMode = false; assocCands.clear(); }
+            else ctx.clear();
         } else if (key == kKeyLeft) {  // 左箭头：候选光标移到上一词边界（逐词分段）
             int b = ctx.pinyinBeforeCursor();
             if (b >= 0) {
@@ -2550,11 +2602,18 @@ int main(int argc, char **argv) {
                 emojiMode = true;
                 emojiPage = 0;
             } else if (ch == '\t') {  // Tab：切英文
+                if (iMode) { iMode = false; iModeBuf.clear(); }
+                if (assocMode) { assocMode = false; assocCands.clear(); }
                 englishMode = true;
                 engBuf.clear();
             } else if (ch == 0x7f || ch == 0x08) {  // 退格（DEL/BS）
-                ctx.backspace();
-                candFocus = 0;
+                if (iMode) {
+                    if (!iModeBuf.empty()) iModeBuf.pop_back();
+                    else { iMode = false; }
+                } else {
+                    ctx.backspace();
+                    candFocus = 0;
+                }
             } else if (ch == '-' || ch == ',' || ch == '[') {  // 打拼音时上一页（-=,[ ）；空闲时作中文标点
                 if (ctx.empty() && !punct.empty()) output_line(punct);
                 else if (page > 0) --page;
@@ -2567,6 +2626,29 @@ int main(int argc, char **argv) {
                     if (page < maxPage) ++page;
                 }
             } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：上屏首选
+                // v0.9.124: i模式空格 — 选首选短语上屏
+                if (iMode) {
+                    auto phrases = pinyin_ime::i_mode_lookup(iModeBuf);
+                    if (!phrases.empty()) {
+                        output_line(phrases[0]);
+                        lastCommitted = phrases[0];
+                        assocCands = pinyin_ime::association_lookup(phrases[0]);
+                        assocMode = !assocCands.empty();
+                    }
+                    iMode = false;
+                    iModeBuf.clear();
+                    render();
+                    continue;
+                }
+                // v0.9.124: 联想词模式空格 — 选首选联想词上屏
+                if (assocMode && ctx.empty() && !assocCands.empty()) {
+                    output_line(assocCands[0]);
+                    lastCommitted += assocCands[0];
+                    assocCands = pinyin_ime::association_lookup(lastCommitted);
+                    assocMode = !assocCands.empty();
+                    render();
+                    continue;
+                }
                 // --correct 交互态：整串纠错后上屏（只对「全拼打错」生效；简拼/无法解析
                 // 的输入由 corrector 返回 nullopt 自动跳过，不误伤简拼）。
                 if (correctPinyin && !ctx.empty()) {
@@ -2745,8 +2827,19 @@ int main(int argc, char **argv) {
                 }
                 commit(page * kPageSize + candFocus);
             } else if (ch >= '1' && ch <= '9') {  // 数字：选当前页第 N 号上屏
-                commit(page * kPageSize + static_cast<size_t>(ch - '1'));
-                candFocus = static_cast<size_t>(ch - '1');  // 焦点跟随所选候选
+                // v0.9.124: 联想词模式 — 数字键直接选联想词
+                if (assocMode && ctx.empty() && !assocCands.empty()) {
+                    size_t ai = static_cast<size_t>(ch - '1');
+                    if (ai < assocCands.size()) {
+                        output_line(assocCands[ai]);
+                        lastCommitted += assocCands[ai];
+                        assocCands = pinyin_ime::association_lookup(lastCommitted);
+                        assocMode = !assocCands.empty();
+                    }
+                } else {
+                    commit(page * kPageSize + static_cast<size_t>(ch - '1'));
+                    candFocus = static_cast<size_t>(ch - '1');  // 焦点跟随所选候选
+                }
             } else if (ch == '\'') {  // 单引号：空闲智能配对‘/’；打拼音中仍是隔音符（xi'an）
                 if (ctx.empty()) {
                     output_line(singleQuoteOpen ? "’" : "‘");
@@ -2754,9 +2847,35 @@ int main(int argc, char **argv) {
                 } else {
                     ctx.type("'");
                 }
+            } else if (iMode) {
+                // v0.9.124: i模式 — 字母累积，数字选短语，Esc/空格退出
+                if (ch >= 'a' && ch <= 'z') {
+                    iModeBuf.push_back(ch);
+                } else if (ch == 0x7f || ch == 0x08) {  // 退格
+                    if (!iModeBuf.empty()) iModeBuf.pop_back();
+                    else { iMode = false; }
+                } else if (ch == ' ' || ch == '\r' || ch == '\n') {  // 空格/回车：选首选
+                    auto phrases = pinyin_ime::i_mode_lookup(iModeBuf);
+                    if (!phrases.empty()) {
+                        output_line(phrases[0]);
+                        lastCommitted = phrases[0];
+                        assocCands = pinyin_ime::association_lookup(phrases[0]);
+                        assocMode = !assocCands.empty();
+                    }
+                    iMode = false;
+                    iModeBuf.clear();
+                }
             } else if (is_pinyin_char(ch)) {  // 合法拼音字符：输入
-                ctx.type(std::string(1, ch));
-                candFocus = 0;
+                // v0.9.124: 退出联想词模式
+                if (assocMode) { assocMode = false; assocCands.clear(); }
+                // v0.9.124: i模式入口 — 空闲时按i进入快捷短语
+                if (ch == 'i' && ctx.empty()) {
+                    iMode = true;
+                    iModeBuf.clear();
+                } else {
+                    ctx.type(std::string(1, ch));
+                    candFocus = 0;
+                }
             } else if (ch == '"') {  // 双引号智能配对：开“/闭”交替；空闲上屏，打拼音中先上屏焦点候选
                 if (!ctx.empty()) commit(page * kPageSize + candFocus);
                 output_line(quoteOpen ? "”" : "“");
