@@ -2711,4 +2711,99 @@ inline std::string insert_separators(const std::string &pinyin) {
     return smart_segment_string(pinyin);
 }
 
+// ── v0.9.138 自定义短语运行时管理 ──────────────────────────
+// 用户可运行时增删查自定义快捷词，持久化到 user_phrases.txt
+struct UserPhraseManager {
+    std::vector<std::pair<std::string, std::string>> phrases;  // (abbr, full)
+    std::string file_path;
+
+    explicit UserPhraseManager(const std::string &path = "") : file_path(path) {
+        if (!path.empty()) load();
+    }
+
+    // 添加短语（去重）
+    bool add(const std::string &abbr, const std::string &full) {
+        if (abbr.empty() || full.empty()) return false;
+        for (auto &p : phrases) {
+            if (p.first == abbr) { p.second = full; return true; }  // 更新已有
+        }
+        phrases.push_back({abbr, full});
+        return true;
+    }
+
+    // 删除短语
+    bool remove(const std::string &abbr) {
+        auto it = std::find_if(phrases.begin(), phrases.end(),
+            [&](const auto &p) { return p.first == abbr; });
+        if (it == phrases.end()) return false;
+        phrases.erase(it);
+        return true;
+    }
+
+    // 查找短语
+    std::string lookup(const std::string &abbr) const {
+        for (auto &p : phrases) {
+            if (p.first == abbr) return p.second;
+        }
+        return "";
+    }
+
+    // 列出所有短语
+    std::vector<std::pair<std::string, std::string>> list_all() const {
+        return phrases;
+    }
+
+    // 搜索短语（按缩写或全文）
+    std::vector<std::pair<std::string, std::string>> search(const std::string &keyword) const {
+        std::vector<std::pair<std::string, std::string>> results;
+        for (auto &p : phrases) {
+            if (p.first.find(keyword) != std::string::npos ||
+                p.second.find(keyword) != std::string::npos) {
+                results.push_back(p);
+            }
+        }
+        return results;
+    }
+
+    // 持久化
+    bool save() const {
+        if (file_path.empty()) return false;
+        FILE *fp = std::fopen(file_path.c_str(), "w");
+        if (!fp) return false;
+        for (auto &p : phrases) {
+            std::fprintf(fp, "%s\t%s\n", p.first.c_str(), p.second.c_str());
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    bool load() {
+        if (file_path.empty()) return false;
+        phrases.clear();
+        FILE *fp = std::fopen(file_path.c_str(), "r");
+        if (!fp) return false;
+        char line[4096];
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty()) continue;
+            size_t tab = s.find('\t');
+            if (tab != std::string::npos) {
+                phrases.push_back({s.substr(0, tab), s.substr(tab + 1)});
+            }
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    // 格式化显示
+    std::string format_list() const {
+        std::string result;
+        for (size_t i = 0; i < phrases.size(); ++i) {
+            result += phrases[i].first + " → " + phrases[i].second + "\n";
+        }
+        return result;
+    }
+};
+
 } // namespace pinyin_ime

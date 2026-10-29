@@ -985,6 +985,49 @@ int main() {
         auto seg = smart_segment("yiyao");
         check("segment yiyao size=2", seg.size() == 2);
     }
+    // ── v0.9.138 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.138: 自定义短语管理 ──\n";
+    {
+        UserPhraseManager mgr;
+        mgr.add("addr", "我的地址是北京市");
+        mgr.add("mail", "user@example.com");
+        mgr.add("todo", "【待办事项】");
+        check("phrase add count=3", mgr.phrases.size() == 3);
+        check("phrase lookup addr", mgr.lookup("addr") == "我的地址是北京市");
+        check("phrase lookup mail", mgr.lookup("mail") == "user@example.com");
+        check("phrase lookup missing", mgr.lookup("xyz").empty());
+    }
+    {
+        UserPhraseManager mgr;
+        mgr.add("addr", "地址1");
+        mgr.add("addr", "地址2");  // 更新
+        check("phrase update count=1", mgr.phrases.size() == 1);
+        check("phrase update value", mgr.lookup("addr") == "地址2");
+    }
+    {
+        UserPhraseManager mgr;
+        mgr.add("a", "甲");
+        mgr.add("b", "乙");
+        check("phrase remove", mgr.remove("a"));
+        check("phrase remove count=1", mgr.phrases.size() == 1);
+        check("phrase remove missing", !mgr.remove("z"));
+    }
+    {
+        UserPhraseManager mgr;
+        mgr.add("addr", "北京市");
+        mgr.add("mail", "邮箱地址");
+        auto results = mgr.search("地址");
+        check("phrase search size=1", results.size() == 1);
+    }
+    {
+        UserPhraseManager mgr("/tmp/test_user_phrases.txt");
+        mgr.add("test1", "测试一");
+        mgr.add("test2", "测试二");
+        mgr.save();
+        UserPhraseManager mgr2("/tmp/test_user_phrases.txt");
+        check("phrase persist size=2", mgr2.phrases.size() == 2);
+        check("phrase persist[0]", mgr2.lookup("test1") == "测试一");
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
