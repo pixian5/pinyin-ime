@@ -138,6 +138,7 @@ void usage(const char *prog) {
         << "  --theme NAME   配色主题：default/dark/high/retro/matrix/ocean/solar\n"
         << "  --cloud        启用云拼音候选词（需网络，离线自动降级）\n"
         << "  --fuzzy CFG    模糊音：z_zh,c_ch,s_sh,n_l,an_ang,en_eng,in_ing 或 all\n"
+        << "  --clipboard    剪贴板历史（查看/搜索/粘贴最近复制的文本）\n"
         << "  --doctor        一键诊断（检查环境/依赖/数据/权限）\n"
         << "  --num           数字转中文(逐位): 123 -> 一二三\n"
         << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
@@ -800,6 +801,7 @@ int main(int argc, char **argv) {
     std::string themeName = "default";  // --theme
     bool cloudEnabled = false;  // --cloud
     std::string fuzzyConfig;  // --fuzzy (模糊音配置)
+    bool clipboardMode = false;  // --clipboard
     std::string dictAddEntry;     // --dict-add P=W
     std::string dictDelKey;       // --dict-del P
     std::string dictImportFile;   // --dict-import F
@@ -861,6 +863,8 @@ int main(int argc, char **argv) {
             themeName = argv[++i];
         } else if (a == "--cloud") {
             cloudEnabled = true;
+        } else if (a == "--clipboard") {
+            clipboardMode = true;
         } else if (a == "--fuzzy") {
             if (i + 1 >= argc) { std::cerr << "--fuzzy 缺少参数\n"; return 1; }
             fuzzyConfig = argv[++i];

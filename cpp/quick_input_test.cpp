@@ -882,6 +882,58 @@ int main() {
         check("fuzzy parse all f_h", cfg.f_h);
         check("fuzzy parse all r_l", cfg.r_l);
     }
+    // ── v0.9.136 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.136: 剪贴板历史 ──\n";
+    {
+        ClipboardHistory ch;
+        ch.add("你好世界");
+        ch.add("测试文本");
+        ch.add("另一段");
+        check("clipboard size=3", ch.items.size() == 3);
+        check("clipboard[1]=另一段", ch.get(1) == "另一段");
+        check("clipboard[2]=测试文本", ch.get(2) == "测试文本");
+        check("clipboard[3]=你好世界", ch.get(3) == "你好世界");
+    }
+    {
+        ClipboardHistory ch;
+        ch.add("aaa");
+        ch.add("bbb");
+        ch.add("aaa");  // 重复
+        check("clipboard dedup size=2", ch.items.size() == 2);
+        check("clipboard dedup[1]=aaa", ch.get(1) == "aaa");
+    }
+    {
+        ClipboardHistory ch;
+        ch.max_items = 3;
+        ch.add("1"); ch.add("2"); ch.add("3"); ch.add("4");
+        check("clipboard max_items", ch.items.size() == 3);
+        check("clipboard max[1]=4", ch.get(1) == "4");
+    }
+    {
+        ClipboardHistory ch;
+        ch.add("hello world");
+        ch.add("foo bar");
+        auto results = ch.search("hello");
+        check("clipboard search size=1", results.size() == 1);
+        check("clipboard search[0].first=2", results[0].first == 2);
+    }
+    {
+        ClipboardHistory ch;
+        ch.add("line1");
+        ch.add("line2");
+        check("clipboard remove", ch.remove(1));
+        check("clipboard remove size=1", ch.items.size() == 1);
+        check("clipboard remove[1]=line1", ch.get(1) == "line1");
+    }
+    {
+        ClipboardHistory ch;
+        ch.add("测试\n换行\t制表");
+        ch.save_to_file("/tmp/test_clipboard.txt");
+        ClipboardHistory ch2;
+        ch2.load_from_file("/tmp/test_clipboard.txt");
+        check("clipboard persist size=1", ch2.items.size() == 1);
+        check("clipboard persist has newline", ch2.get(1).find('\n') != std::string::npos);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
