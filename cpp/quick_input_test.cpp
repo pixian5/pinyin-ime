@@ -1077,9 +1077,228 @@ int main() {
         check("stats report has 会话", report.find("会话") != std::string::npos);
         check("stats report has 准确率", report.find("准确率") != std::string::npos);
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    // v0.9.140 候选窗 GUI 增强测试
+    // ════════════════════════════════════════════════════════════════════
+    std::cout << "\n--- v0.9.140 候选窗 GUI 增强 ---\n";
+    {
+        CandidateWindow cw;
+        auto rendered = cw.render({"你好", "拟好", "你号"}, "nihao");
+        check("cw render non-empty", !rendered.empty());
+        check("cw render has pinyin", rendered.find("nihao") != std::string::npos);
+        check("cw render has first candidate", rendered.find("你好") != std::string::npos);
+
+        auto inline_r = cw.render_inline({"中国", "中过", "种过"});
+        check("cw inline non-empty", !inline_r.empty());
+        check("cw inline has 中国", inline_r.find("中国") != std::string::npos);
+
+        auto focused = cw.render_focused({"你好", "拟好", "你号"}, 1);
+        check("cw focused non-empty", !focused.empty());
+
+        check("cw total_pages=1 for 3 cands", cw.calc_total_pages(3) == 1);
+        check("cw total_pages=2 for 6 cands", cw.calc_total_pages(6) == 2);
+        check("cw total_pages=3 for 11 cands", cw.calc_total_pages(11) == 3);
+
+        auto cursor = cw.cursor_blink(true);
+        check("cw cursor visible non-empty", !cursor.empty());
+        auto status = cw.status_bar("拼音", "双拼:小鹤");
+        check("cw status has mode", status.find("拼音") != std::string::npos);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // v0.9.141 云拼音实际接入测试
+    // ════════════════════════════════════════════════════════════════════
+    std::cout << "\n--- v0.9.141 云拼音实际接入 ---\n";
+    {
+        auto providers = builtin_cloud_providers();
+        check("cloud providers has 3", providers.size() == 3);
+        check("cloud provider[0] is local", providers[0].name == "local");
+        check("cloud provider[1] is google", providers[1].name == "google");
+
+        CloudPinyinClientV2 client("/tmp/test_cloud_cache");
+        check("cloud v2 default providers", client.providers.size() == 3);
+        check("cloud v2 disabled by default", client.enabled == false);
+
+        client.enabled = true;
+        auto result = client.query("nihao");
+        check("cloud v2 query returns empty offline", result.empty());
+
+        client.set_provider("custom", "api.example.com", 443, "/pinyin", "key123");
+        check("cloud v2 set_provider works", client.providers[2].host == "api.example.com");
+
+        client.enable_provider("google", true);
+        check("cloud v2 enable google", client.providers[1].enabled == true);
+
+        auto merged = client.merge_with_local(
+            {"你好", "拟好"},
+            {{"中国", "zhongguo", 90, "cloud"}, {"你好", "nihao", 95, "cloud"}});
+        check("cloud v2 merge dedup", merged.size() == 3);
+        check("cloud v2 merge has 中国", merged[2] == "中国");
+
+        auto list = client.list_providers();
+        check("cloud v2 list_providers non-empty", !list.empty());
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // v0.9.142 用户词典云同步测试
+    // ════════════════════════════════════════════════════════════════════
+    std::cout << "\n--- v0.9.142 用户词典云同步 ---\n";
+    {
+        DictSyncConfig cfg;
+        cfg.device_id = "test-device";
+        cfg.remote_bucket = "xbz";
+        cfg.remote_prefix = "pinyin-ime/dict";
+        DictSyncManager mgr(cfg);
+
+        mgr.upsert("nh", "你好");
+        mgr.upsert("zg", "中国");
+        check("sync upsert 2 entries", mgr.local_entries.size() == 2);
+        check("sync version=2", mgr.local_version == 2);
+
+        mgr.upsert("nh", "你好啊");
+        check("sync update existing", mgr.local_entries.size() == 2);
+        check("sync version=3 after update", mgr.local_version == 3);
+
+        auto exported = mgr.export_sync_data();
+        check("sync export has header", exported.find("# pinyin-ime") != std::string::npos);
+        check("sync export has device", exported.find("test-device") != std::string::npos);
+        check("sync export has 你好", exported.find("你好啊") != std::string::npos);
+
+        DictSyncManager mgr2(cfg);
+        int imported = mgr2.import_sync_data(exported);
+        check("sync import 2 entries", imported == 2);
+
+        mgr.remove("zg");
+        check("sync remove works", mgr.local_entries.size() == 1);
+
+        auto status = mgr.sync_status();
+        check("sync status has version", status.find("版本") != std::string::npos);
+
+        // 合并测试
+        std::vector<DictSyncEntry> remote = {
+            {"zg", "中国", 1000000, "other-device", 1},
+            {"nh", "你好", 500000, "old-device", 1}
+        };
+        auto merged = mgr.merge(remote);
+        check("sync merge has 2 entries", merged.size() == 2);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // v0.9.143 长句整句输入优化测试
+    // ════════════════════════════════════════════════════════════════════
+    std::cout << "\n--- v0.9.143 长句整句输入优化 ---\n";
+    {
+        auto templates = sentence_templates();
+        check("sentence templates non-empty", templates.size() > 10);
+        check("sentence template has nihao", [&]{
+            for (auto& t : templates) if (t.first == "nihao") return true;
+            return false;
+        }());
+
+        auto cands = sentence_candidates("nihao");
+        check("sentence candidates for nihao non-empty", !cands.empty());
+        check("sentence candidates has 你好", [&]{
+            for (auto& c : cands) if (c == "你好") return true;
+            return false;
+        }());
+
+        auto cands2 = sentence_candidates("zhonghuarenmingongheguo");
+        check("sentence candidates for PRC", !cands2.empty());
+
+        auto predict = context_predict("你好");
+        check("context predict for 你好 non-empty", !predict.empty());
+        check("context predict has 啊", [&]{
+            for (auto& p : predict) if (p == "啊") return true;
+            return false;
+        }());
+
+        auto predict2 = context_predict("我");
+        check("context predict for 我 has 的", [&]{
+            for (auto& p : predict2) if (p == "的") return true;
+            return false;
+        }());
+
+        auto predict3 = context_predict("xyz_unknown");
+        check("context predict unknown returns empty", predict3.empty());
+
+        auto seg = context_aware_segment("nihao", "");
+        check("context aware segment non-empty", !seg.empty());
+
+        auto match = multi_word_match("nihao");
+        check("multi word match has 2 segments", match.size() == 2);
+        check("multi word match[0] pinyin=ni", match[0].first == "ni");
+        check("multi word match[0] chinese=你", match[0].second == "你");
+
+        auto si = sentence_input("nihao", "");
+        check("sentence input non-empty", !si.empty());
+
+        auto si2 = sentence_input("a", "你好");
+        check("sentence input with context", !si2.empty());
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // v0.9.144 输入统计可视化测试
+    // ════════════════════════════════════════════════════════════════════
+    std::cout << "\n--- v0.9.144 输入统计可视化 ---\n";
+    {
+        std::vector<std::pair<std::string, int>> data = {
+            {"你好", 50}, {"中国", 30}, {"我们", 20}, {"的", 15}, {"是", 10}
+        };
+        auto chart = ascii_bar_chart(data, 20, 5);
+        check("bar chart non-empty", !chart.empty());
+        check("bar chart has 你好", chart.find("你好") != std::string::npos);
+        check("bar chart has #", chart.find("#") != std::string::npos);
+
+        auto pb = progress_bar(75.0, 20, "测试");
+        check("progress bar has 75%", pb.find("75%") != std::string::npos);
+        check("progress bar has label", pb.find("测试") != std::string::npos);
+
+        auto pb0 = progress_bar(0.0);
+        check("progress bar 0%", pb0.find("0%") != std::string::npos);
+        auto pb100 = progress_bar(100.0);
+        check("progress bar 100%", pb100.find("100%") != std::string::npos);
+
+        auto si = speed_indicator(45.0);
+        check("speed indicator has 45", si.find("45") != std::string::npos);
+        check("speed indicator has 熟练", si.find("熟练") != std::string::npos);
+
+        auto si2 = speed_indicator(120.0);
+        check("speed indicator 120 has 专业", si2.find("专业") != std::string::npos);
+
+        auto av = accuracy_visual(92.0);
+        check("accuracy visual has 92%", av.find("92%") != std::string::npos);
+        check("accuracy visual has A grade", av.find("A") != std::string::npos);
+
+        auto av2 = accuracy_visual(45.0);
+        check("accuracy visual 45 has F grade", av2.find("F") != std::string::npos);
+
+        std::vector<std::string> events = {"开始输入", "上屏 你好", "上屏 中国"};
+        std::vector<double> timestamps = {0.0, 2.5, 5.0};
+        auto tl = session_timeline(events, timestamps);
+        check("timeline non-empty", !tl.empty());
+        check("timeline has 开始", tl.find("开始") != std::string::npos);
+
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("你好", true, 5, 2000.0);
+        stats.record_commit("中国", true, 4, 1500.0);
+        stats.record_commit("我们", false, 6, 3000.0);
+        auto panel = stats_visual_panel(stats);
+        check("visual panel non-empty", !panel.empty());
+        check("visual panel has 准确率", panel.find("准确率") != std::string::npos);
+        check("visual panel has 速度", panel.find("速度") != std::string::npos);
+        check("visual panel has 高频词", panel.find("高频词") != std::string::npos);
+
+        std::vector<int> choices = {80, 10, 5, 3, 2};
+        auto pie = choice_distribution_pie(choices);
+        check("pie chart non-empty", !pie.empty());
+        check("pie chart has 首选", pie.find("首选") != std::string::npos);
+
+        // v5 统一入口
+        auto v5 = quick_candidates_v5("nihao");
+        check("quick_candidates_v5 non-empty", !v5.empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
-// v0.9.127 测试
-// ════════════════════════════════════════════════════════════════════
-
