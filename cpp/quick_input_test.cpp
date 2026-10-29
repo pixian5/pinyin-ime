@@ -1028,6 +1028,55 @@ int main() {
         check("phrase persist size=2", mgr2.phrases.size() == 2);
         check("phrase persist[0]", mgr2.lookup("test1") == "测试一");
     }
+    // ── v0.9.139 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.139: 输入统计增强 ──\n";
+    {
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("你好", true, 5, 2000.0);
+        stats.record_commit("世界", true, 4, 1500.0);
+        stats.record_commit("测试", false, 6, 3000.0);
+        check("stats session_chars=18", stats.session_chars == 18);
+        check("stats session_keypresses=15", stats.session_keypresses == 15);
+        check("stats session_first=2", stats.session_first_choice == 2);
+        check("stats accuracy>0", stats.accuracy() > 0);
+    }
+    {
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("你好", true, 5, 60000.0);
+        // 2 chars in 60s = 2 wpm
+        check("stats wpm=6", (int)stats.speed_wpm() == 6);
+    }
+    {
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("你好", true, 5, 2000.0);
+        stats.record_commit("你好", true, 5, 2000.0);
+        stats.record_commit("世界", true, 4, 1500.0);
+        auto top = stats.top_words(10);
+        check("stats top_words size=2", top.size() == 2);
+        check("stats top_words[0]=你好", top[0].first == "你好");
+        check("stats top_words[0] count=2", top[0].second == 2);
+    }
+    {
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("测试", true, 3, 1000.0);
+        stats.save_to_file("/tmp/test_stats.txt");
+        InputStatistics stats2;
+        stats2.load_from_file("/tmp/test_stats.txt");
+        check("stats persist total_chars=6", stats2.total_chars == 6);
+        check("stats persist word_freq", stats2.word_freq.count("测试") > 0);
+    }
+    {
+        InputStatistics stats;
+        stats.start_session();
+        stats.record_commit("你好", true, 5, 2000.0);
+        std::string report = stats.format_report();
+        check("stats report has 会话", report.find("会话") != std::string::npos);
+        check("stats report has 准确率", report.find("准确率") != std::string::npos);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

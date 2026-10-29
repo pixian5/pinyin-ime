@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <functional>
 #include <set>
+#include <map>
 #include <stdexcept>
 
 namespace pinyin_ime {
@@ -2803,6 +2804,155 @@ struct UserPhraseManager {
             result += phrases[i].first + " → " + phrases[i].second + "\n";
         }
         return result;
+    }
+};
+
+// ── v0.9.139 输入统计增强 ──────────────────────────────────
+// 会话级统计：总字数、平均速度、高频词 Top10、准确率
+struct InputStatistics {
+    // 累计统计
+    long long total_chars = 0;        // 总上屏字数
+    long long total_sessions = 0;     // 总会话数
+    long long total_keypresses = 0;   // 总按键次数
+    long long total_first_choice = 0; // 首选命中次数
+    double total_time_ms = 0;         // 总输入时间(ms)
+
+    // 当前会话
+    long long session_chars = 0;
+    long long session_keypresses = 0;
+    long long session_first_choice = 0;
+    double session_time_ms = 0;
+    double session_start_time = 0;    // 会话开始时间戳
+
+    // 高频词统计
+    std::map<std::string, int> word_freq;  // 词→次数
+
+    // 开始会话
+    void start_session() {
+        session_chars = 0;
+        session_keypresses = 0;
+        session_first_choice = 0;
+        session_time_ms = 0;
+        session_start_time = 0;  // 实际使用时传入时间戳
+        total_sessions++;
+    }
+
+    // 记录一次上屏
+    void record_commit(const std::string &text, bool is_first_choice, int keypresses, double time_ms) {
+        session_chars += text.size();
+        session_keypresses += keypresses;
+        session_time_ms += time_ms;
+        if (is_first_choice) session_first_choice++;
+
+        total_chars += text.size();
+        total_keypresses += keypresses;
+        total_time_ms += time_ms;
+        if (is_first_choice) total_first_choice++;
+
+        // 高频词
+        word_freq[text]++;
+    }
+
+    // 准确率（首选命中率）
+    double accuracy() const {
+        if (session_keypresses == 0) return 0.0;
+        return (double)session_first_choice / session_keypresses * 100.0;
+    }
+
+    double overall_accuracy() const {
+        if (total_keypresses == 0) return 0.0;
+        return (double)total_first_choice / total_keypresses * 100.0;
+    }
+
+    // 平均速度（字/分钟）
+    double speed_wpm() const {
+        if (session_time_ms <= 0) return 0.0;
+        return session_chars / (session_time_ms / 60000.0);
+    }
+
+    double overall_speed_wpm() const {
+        if (total_time_ms <= 0) return 0.0;
+        return total_chars / (total_time_ms / 60000.0);
+    }
+
+    // 高频词 Top N
+    std::vector<std::pair<std::string, int>> top_words(int n = 10) const {
+        std::vector<std::pair<std::string, int>> vec(word_freq.begin(), word_freq.end());
+        std::sort(vec.begin(), vec.end(),
+            [](const auto &a, const auto &b) { return a.second > b.second; });
+        if ((int)vec.size() > n) vec.resize(n);
+        return vec;
+    }
+
+    // 持久化
+    bool save_to_file(const std::string &path) const {
+        FILE *fp = std::fopen(path.c_str(), "w");
+        if (!fp) return false;
+        std::fprintf(fp, "total_chars\t%lld\n", total_chars);
+        std::fprintf(fp, "total_sessions\t%lld\n", total_sessions);
+        std::fprintf(fp, "total_keypresses\t%lld\n", total_keypresses);
+        std::fprintf(fp, "total_first_choice\t%lld\n", total_first_choice);
+        std::fprintf(fp, "total_time_ms\t%.2f\n", total_time_ms);
+        for (auto &p : word_freq) {
+            std::fprintf(fp, "word\t%s\t%d\n", p.first.c_str(), p.second);
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    bool load_from_file(const std::string &path) {
+        FILE *fp = std::fopen(path.c_str(), "r");
+        if (!fp) return false;
+        char line[4096];
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty()) continue;
+            if (s.substr(0, 11) == "total_chars") total_chars = std::atoll(s.c_str() + 12);
+            else if (s.substr(0, 14) == "total_sessions") total_sessions = std::atoll(s.c_str() + 15);
+            else if (s.substr(0, 16) == "total_keypresses") total_keypresses = std::atoll(s.c_str() + 17);
+            else if (s.substr(0, 18) == "total_first_choice") total_first_choice = std::atoll(s.c_str() + 19);
+            else if (s.substr(0, 12) == "total_time_ms") total_time_ms = std::atof(s.c_str() + 13);
+            else if (s.substr(0, 4) == "word") {
+                size_t tab1 = s.find('\t', 5);
+                if (tab1 != std::string::npos) {
+                    std::string word = s.substr(5, tab1 - 5);
+                    int count = std::atoi(s.c_str() + tab1 + 1);
+                    word_freq[word] = count;
+                }
+            }
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    // 格式化报告
+    std::string format_report() const {
+        std::string r;
+        r += "═══ 输入统计报告 ═══\n";
+        r += "\n【当前会话】\n";
+        r += "  上屏字数: " + std::to_string(session_chars) + "\n";
+        r += "  按键次数: " + std::to_string(session_keypresses) + "\n";
+        r += "  首选命中: " + std::to_string(session_first_choice) + "\n";
+        r += "  准确率: " + std::to_string((int)accuracy()) + "%\n";
+        r += "  速度: " + std::to_string((int)speed_wpm()) + " 字/分\n";
+
+        r += "\n【累计统计】\n";
+        r += "  总字数: " + std::to_string(total_chars) + "\n";
+        r += "  总会话: " + std::to_string(total_sessions) + "\n";
+        r += "  总按键: " + std::to_string(total_keypresses) + "\n";
+        r += "  总准确率: " + std::to_string((int)overall_accuracy()) + "%\n";
+        r += "  总速度: " + std::to_string((int)overall_speed_wpm()) + " 字/分\n";
+
+        auto top = top_words(10);
+        if (!top.empty()) {
+            r += "\n【高频词 Top 10】\n";
+            for (size_t i = 0; i < top.size(); ++i) {
+                r += "  " + std::to_string(i + 1) + ". " + top[i].first +
+                     " (" + std::to_string(top[i].second) + "次)\n";
+            }
+        }
+        return r;
     }
 };
 
