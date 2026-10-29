@@ -1554,7 +1554,9 @@ int main(int argc, char **argv) {
     // user.history 存 UserLanguageModel 的增量历史（不含 34MB 系统 LM），
     // user.dict 存 UserDict（含 learn() 自动造出来的用户词）。
     std::string userHistPath, userDictPath;
+    pinyin_ime::RecentHistory recentHistory;  // v0.9.129: 最近输入记忆
     const bool persist = !userDataDir.empty();
+    if (persist) { recentHistory.load_from_file(userDataDir + "/recent_history.txt"); }
     if (persist) {
         std::error_code ec;
         std::filesystem::create_directories(userDataDir, ec);
@@ -1933,6 +1935,8 @@ int main(int argc, char **argv) {
             lastCommitted = preText;
             assocCands = pinyin_ime::association_lookup(preText);
             assocMode = !assocCands.empty();
+            // v0.9.129: 最近输入记忆
+            recentHistory.add(preText);
         }
     };
 
@@ -2098,6 +2102,18 @@ int main(int argc, char **argv) {
                     std::string pctResult = pinyin_ime::percent_to_chinese(line);
                     if (!pctResult.empty()) {
                         output_line(pctResult);
+                        continue;
+                    }
+                }
+                // v0.9.129: 句式模板（xw→请问您需要什么帮助？, td→【待办】...）
+                {
+                    auto tmplResults = pinyin_ime::sentence_template_lookup(line);
+                    if (!tmplResults.empty()) {
+                        for (size_t ci = 0; ci < tmplResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << tmplResults[ci];
+                        }
+                        std::cout << "\n";
                         continue;
                     }
                 }
@@ -2895,6 +2911,18 @@ int main(int argc, char **argv) {
                                 continue;
                             }
                         }
+                        // v0.9.129: 句式模板（交互模式）
+                        {
+                            auto tmplResults = pinyin_ime::sentence_template_lookup(compactRaw);
+                            if (!tmplResults.empty()) {
+                                output_line(tmplResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
                         // v0.9.126: 成语速查（交互模式）— 4字母首字母匹配
                         if (compactRaw.size() == 4) {
                             auto idiomResults = pinyin_ime::idiom_lookup(compactRaw);
@@ -3045,6 +3073,7 @@ int main(int argc, char **argv) {
         render();
     }
     std::cout << "\n";
+    if (persist) { recentHistory.save_to_file(userDataDir + "/recent_history.txt"); }
     save_user_data();
     return 0;
 }

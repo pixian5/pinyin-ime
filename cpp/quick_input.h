@@ -1866,4 +1866,154 @@ inline std::vector<std::string> quick_candidates_v4(const std::string &input,
     return unique;
 }
 
+// ── v0.9.129 常用句式模板 ──────────────────────────────────
+// 输入句式缩写，展开为常用句子
+inline std::vector<std::pair<std::string, std::string>>
+builtin_sentence_templates() {
+    return {
+        {"xw",      "请问您需要什么帮助？"},
+        {"xw2",     "您好，请问有什么可以帮您的？"},
+        {"gz",      "感谢您的关注与支持！"},
+        {"gz2",     "非常感谢您的配合，期待下次合作。"},
+        {"qh",      "请稍等，我正在为您处理。"},
+        {"qh2",     "请确认信息无误后提交。"},
+        {"yy",      "已为您处理完毕，请查收。"},
+        {"yy2",     "已收到您的反馈，我们会尽快处理。"},
+        {"bj",      "备注：请仔细核对以上信息。"},
+        {"yj",      "以上意见仅供参考，具体以实际情况为准。"},
+        {"td",      "【待办】"},
+        {"td2",     "【已完成】"},
+        {"td3",     "【进行中】"},
+        {"td4",     "【已取消】"},
+        {"yx",      "【优先级：高】"},
+        {"yx2",     "【优先级：中】"},
+        {"yx3",     "【优先级：低】"},
+        {"ly",      "祝您工作顺利，生活愉快！"},
+        {"ly2",     "祝您身体健康，万事如意！"},
+        {"ly3",     "祝您旅途愉快，一路顺风！"},
+        {"em",      "我的邮箱是"},
+        {"ph",      "我的电话是"},
+        {"ad",      "我的地址是"},
+        {"nm",      "我的名字是"},
+        {"sig",     "此致\n敬礼"},
+        {"sig2",    "Best regards,"},
+        {"sig3",    "Thanks and Best Regards,"},
+        {"mt",      "会议时间："},
+        {"mt2",     "会议地点："},
+        {"mt3",     "参会人员："},
+        {"mt4",     "会议主题："},
+        {"rp",      "报告人："},
+        {"rp2",     "报告时间："},
+        {"rp3",     "报告地点："},
+    };
+}
+
+inline std::vector<std::string>
+sentence_template_lookup(const std::string &input) {
+    auto templates = builtin_sentence_templates();
+    std::vector<std::string> result;
+    for (auto &t : templates) {
+        if (t.first == input) result.push_back(t.second);
+    }
+    for (auto &t : templates) {
+        if (t.first.size() > input.size() &&
+            t.first.compare(0, input.size(), input) == 0) {
+            result.push_back(t.second);
+        }
+    }
+    return result;
+}
+
+// ── v0.9.129 最近输入记忆 ──────────────────────────────────
+// 记录最近上屏的文本，用于快速重复输入
+struct RecentHistory {
+    std::vector<std::string> items;
+    size_t max_size = 20;
+
+    void add(const std::string &text) {
+        if (text.empty()) return;
+        // 去重：如果已存在，移到最前
+        for (auto it = items.begin(); it != items.end(); ++it) {
+            if (*it == text) { items.erase(it); break; }
+        }
+        items.insert(items.begin(), text);
+        if (items.size() > max_size) items.resize(max_size);
+    }
+
+    std::vector<std::string> lookup(const std::string &prefix = "") const {
+        std::vector<std::string> result;
+        for (auto &item : items) {
+            if (prefix.empty() ||
+                item.size() >= prefix.size() &&
+                item.compare(0, prefix.size(), prefix) == 0) {
+                result.push_back(item);
+            }
+            if (result.size() >= 10) break;
+        }
+        return result;
+    }
+
+    bool save_to_file(const std::string &path) const {
+        FILE *fp = std::fopen(path.c_str(), "w");
+        if (!fp) return false;
+        for (auto &item : items) {
+            std::fprintf(fp, "%s\n", item.c_str());
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    bool load_from_file(const std::string &path) {
+        FILE *fp = std::fopen(path.c_str(), "r");
+        if (!fp) return false;
+        char line[1024];
+        items.clear();
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (!s.empty()) items.push_back(s);
+            if (items.size() >= max_size) break;
+        }
+        std::fclose(fp);
+        return true;
+    }
+};
+
+// ── v0.9.129 智能选词（基于上下文） ──────────────────────
+// 根据上一个上屏的词，调整当前候选排序
+inline std::vector<std::string>
+context_rank_candidates(const std::vector<std::string> &candidates,
+                         const std::string &last_committed) {
+    if (candidates.empty() || last_committed.empty()) return candidates;
+
+    // 上下文关联表：某些词后面更可能跟某些词
+    static const std::vector<std::pair<std::string, std::string>> context_rules = {
+        {"你", "好"}, {"你", "们"}, {"我", "们"}, {"我", "的"},
+        {"他", "们"}, {"这", "个"}, {"那", "个"}, {"什", "么"},
+        {"为", "什"}, {"因", "为"}, {"所", "以"}, {"但", "是"},
+        {"如", "果"}, {"虽", "然"}, {"还", "是"}, {"或", "者"},
+        {"一", "个"}, {"两", "个"}, {"三", "个"}, {"四", "个"},
+        {"中", "国"}, {"北", "京"}, {"上", "海"}, {"广", "州"},
+        {"学", "生"}, {"老", "师"}, {"朋", "友"}, {"同", "学"},
+        {"工", "作"}, {"学", "习"}, {"生", "活"}, {"时", "间"},
+        {"今", "天"}, {"明", "天"}, {"昨", "天"}, {"前", "天"},
+        {"上", "午"}, {"下", "午"}, {"晚", "上"}, {"早", "上"},
+    };
+
+    auto result = candidates;
+    // 如果上一个词在关联表中，把关联词排到前面
+    for (auto &rule : context_rules) {
+        if (last_committed == rule.first) {
+            for (size_t i = 1; i < result.size(); ++i) {
+                if (result[i].find(rule.second) != std::string::npos) {
+                    std::swap(result[0], result[i]);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    return result;
+}
+
 } // namespace pinyin_ime

@@ -588,6 +588,92 @@ int main() {
         std::cout << "\n";
     }
 
+    // ── v0.9.129 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.129: 句式模板 + 最近输入记忆 + 智能选词 ──\n";
+
+    // sentence_template_lookup
+    {
+        auto t = sentence_template_lookup("xw");
+        check("sentence_template(xw) not empty", !t.empty());
+        check("sentence_template(xw)[0]=请问您需要什么帮助？",
+              !t.empty() && t[0] == "请问您需要什么帮助？");
+    }
+    {
+        auto t = sentence_template_lookup("td");
+        check("sentence_template(td) not empty", !t.empty());
+        check("sentence_template(td)[0]=【待办】",
+              !t.empty() && t[0] == "【待办】");
+    }
+    {
+        auto t = sentence_template_lookup("sig");
+        check("sentence_template(sig) not empty", !t.empty());
+        std::cout << "  sig → " << t[0] << "\n";
+    }
+    {
+        auto t = sentence_template_lookup("ly");
+        check("sentence_template(ly) not empty", !t.empty());
+        std::cout << "  ly → " << t[0] << "\n";
+    }
+    {
+        auto templates = builtin_sentence_templates();
+        check("builtin_sentence_templates count>=30", templates.size() >= 30);
+    }
+
+    // RecentHistory
+    {
+        RecentHistory rh;
+        rh.add("你好");
+        rh.add("中国");
+        rh.add("我们");
+        check("RecentHistory size=3", rh.items.size() == 3);
+        check("RecentHistory[0]=我们", rh.items[0] == "我们");
+
+        rh.add("你好");  // 重复，移到最前
+        check("RecentHistory dedup[0]=你好", rh.items[0] == "你好");
+        check("RecentHistory dedup size=3", rh.items.size() == 3);
+
+        auto lookup = rh.lookup();
+        check("RecentHistory lookup size=3", lookup.size() == 3);
+
+        auto lookup2 = rh.lookup("你");
+        check("RecentHistory lookup(你) has 你好", [&]{
+            for (auto &s : lookup2) if (s == "你好") return true;
+            return false;
+        }());
+    }
+
+    // RecentHistory file save/load
+    {
+        RecentHistory rh;
+        rh.add("测试1");
+        rh.add("测试2");
+        bool saved = rh.save_to_file("/tmp/test_recent.txt");
+        check("RecentHistory save", saved);
+
+        RecentHistory rh2;
+        bool loaded = rh2.load_from_file("/tmp/test_recent.txt");
+        check("RecentHistory load", loaded);
+        check("RecentHistory load size=2", rh2.items.size() == 2);
+        check("RecentHistory load[0]=测试2", rh2.items[0] == "测试2");
+    }
+
+    // context_rank_candidates
+    {
+        std::vector<std::string> cands = {"过", "国", "果", "郭"};
+        auto ranked = context_rank_candidates(cands, "中");
+        check("context_rank(中) puts 国 first", ranked[0] == "国");
+    }
+    {
+        std::vector<std::string> cands = {"过", "们", "果"};
+        auto ranked = context_rank_candidates(cands, "我");
+        check("context_rank(我) puts 们 first", ranked[0] == "们");
+    }
+    {
+        std::vector<std::string> cands = {"过", "好", "果"};
+        auto ranked = context_rank_candidates(cands, "你");
+        check("context_rank(你) puts 好 first", ranked[0] == "好");
+    }
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
