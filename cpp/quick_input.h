@@ -1646,4 +1646,224 @@ inline std::vector<std::string> quick_candidates_v3(const std::string &input) {
 }
 
 
+
+// ── v0.9.128 用户自定义快捷词配置文件 ──────────────────────
+// 格式：每行 缩写=展开文本，# 开头为注释
+// 示例：
+//   addr=北京市海淀区中关村南大街
+//   todo=【待办事项】
+//   main=int main(int argc, char** argv) { return 0; }
+inline std::vector<std::pair<std::string, std::string>>
+load_custom_phrases_from_file(const std::string &path) {
+    std::vector<std::pair<std::string, std::string>> result;
+    FILE *fp = std::fopen(path.c_str(), "r");
+    if (!fp) return result;
+    char line[1024];
+    while (std::fgets(line, sizeof(line), fp)) {
+        std::string s(line);
+        while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+        if (s.empty() || s[0] == '#') continue;
+        auto pos = s.find('=');
+        if (pos == std::string::npos || pos == 0) continue;
+        std::string abbr = s.substr(0, pos);
+        std::string text = s.substr(pos + 1);
+        if (!abbr.empty() && !text.empty()) {
+            result.emplace_back(std::move(abbr), std::move(text));
+        }
+    }
+    std::fclose(fp);
+    return result;
+}
+
+// 合并内置自定义快捷词和用户配置文件
+inline std::vector<std::pair<std::string, std::string>>
+merge_custom_phrases(const std::string &user_file = "") {
+    std::vector<std::pair<std::string, std::string>> result;
+    for (const auto &p : builtin_custom_phrases()) {
+        result.emplace_back(p.abbr, p.phrase);
+    }
+    if (!user_file.empty()) {
+        auto user = load_custom_phrases_from_file(user_file);
+        for (auto &u : user) {
+            bool found = false;
+            for (auto &r : result) {
+                if (r.first == u.first) { r.second = u.second; found = true; break; }
+            }
+            if (!found) result.push_back(u);
+        }
+    }
+    return result;
+}
+
+// 用合并后的快捷词表查找
+inline std::vector<std::string>
+custom_phrase_lookup_ext(const std::string &input,
+                          const std::string &user_file = "") {
+    auto phrases = merge_custom_phrases(user_file);
+    std::vector<std::string> result;
+    for (auto &p : phrases) {
+        if (p.first == input) result.push_back(p.second);
+    }
+    for (auto &p : phrases) {
+        if (p.first.size() > input.size() &&
+            p.first.compare(0, input.size(), input) == 0) {
+            result.push_back(p.second);
+        }
+    }
+    return result;
+}
+
+// ── v0.9.128 Tab 英文自动补全 ──────────────────────────────
+inline std::vector<std::string>
+english_autocomplete(const std::string &prefix) {
+    if (prefix.empty() || prefix.size() < 2) return {};
+    static const std::vector<std::string> words = {
+        "about","above","access","across","action","active","add","address",
+        "after","again","agent","agree","alert","all","allow","almost",
+        "alone","along","already","also","always","among","amount","analyze",
+        "angle","animal","another","answer","any","anyone","anything","appear",
+        "apple","apply","area","array","arrow","article","ask","assert",
+        "asset","assign","async","atom","attach","audio","auth","author",
+        "auto","available","await","back","balance","base","basic","batch",
+        "battery","beam","bear","beat","begin","behind","being","below",
+        "best","better","between","binary","bind","block","blog","blue",
+        "body","bool","boost","boot","border","both","bottom","box",
+        "branch","break","bridge","brief","bring","broad","browser","buffer",
+        "bug","build","busy","button","byte","cache","call","cancel",
+        "case","cast","catch","category","center","central","chain","change",
+        "channel","char","chart","check","child","choice","choose","chunk",
+        "class","clean","clear","click","client","close","cloud","cluster",
+        "code","collect","color","column","combine","command","comment","common",
+        "compile","complete","compress","computer","config","connect","console","const",
+        "contact","content","context","continue","control","convert","copy","core",
+        "correct","cost","count","country","course","cover","create","cross",
+        "css","csv","ctrl","cube","current","cursor","custom","cycle",
+        "daily","data","database","date","day","debug","decimal","default",
+        "defer","define","delay","delete","demand","depth","desc","design",
+        "detail","detect","device","dict","difference","digital","direct","directory",
+        "disable","disk","display","distance","divide","document","domain","done",
+        "double","down","download","draft","draw","driver","drop","dump",
+        "during","each","early","earth","easy","echo","edge","edit",
+        "effect","effort","either","element","else","email","empty","enable",
+        "engine","english","ensure","enter","entity","entry","env","equal",
+        "error","escape","event","every","exact","example","except","exclude",
+        "exec","exist","exit","expand","expect","expire","explain","export",
+        "extend","extra","face","fact","factor","factory","fail","fair",
+        "false","family","fast","fault","feature","feed","feel","field",
+        "file","fill","filter","final","find","fine","finish","fire",
+        "first","fish","fix","flag","flash","flat","float","floor",
+        "flow","fluid","focus","follow","font","food","foot","force",
+        "form","format","forward","found","frame","free","fresh","friend",
+        "front","full","function","future","game","gate","general","generate",
+        "get","give","global","goal","gold","good","grade","graph",
+        "great","green","grid","group","grow","guard","guess","guide",
+        "hack","hair","half","hall","hand","handle","hang","happen",
+        "happy","hard","hash","have","head","health","hear","heart",
+        "heat","hello","help","here","hero","hide","high","hill",
+        "hint","history","hit","hold","home","honor","hook","hope",
+        "host","hour","house","html","http","human","icon","idea",
+        "image","import","include","income","increase","index","info","init",
+        "input","insert","inside","install","instance","integer","intent","internal",
+        "internet","into","invalid","issue","item","join","json","jump",
+        "just","keep","key","keyboard","kind","king","label","language",
+        "large","last","late","later","launch","layer","layout","lazy",
+        "lead","learn","least","leave","left","legal","length","less",
+        "level","library","license","life","light","like","limit","line",
+        "link","linux","list","listen","little","live","load","local",
+        "location","lock","logic","login","logout","long","look","loop",
+        "lose","loss","lower","machine","main","make","manage","many",
+        "mark","market","master","match","math","matter","maybe","mean",
+        "media","meet","member","memory","menu","merge","message","method",
+        "middle","might","mind","mine","minor","minute","miss","mode",
+        "model","modern","module","moment","money","month","more","most",
+        "move","movie","much","music","must","name","native","nature",
+        "near","need","network","new","news","next","nice","night",
+        "node","none","normal","north","note","nothing","notice","now",
+        "null","number","object","obtain","occur","offer","office","often",
+        "old","once","one","online","only","open","operate","option",
+        "order","origin","other","out","output","outside","over","own",
+        "owner","pack","page","pair","panel","paper","parent","part",
+        "pass","past","path","pattern","pause","pay","peak","perform",
+        "period","person","phone","photo","physics","pick","picture","piece",
+        "place","plan","plant","play","please","plus","point","policy",
+        "pool","poor","port","position","positive","possible","post","power",
+        "practice","prefer","prepare","present","press","pretty","price","primary",
+        "print","private","prize","problem","process","produce","product","program",
+        "project","promise","proof","proper","property","protect","protocol","proxy",
+        "public","pull","push","python","quality","query","question","queue",
+        "quick","quiet","quit","quote","race","radio","rain","raise",
+        "random","range","rank","rapid","rate","raw","read","real",
+        "reason","receive","recent","record","red","reduce","refer","refresh",
+        "region","register","reject","relate","release","reload","remain","remember",
+        "remove","render","repair","repeat","replace","reply","report","request",
+        "require","research","resource","response","rest","result","return","reveal",
+        "review","reward","rich","right","ring","rise","risk","river",
+        "road","robot","rock","role","roll","room","root","round",
+        "route","row","ruby","rule","run","rust","safe","save",
+        "scale","scan","scene","school","scope","score","screen","script",
+        "search","season","seat","second","secret","section","secure","seed",
+        "seek","seem","select","self","sell","send","sense","server",
+        "service","session","setting","setup","seven","shadow","shape","share",
+        "sheet","shell","shift","ship","short","should","show","shut",
+        "side","sign","signal","silent","silver","simple","since","single",
+        "site","size","skill","skin","sky","sleep","slow","small",
+        "smart","smile","social","soft","software","solution","some","song",
+        "soon","sort","sound","source","space","speak","special","speed",
+        "spend","spirit","split","sport","spread","spring","square","stable",
+        "staff","stage","stand","standard","start","state","static","station",
+        "stay","step","still","stock","stop","store","storm","story",
+        "stream","street","strict","string","strong","struct","student","study",
+        "style","subject","submit","success","such","sudden","sugar","suggest",
+        "summer","super","supply","support","sure","surface","surprise","swap",
+        "switch","symbol","system","table","tag","tail","take","talk",
+        "tall","task","teach","team","tech","technology","tell","temp",
+        "template","term","test","text","than","thank","that","their",
+        "them","then","there","these","they","thing","think","third",
+        "this","those","though","thread","three","through","throw","time",
+        "tiny","title","today","together","tone","tool","top","topic",
+        "total","touch","tough","tour","tower","town","track","trade",
+        "traffic","train","transfer","transform","translate","transport","travel","tree",
+        "trend","trial","trick","trim","true","trust","try","tube",
+        "turn","type","under","union","unique","unit","universe","unless",
+        "until","update","upgrade","upper","use","user","using","util",
+        "valid","value","variable","vector","version","very","video","view",
+        "virtual","visible","visit","visual","voice","volume","vote","wait",
+        "wake","walk","wall","want","warm","warn","watch","water",
+        "wave","way","weak","wear","week","weight","well","west",
+        "what","when","where","which","while","white","who","whole",
+        "why","wide","width","window","winter","wire","wise","wish",
+        "with","within","without","woman","wonder","wood","word","work",
+        "world","worry","worse","worst","worth","would","write","wrong",
+        "xml","year","yellow","yes","yet","you","young","your",
+        "zero","zone"
+    };
+    std::vector<std::string> result;
+    for (auto &w : words) {
+        if (w.size() >= prefix.size() &&
+            w.compare(0, prefix.size(), prefix) == 0) {
+            result.push_back(w);
+        }
+        if (result.size() >= 10) break;
+    }
+    return result;
+}
+
+// ── v0.9.128 统一快速输入入口（v4 扩展） ──────────────────
+inline std::vector<std::string> quick_candidates_v4(const std::string &input,
+                                                     const std::string &user_file = "") {
+    auto result = quick_candidates_v3(input);
+    // 用户自定义快捷词
+    auto custom = custom_phrase_lookup_ext(input, user_file);
+    for (auto &c : custom) result.push_back(std::move(c));
+    // 去重
+    std::vector<std::string> unique;
+    for (auto &r : result) {
+        bool dup = false;
+        for (auto &u : unique) { if (u == r) { dup = true; break; } }
+        if (!dup) unique.push_back(std::move(r));
+    }
+    if (unique.size() > 20) unique.resize(20);
+    return unique;
+}
+
 } // namespace pinyin_ime

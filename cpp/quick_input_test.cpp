@@ -493,20 +493,104 @@ int main() {
     
     std::cout << "\n--- v0.9.127 quick_candidates_v3 统一入口 ---\n";
     
-    auto qc3v3 = quick_candidates_v3("www.baidu.com");
-    check("qc3v3(www.baidu.com) not empty", !qc3v3.empty());
+    auto qc3v3test = quick_candidates_v3("www.baidu.com");
+    check("qc3v3(www.baidu.com) not empty", !qc3v3test.empty());
     
-    auto qc3v3bb = quick_candidates_v3("baidu");
-    check("qc3(baidu) not empty", !qc3v3bb.empty());
+    auto qc3v3bbtest = quick_candidates_v3("baidu");
+    check("qc3(baidu) not empty", !qc3v3bbtest.empty());
     std::cout << "  qc3(baidu) → ";
-    for (auto &c : qc3v3bb) std::cout << c << " ";
+    for (auto &c : qc3v3bbtest) std::cout << c << " ";
     std::cout << "\n";
+
+
+    // ── v0.9.128 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.128: 自定义快捷词配置文件 + Tab英文补全 ──\n";
+
+    // load_custom_phrases_from_file
+    {
+        // Write a temp config file
+        FILE *fp = std::fopen("/tmp/test_custom_phrases.txt", "w");
+        if (fp) {
+            std::fputs("# test config\n", fp);
+            std::fputs("myabbr=我的自定义快捷词\n", fp);
+            std::fputs("code=std::cout << \"hello\";\n", fp);
+            std::fputs("\n", fp);
+            std::fclose(fp);
+        }
+        auto phrases = load_custom_phrases_from_file("/tmp/test_custom_phrases.txt");
+        check("load_custom_phrases count=2", phrases.size() == 2);
+        check("load_custom_phrases[0].first=myabbr", phrases[0].first == "myabbr");
+        check("load_custom_phrases[0].second=我的自定义快捷词", phrases[0].second == "我的自定义快捷词");
+        check("load_custom_phrases[1].first=code", phrases[1].first == "code");
+    }
+
+    // merge_custom_phrases
+    {
+        auto merged = merge_custom_phrases("/tmp/test_custom_phrases.txt");
+        check("merge_custom_phrases has builtin+user", merged.size() > 26);
+        // User phrase should be in the merged list
+        bool found = false;
+        for (auto &p : merged) {
+            if (p.first == "myabbr") { found = true; break; }
+        }
+        check("merge_custom_phrases contains user phrase", found);
+    }
+
+    // custom_phrase_lookup_ext
+    {
+        auto result = custom_phrase_lookup_ext("myabbr", "/tmp/test_custom_phrases.txt");
+        check("custom_phrase_lookup_ext(myabbr) not empty", !result.empty());
+        check("custom_phrase_lookup_ext(myabbr)[0]=我的自定义快捷词",
+              !result.empty() && result[0] == "我的自定义快捷词");
+    }
+
+    // english_autocomplete
+    {
+        auto ac = english_autocomplete("hel");
+        check("english_autocomplete(hel) not empty", !ac.empty());
+        check("english_autocomplete(hel)[0]=hello", !ac.empty() && ac[0] == "hello");
+        std::cout << "  autocomplete(hel) → ";
+        for (auto &c : ac) std::cout << c << " ";
+        std::cout << "\n";
+    }
+    {
+        auto ac = english_autocomplete("comp");
+        check("english_autocomplete(comp) has compile", [&]{
+            for (auto &c : ac) if (c == "compile") return true;
+            return false;
+        }());
+        std::cout << "  autocomplete(comp) → ";
+        for (auto &c : ac) std::cout << c << " ";
+        std::cout << "\n";
+    }
+    {
+        auto ac = english_autocomplete("x");
+        check("english_autocomplete(x) empty (too short)", ac.empty());
+    }
+    {
+        auto ac = english_autocomplete("json");
+        check("english_autocomplete(json) has json", !ac.empty() && ac[0] == "json");
+    }
+    {
+        auto ac = english_autocomplete("py");
+        check("english_autocomplete(py) has python", [&]{
+            for (auto &c : ac) if (c == "python") return true;
+            return false;
+        }());
+    }
+
+    // quick_candidates_v4
+    {
+        auto qc4 = quick_candidates_v4("addr");
+        check("qc4(addr) not empty", !qc4.empty());
+        std::cout << "  qc4(addr) → ";
+        for (auto &c : qc4) std::cout << c << " ";
+        std::cout << "\n";
+    }
 
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
-
-// ════════════════════════════════════════════════════════════════════
 // v0.9.127 测试
 // ════════════════════════════════════════════════════════════════════
 

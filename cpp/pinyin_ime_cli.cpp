@@ -2577,7 +2577,24 @@ int main(int argc, char **argv) {
             if (key == kKeyEsc) {  // Esc：清缓冲并切回中文
                 engBuf.clear();
                 englishMode = false;
-            } else if (ch == '\t') {  // Tab：仅切回中文，缓冲保留
+            } else if (ch == '\t') {  // Tab：英文自动补全，再按切回中文
+                static int tabCount = 0;
+                if (tabCount == 0 && !engBuf.empty()) {
+                    // 第一次 Tab：显示自动补全候选
+                    auto ac = pinyin_ime::english_autocomplete(engBuf);
+                    if (!ac.empty()) {
+                        std::cout << "\r\x1b[2K补全: ";
+                        for (size_t i = 0; i < std::min<size_t>(ac.size(), 9); ++i) {
+                            std::cout << (i + 1) << "." << ac[i] << " ";
+                        }
+                        std::cout << " [1-9 选 / Tab 切中文 / Esc 取消]";
+                        std::cout.flush();
+                        tabCount = 1;
+                        continue;
+                    }
+                }
+                tabCount = 0;
+                englishMode = false;
                 englishMode = false;
             } else if (ch == 0x7f || ch == 0x08) {  // 退格：删缓冲末字符
                 if (!engBuf.empty()) engBuf.pop_back();
@@ -2858,6 +2875,67 @@ int main(int argc, char **argv) {
                             std::string pctResult = pinyin_ime::percent_to_chinese(compactRaw);
                             if (!pctResult.empty()) {
                                 output_line(pctResult);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.128: 自定义快捷词（交互模式）
+                        {
+                            auto customResults = pinyin_ime::custom_phrase_lookup_ext(
+                                compactRaw, userDataDir + "/custom_phrases.txt");
+                            if (!customResults.empty()) {
+                                output_line(customResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.126: 成语速查（交互模式）— 4字母首字母匹配
+                        if (compactRaw.size() == 4) {
+                            auto idiomResults = pinyin_ime::idiom_lookup(compactRaw);
+                            if (!idiomResults.empty()) {
+                                output_line(idiomResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.126: 繁简转换（交互模式）— tf 前缀
+                        if (compactRaw.size() > 2 && compactRaw[0] == 't' && compactRaw[1] == 'f') {
+                            std::string tradResult = pinyin_ime::to_traditional(compactRaw.substr(2));
+                            if (!tradResult.empty() && tradResult != compactRaw.substr(2)) {
+                                output_line(tradResult);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.127: 网址/邮箱智能识别（交互模式）
+                        {
+                            auto urlResults = pinyin_ime::smart_url_lookup(compactRaw);
+                            if (!urlResults.empty()) {
+                                output_line(urlResults[0]);
+                                ctx.clear();
+                                page = 0;
+                                candFocus = 0;
+                                render();
+                                continue;
+                            }
+                        }
+                        // v0.9.126: 中英文混输（交互模式）
+                        {
+                            auto mixedResults = pinyin_ime::mixed_input_lookup(compactRaw);
+                            if (!mixedResults.empty()) {
+                                output_line(mixedResults[0]);
                                 ctx.clear();
                                 page = 0;
                                 candFocus = 0;
