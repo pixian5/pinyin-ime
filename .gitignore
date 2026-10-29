@@ -143,3 +143,4 @@ tools/*.so
 
 # S3 下载产物（用 rclone 获取，不入库）
 pinyin-ime-s3/
+.env.dev

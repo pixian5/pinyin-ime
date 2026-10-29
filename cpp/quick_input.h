@@ -26,6 +26,7 @@
 #include <set>
 #include <map>
 #include <stdexcept>
+#include <algorithm>
 
 namespace pinyin_ime {
 
