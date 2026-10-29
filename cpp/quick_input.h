@@ -2146,4 +2146,43 @@ struct UserFreqTable {
     }
 };
 
+// ── v0.9.131 皮肤/主题切换 ────────────────────────────────
+struct Theme {
+    std::string name;
+    std::string preedit_color;    // 拼音预编辑区颜色
+    std::string candidate_color;  // 候选词颜色
+    std::string focus_color;      // 焦点候选颜色
+    std::string index_color;      // 序号颜色
+    std::string hint_color;       // 提示信息颜色
+    std::string reset;            // 重置颜色
+};
+
+inline Theme get_theme(const std::string &name) {
+    if (name == "dark" || name == "暗色") {
+        return {"dark", "\033[36m", "\033[37m", "\033[1;33m",
+                "\033[90m", "\033[90m", "\033[0m"};
+    } else if (name == "high" || name == "高对比") {
+        return {"high", "\033[1;37m", "\033[1;37m", "\033[1;31m",
+                "\033[1;36m", "\033[1;35m", "\033[0m"};
+    } else if (name == "retro" || name == "复古") {
+        return {"retro", "\033[33m", "\033[32m", "\033[1;33m",
+                "\033[35m", "\033[36m", "\033[0m"};
+    } else if (name == "matrix" || name == "黑客") {
+        return {"matrix", "\033[32m", "\033[32m", "\033[1;32m",
+                "\033[90m", "\033[32m", "\033[0m"};
+    } else if (name == "ocean" || name == "海洋") {
+        return {"ocean", "\033[34m", "\033[36m", "\033[1;34m",
+                "\033[90m", "\033[35m", "\033[0m"};
+    } else if (name == "solar" || name == "日光") {
+        return {"solar", "\033[33m", "\033[37m", "\033[1;31m",
+                "\033[33m", "\033[35m", "\033[0m"};
+    }
+    // 默认主题
+    return {"default", "", "", "", "", "", ""};
+}
+
+inline std::vector<std::string> list_themes() {
+    return {"default", "dark", "high", "retro", "matrix", "ocean", "solar"};
+}
+
 } // namespace pinyin_ime

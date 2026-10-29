@@ -135,6 +135,7 @@ void usage(const char *prog) {
         << "  --dict-export F 导出用户词典到文件\n"
         << "  --dict-search K 搜索词条（关键词匹配拼音或中文）\n"
         << "  --stats-report  输入统计面板（高频词/准确率/使用量）\n"
+        << "  --theme NAME   配色主题：default/dark/high/retro/matrix/ocean/solar\n"
         << "  --doctor        一键诊断（检查环境/依赖/数据/权限）\n"
         << "  --num           数字转中文(逐位): 123 -> 一二三\n"
         << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
@@ -794,6 +795,7 @@ int main(int argc, char **argv) {
     bool dictList = false;        // --dict-list
     bool dictExport = false;      // --dict-export
     bool statsReport = false;     // --stats-report
+    std::string themeName = "default";  // --theme
     std::string dictAddEntry;     // --dict-add P=W
     std::string dictDelKey;       // --dict-del P
     std::string dictImportFile;   // --dict-import F
@@ -850,6 +852,9 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) dictSearchKey = argv[++i];
         } else if (a == "--stats-report") {
             statsReport = true;
+        } else if (a == "--theme") {
+            if (i + 1 >= argc) { std::cerr << "--theme 缺少参数\n"; return 1; }
+            themeName = argv[++i];
         } else if (a == "--doctor") {
             doctorMode = true;
         } else if (a == "--num") {
@@ -1555,6 +1560,7 @@ int main(int argc, char **argv) {
     // user.dict 存 UserDict（含 learn() 自动造出来的用户词）。
     std::string userHistPath, userDictPath;
     pinyin_ime::RecentHistory recentHistory;  // v0.9.129: 最近输入记忆
+    pinyin_ime::Theme theme = pinyin_ime::get_theme(themeName);  // v0.9.131: 主题
     pinyin_ime::UserFreqTable userFreqTable;  // v0.9.130: 用户词频学习
     const bool persist = !userDataDir.empty();
     if (persist) { recentHistory.load_from_file(userDataDir + "/recent_history.txt"); }
@@ -2524,7 +2530,7 @@ int main(int argc, char **argv) {
         if (!preStr.empty() && cursorPos <= preStr.size()) {
             preStr.insert(cursorPos, "▏");
         }
-        std::cout << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << "  |  ";
+        std::cout << theme.preedit_color << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << theme.reset << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
         const size_t total = cands.size();
         // 简拼 boost：检查 preedit 是否匹配预设，若匹配则交换候选显示顺序
@@ -2561,11 +2567,11 @@ int main(int argc, char **argv) {
             if (i - begin == candFocus) {
                 // 焦点候选：* 前缀标记 + 拼音标注（v0.9.90）
                 std::string candPinyin = ctx.candidateFullPinyin(dispIdx);
-                std::cout << "*" << (i - begin + 1) << "." << cands[dispIdx].toString();
+                std::cout << theme.focus_color << "*" << (i - begin + 1) << "." << cands[dispIdx].toString() << theme.reset;
                 if (!candPinyin.empty()) std::cout << "(" << candPinyin << ")";
                 std::cout << "  ";
             } else {
-                std::cout << (i - begin + 1) << "." << cands[dispIdx].toString() << "  ";
+                std::cout << theme.index_color << (i - begin + 1) << "." << theme.candidate_color << cands[dispIdx].toString() << theme.reset << "  ";
             }
         }
         if (total > kPageSize) {

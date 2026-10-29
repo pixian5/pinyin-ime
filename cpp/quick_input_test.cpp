@@ -722,6 +722,35 @@ int main() {
         check("UserFreqTable top[0]=测试 (count=10)", top[0].first == "测试" && top[0].second == 10);
     }
 
+    // ── v0.9.131 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.131: 皮肤/主题切换 ──\n";
+    {
+        auto t = get_theme("default");
+        check("theme(default) name", t.name == "default");
+    }
+    {
+        auto t = get_theme("dark");
+        check("theme(dark) name", t.name == "dark");
+        check("theme(dark) preedit not empty", !t.preedit_color.empty());
+        check("theme(dark) reset not empty", !t.reset.empty());
+    }
+    {
+        auto t = get_theme("matrix");
+        check("theme(matrix) name", t.name == "matrix");
+        check("theme(matrix) green", t.preedit_color.find("32") != std::string::npos);
+    }
+    {
+        auto t = get_theme("ocean");
+        check("theme(ocean) name", t.name == "ocean");
+    }
+    {
+        auto t = get_theme("unknown");
+        check("theme(unknown) falls to default", t.name == "default");
+    }
+    {
+        auto themes = list_themes();
+        check("list_themes size>=7", themes.size() >= 7);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
