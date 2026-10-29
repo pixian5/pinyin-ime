@@ -1351,6 +1351,66 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     return;
                 }
             }
+            // v0.9.128: 自定义快捷词（addr→地址, todo→【待办】...）
+            {
+                auto customResults = pinyin_ime::custom_phrase_lookup(compactRaw);
+                if (!customResults.empty()) {
+                    state->commitText(customResults[0]);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.129: 句式模板（xw→请问您需要什么帮助？...）
+            {
+                auto tmplResults = pinyin_ime::sentence_template_lookup(compactRaw);
+                if (!tmplResults.empty()) {
+                    state->commitText(tmplResults[0]);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.126: 成语速查（yffs→一帆风顺...）
+            if (compactRaw.size() == 4) {
+                auto idiomResults = pinyin_ime::idiom_lookup(compactRaw);
+                if (!idiomResults.empty()) {
+                    state->commitText(idiomResults[0]);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.126: 繁简转换（tf中国→中國）
+            if (compactRaw.size() > 2 && compactRaw[0] == 't' && compactRaw[1] == 'f') {
+                std::string tradResult = pinyin_ime::to_traditional(compactRaw.substr(2));
+                if (!tradResult.empty() && tradResult != compactRaw.substr(2)) {
+                    state->commitText(tradResult);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.127: 网址/邮箱智能识别
+            {
+                auto urlResults = pinyin_ime::smart_url_lookup(compactRaw);
+                if (!urlResults.empty()) {
+                    state->commitText(urlResults[0]);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
+            // v0.9.126: 中英文混输（hello→hello, json→json...）
+            {
+                auto mixedResults = pinyin_ime::mixed_input_lookup(compactRaw);
+                if (!mixedResults.empty()) {
+                    state->commitText(mixedResults[0]);
+                    state->reset();
+                    event.filterAndAccept();
+                    return;
+                }
+            }
 
             if (englishDoubled ||
                 (!compactRaw.empty() &&
