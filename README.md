@@ -7883,3 +7883,33 @@ start-fcitx5.sh
 - 所有 CLI 目标编译通过（pinyin_ime_cli, quick_input_test, pinyin_corrector_test, libime_bench）
 - 96/96 quick_input 单元测试通过
 - 回归测试通过：nihao→你好, woshizhongguoren→我是中国人, zhonghuarenmingongheguo→中华人民共和国
+
+## 变更日志
+
+### v0.9.130 — 用户词频学习
+- UserFreqTable: 记录拼音→中文上屏频率
+- rank_candidates(): 基于频率动态调整候选排序
+- 文件持久化 (user_freq.txt)
+- CLI commit 时自动更新频率表
+
+### v0.9.131 — 皮肤/主题切换
+- 7种配色主题: default/dark/high/retro/matrix/ocean/solar
+- CLI --theme NAME 选项
+- 交互模式渲染应用主题颜色
+
+### v0.9.132 — 云拼音候选词接口
+- CloudPinyinClient 类: 云候选查询框架
+- 本地缓存 + 离线降级
+- 候选合并去重
+- CLI --cloud 选项
+
+### v0.9.133 — fcitx5 addon 集成
+- 自定义快捷词、句式模板、成语速查
+- 繁简转换、网址/邮箱识别、中英混输
+- 语法检查通过
+
+### v0.9.134 — Wayland 支持
+- text-input-v3 协议适配层
+- WaylandInputContext 状态机
+- ContentHint/ContentPurpose 内容类型
+- 根据目的调整输入法行为
