@@ -2185,4 +2185,130 @@ inline std::vector<std::string> list_themes() {
     return {"default", "dark", "high", "retro", "matrix", "ocean", "solar"};
 }
 
+// ── v0.9.132 云拼音候选词接口 ──────────────────────────────
+// 定义云候选接口框架，支持本地缓存和离线降级
+struct CloudCandidate {
+    std::string chinese;
+    std::string pinyin;
+    int confidence = 0;       // 置信度 0-100
+    std::string source;       // 来源标识
+};
+
+struct CloudPinyinConfig {
+    std::string endpoint;     // 云服务地址
+    std::string api_key;      // API密钥
+    bool enabled = false;
+    int timeout_ms = 3000;    // 超时
+    size_t max_candidates = 5;
+    std::string cache_dir;    // 本地缓存目录
+};
+
+class CloudPinyinClient {
+public:
+    CloudPinyinConfig config;
+
+    explicit CloudPinyinClient(const CloudPinyinConfig &cfg = {}) : config(cfg) {}
+
+    // 查询云候选（同步接口）
+    // 实际部署时用 libcurl/HTTP 请求；此处提供框架和本地缓存
+    std::vector<CloudCandidate> query(const std::string &pinyin) {
+        if (!config.enabled || pinyin.empty()) return {};
+
+        // 1. 查本地缓存
+        auto cached = load_cache(pinyin);
+        if (!cached.empty()) return cached;
+
+        // 2. 云端请求（框架——实际需 HTTP 客户端）
+        // POST {endpoint}/pinyin
+        // Body: {"pinyin": "...", "api_key": "..."}
+        // Response: {"candidates": [{"chinese": "...", "confidence": 90}]}
+        //
+        // 此处返回空——离线降级
+        // 实际实现需要 libcurl 或 socket 编程
+
+        return {};
+    }
+
+    // 异步查询接口（回调方式）
+    void query_async(const std::string &pinyin,
+                     std::function<void(const std::vector<CloudCandidate>&)> callback) {
+        // 实际实现用线程池/异步IO
+        callback(query(pinyin));
+    }
+
+    // 合并云候选到本地候选列表
+    std::vector<std::string> merge_candidates(
+        const std::vector<std::string> &local,
+        const std::vector<CloudCandidate> &cloud) const {
+        std::vector<std::string> result = local;
+        for (auto &c : cloud) {
+            bool dup = false;
+            for (auto &r : result) {
+                if (r == c.chinese) { dup = true; break; }
+            }
+            if (!dup) result.push_back(c.chinese);
+        }
+        return result;
+    }
+
+    // 缓存管理
+    std::string cache_path(const std::string &pinyin) const {
+        if (config.cache_dir.empty()) return "";
+        return config.cache_dir + "/cloud_" + pinyin + ".cache";
+    }
+
+    bool save_cache(const std::string &pinyin,
+                    const std::vector<CloudCandidate> &cands) const {
+        std::string path = cache_path(pinyin);
+        if (path.empty()) return false;
+        FILE *fp = std::fopen(path.c_str(), "w");
+        if (!fp) return false;
+        for (auto &c : cands) {
+            std::fprintf(fp, "%s\t%s\t%d\t%s\n",
+                         c.chinese.c_str(), c.pinyin.c_str(),
+                         c.confidence, c.source.c_str());
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    std::vector<CloudCandidate> load_cache(const std::string &pinyin) const {
+        std::vector<CloudCandidate> result;
+        std::string path = cache_path(pinyin);
+        if (path.empty()) return result;
+        FILE *fp = std::fopen(path.c_str(), "r");
+        if (!fp) return result;
+        char line[1024];
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty()) continue;
+            std::vector<std::string> parts;
+            size_t start = 0;
+            for (size_t i = 0; i <= s.size(); ++i) {
+                if (i == s.size() || s[i] == '\t') {
+                    parts.push_back(s.substr(start, i - start));
+                    start = i + 1;
+                }
+            }
+            if (parts.size() >= 2) {
+                CloudCandidate c;
+                c.chinese = parts[0];
+                c.pinyin = parts[1];
+                if (parts.size() >= 3) c.confidence = std::atoi(parts[2].c_str());
+                if (parts.size() >= 4) c.source = parts[3];
+                result.push_back(c);
+            }
+        }
+        std::fclose(fp);
+        return result;
+    }
+
+    // 清空缓存
+    void clear_cache() const {
+        if (config.cache_dir.empty()) return;
+        // 实际实现用 filesystem 遍历删除
+    }
+};
+
 } // namespace pinyin_ime

@@ -751,6 +751,51 @@ int main() {
         auto themes = list_themes();
         check("list_themes size>=7", themes.size() >= 7);
     }
+    // ── v0.9.132 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.132: 云拼音候选词接口 ──\n";
+    {
+        CloudPinyinConfig cfg;
+        cfg.enabled = false;
+        CloudPinyinClient client(cfg);
+        auto results = client.query("nihao");
+        check("cloud disabled returns empty", results.empty());
+    }
+    {
+        CloudPinyinConfig cfg;
+        cfg.enabled = true;
+        cfg.cache_dir = "/tmp/test_cloud_cache";
+        CloudPinyinClient client(cfg);
+
+        // Save cache
+        std::vector<CloudCandidate> cands = {{"你好", "nihao", 95, "cloud"}};
+        bool saved = client.save_cache("nihao", cands);
+        check("cloud save_cache", saved);
+
+        // Load cache
+        auto loaded = client.load_cache("nihao");
+        check("cloud load_cache size=1", loaded.size() == 1);
+        check("cloud load_cache[0].chinese=你好", !loaded.empty() && loaded[0].chinese == "你好");
+        check("cloud load_cache[0].confidence=95", !loaded.empty() && loaded[0].confidence == 95);
+
+        // Query with cache
+        auto results = client.query("nihao");
+        check("cloud query with cache", !results.empty());
+    }
+    {
+        CloudPinyinClient client;
+        std::vector<std::string> local = {"你好", "拟好"};
+        std::vector<CloudCandidate> cloud = {{"你号", "nihao", 80, "cloud"}};
+        auto merged = client.merge_candidates(local, cloud);
+        check("cloud merge size=3", merged.size() == 3);
+        check("cloud merge[2]=你号", merged[2] == "你号");
+    }
+    {
+        CloudPinyinClient client;
+        std::vector<std::string> local = {"你好"};
+        std::vector<CloudCandidate> cloud = {{"你好", "nihao", 90, "cloud"}};
+        auto merged = client.merge_candidates(local, cloud);
+        check("cloud merge dedup size=1", merged.size() == 1);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

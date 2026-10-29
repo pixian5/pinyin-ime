@@ -136,6 +136,7 @@ void usage(const char *prog) {
         << "  --dict-search K 搜索词条（关键词匹配拼音或中文）\n"
         << "  --stats-report  输入统计面板（高频词/准确率/使用量）\n"
         << "  --theme NAME   配色主题：default/dark/high/retro/matrix/ocean/solar\n"
+        << "  --cloud        启用云拼音候选词（需网络，离线自动降级）\n"
         << "  --doctor        一键诊断（检查环境/依赖/数据/权限）\n"
         << "  --num           数字转中文(逐位): 123 -> 一二三\n"
         << "  --num-amount    数字转中文金额: 123 -> 一百二十三\n"
@@ -796,6 +797,7 @@ int main(int argc, char **argv) {
     bool dictExport = false;      // --dict-export
     bool statsReport = false;     // --stats-report
     std::string themeName = "default";  // --theme
+    bool cloudEnabled = false;  // --cloud
     std::string dictAddEntry;     // --dict-add P=W
     std::string dictDelKey;       // --dict-del P
     std::string dictImportFile;   // --dict-import F
@@ -855,6 +857,8 @@ int main(int argc, char **argv) {
         } else if (a == "--theme") {
             if (i + 1 >= argc) { std::cerr << "--theme 缺少参数\n"; return 1; }
             themeName = argv[++i];
+        } else if (a == "--cloud") {
+            cloudEnabled = true;
         } else if (a == "--doctor") {
             doctorMode = true;
         } else if (a == "--num") {
