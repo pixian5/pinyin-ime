@@ -2016,4 +2016,134 @@ context_rank_candidates(const std::vector<std::string> &candidates,
     return result;
 }
 
+// ── v0.9.130 用户词频学习 ──────────────────────────────────
+// 记录 拼音→中文 的上屏频率，用于动态调整候选排序
+struct UserFreqEntry {
+    std::string pinyin;
+    std::string chinese;
+    int count = 0;
+    long last_used = 0;  // 时间戳
+};
+
+struct UserFreqTable {
+    std::vector<UserFreqEntry> entries;
+    size_t max_size = 500;
+
+    void add(const std::string &pinyin, const std::string &chinese) {
+        if (pinyin.empty() || chinese.empty()) return;
+        // 查找已有条目
+        for (auto &e : entries) {
+            if (e.pinyin == pinyin && e.chinese == chinese) {
+                e.count++;
+                e.last_used = std::time(nullptr);
+                return;
+            }
+        }
+        // 新条目
+        entries.push_back({pinyin, chinese, 1, std::time(nullptr)});
+        // 超过上限：淘汰最低频率的
+        if (entries.size() > max_size) {
+            size_t min_idx = 0;
+            for (size_t i = 1; i < entries.size(); ++i) {
+                if (entries[i].count < entries[min_idx].count) min_idx = i;
+            }
+            entries.erase(entries.begin() + min_idx);
+        }
+    }
+
+    // 查找某拼音的所有频率条目，按频率降序排列
+    std::vector<std::pair<std::string, int>>
+    lookup(const std::string &pinyin) const {
+        std::vector<std::pair<std::string, int>> result;
+        for (auto &e : entries) {
+            if (e.pinyin == pinyin) {
+                result.emplace_back(e.chinese, e.count);
+            }
+        }
+        std::sort(result.begin(), result.end(),
+                  [](const auto &a, const auto &b) { return a.second > b.second; });
+        return result;
+    }
+
+    // 根据频率表重排候选列表
+    std::vector<std::string>
+    rank_candidates(const std::vector<std::string> &candidates,
+                    const std::string &pinyin) const {
+        if (candidates.empty()) return candidates;
+        auto freq = lookup(pinyin);
+        if (freq.empty()) return candidates;
+
+        auto result = candidates;
+        // 按频率从高到低，把匹配的候选移到前面
+        size_t insert_pos = 0;
+        for (auto &f : freq) {
+            for (size_t i = insert_pos; i < result.size(); ++i) {
+                if (result[i] == f.first) {
+                    std::swap(result[insert_pos], result[i]);
+                    insert_pos++;
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    // 获取所有高频词（用于统计面板）
+    std::vector<std::pair<std::string, int>>
+    top_entries(size_t n = 20) const {
+        std::vector<std::pair<std::string, int>> result;
+        for (auto &e : entries) {
+            result.emplace_back(e.chinese, e.count);
+        }
+        std::sort(result.begin(), result.end(),
+                  [](const auto &a, const auto &b) { return a.second > b.second; });
+        if (result.size() > n) result.resize(n);
+        return result;
+    }
+
+    bool save_to_file(const std::string &path) const {
+        FILE *fp = std::fopen(path.c_str(), "w");
+        if (!fp) return false;
+        std::fprintf(fp, "# pinyin<TAB>chinese<TAB>count<TAB>last_used\n");
+        for (auto &e : entries) {
+            std::fprintf(fp, "%s\t%s\t%d\t%ld\n",
+                         e.pinyin.c_str(), e.chinese.c_str(), e.count, e.last_used);
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    bool load_from_file(const std::string &path) {
+        FILE *fp = std::fopen(path.c_str(), "r");
+        if (!fp) return false;
+        char line[1024];
+        entries.clear();
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty() || s[0] == '#') continue;
+            // 分割 tab
+            std::vector<std::string> parts;
+            size_t start = 0;
+            for (size_t i = 0; i <= s.size(); ++i) {
+                if (i == s.size() || s[i] == '\t') {
+                    parts.push_back(s.substr(start, i - start));
+                    start = i + 1;
+                }
+            }
+            if (parts.size() >= 3) {
+                UserFreqEntry e;
+                e.pinyin = parts[0];
+                e.chinese = parts[1];
+                e.count = std::atoi(parts[2].c_str());
+                if (parts.size() >= 4) e.last_used = std::atol(parts[3].c_str());
+                if (!e.pinyin.empty() && !e.chinese.empty()) entries.push_back(e);
+            }
+            if (entries.size() >= max_size) break;
+        }
+        std::fclose(fp);
+        return true;
+    }
+};
+
 } // namespace pinyin_ime

@@ -1555,8 +1555,10 @@ int main(int argc, char **argv) {
     // user.dict 存 UserDict（含 learn() 自动造出来的用户词）。
     std::string userHistPath, userDictPath;
     pinyin_ime::RecentHistory recentHistory;  // v0.9.129: 最近输入记忆
+    pinyin_ime::UserFreqTable userFreqTable;  // v0.9.130: 用户词频学习
     const bool persist = !userDataDir.empty();
     if (persist) { recentHistory.load_from_file(userDataDir + "/recent_history.txt"); }
+    if (persist) { userFreqTable.load_from_file(userDataDir + "/user_freq.txt"); }
     if (persist) {
         std::error_code ec;
         std::filesystem::create_directories(userDataDir, ec);
@@ -1937,6 +1939,7 @@ int main(int argc, char **argv) {
             assocMode = !assocCands.empty();
             // v0.9.129: 最近输入记忆
             recentHistory.add(preText);
+            userFreqTable.add(prePinyin, preText);
         }
     };
 
@@ -3074,6 +3077,7 @@ int main(int argc, char **argv) {
     }
     std::cout << "\n";
     if (persist) { recentHistory.save_to_file(userDataDir + "/recent_history.txt"); }
+    if (persist) { userFreqTable.save_to_file(userDataDir + "/user_freq.txt"); }
     save_user_data();
     return 0;
 }

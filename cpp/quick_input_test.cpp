@@ -674,6 +674,54 @@ int main() {
         check("context_rank(你) puts 好 first", ranked[0] == "好");
     }
 
+    // ── v0.9.130 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.130: 用户词频学习 ──\n";
+
+    {
+        UserFreqTable ft;
+        ft.add("nihao", "你好");
+        ft.add("nihao", "你好");
+        ft.add("nihao", "拟好");
+        ft.add("nihao", "你好");
+        check("UserFreqTable size=2", ft.entries.size() == 2);
+
+        auto freq = ft.lookup("nihao");
+        check("UserFreqTable lookup size=2", freq.size() == 2);
+        check("UserFreqTable lookup[0]=你好 (freq=3)", freq[0].first == "你好" && freq[0].second == 3);
+        check("UserFreqTable lookup[1]=拟好 (freq=1)", freq[1].first == "拟好" && freq[1].second == 1);
+    }
+    {
+        UserFreqTable ft;
+        ft.add("zhongguo", "中国");
+        ft.add("zhongguo", "中国");
+        ft.add("zhongguo", "中国");
+
+        std::vector<std::string> cands = {"中过", "中国", "种过", "种果"};
+        auto ranked = ft.rank_candidates(cands, "zhongguo");
+        check("UserFreqTable rank puts 中国 first", ranked[0] == "中国");
+    }
+    {
+        UserFreqTable ft;
+        ft.add("shurufa", "输入法");
+        ft.add("shurufa", "输入法");
+        bool saved = ft.save_to_file("/tmp/test_freq.txt");
+        check("UserFreqTable save", saved);
+
+        UserFreqTable ft2;
+        bool loaded = ft2.load_from_file("/tmp/test_freq.txt");
+        check("UserFreqTable load", loaded);
+        check("UserFreqTable load size=1", ft2.entries.size() == 1);
+        check("UserFreqTable load count=2", ft2.entries[0].count == 2);
+    }
+    {
+        UserFreqTable ft;
+        for (int i = 0; i < 10; ++i) ft.add("test", "测试");
+        ft.add("test", "其他");
+        auto top = ft.top_entries(5);
+        check("UserFreqTable top_entries not empty", !top.empty());
+        check("UserFreqTable top[0]=测试 (count=10)", top[0].first == "测试" && top[0].second == 10);
+    }
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
