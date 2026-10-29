@@ -2101,6 +2101,84 @@ int main(int argc, char **argv) {
                         continue;
                     }
                 }
+                // v0.9.126: 自定义快捷词（addr→地址, todo→【待办】, main→int main...）
+                {
+                    auto customResults = pinyin_ime::custom_phrase_lookup(line);
+                    if (!customResults.empty()) {
+                        for (size_t ci = 0; ci < customResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << customResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.126: 中英文混输（hello→hello, py→python...）
+                {
+                    auto mixedResults = pinyin_ime::mixed_input_lookup(line);
+                    if (!mixedResults.empty()) {
+                        for (size_t ci = 0; ci < mixedResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << mixedResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.126: 成语速查（yffs→一帆风顺, mdcg→马到成功...）
+                {
+                    auto idiomResults = pinyin_ime::idiom_lookup(line);
+                    if (!idiomResults.empty()) {
+                        for (size_t ci = 0; ci < idiomResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << idiomResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.126: 错音纠正（nihoa→nihao, zhonggu→zhongguo...）
+                {
+                    auto typoResults = pinyin_ime::typo_correction_lookup(line);
+                    if (!typoResults.empty()) {
+                        // 输出纠正后的拼音提示
+                        for (size_t ci = 0; ci < typoResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << "[纠错]" << typoResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.126: 繁简转换（输入 tf+简体文本 → 繁体）
+                // 搜狗式：输入 "tf" 前缀触发繁简转换
+                if (line.size() > 2 && line.substr(0, 2) == "tf") {
+                    std::string tradText = pinyin_ime::to_traditional(line.substr(2));
+                    if (!tradText.empty() && tradText != line.substr(2)) {
+                        output_line(tradText);
+                        continue;
+                    }
+                // v0.9.127: 网址/邮箱智能识别（www.baidu.com → 网址, admin@x.com → 邮箱）
+                {
+                    auto urlResults = pinyin_ime::smart_url_lookup(line);
+                    if (!urlResults.empty()) {
+                        for (size_t ci = 0; ci < urlResults.size(); ++ci) {
+                            if (ci > 0) std::cout << "\t";
+                            std::cout << urlResults[ci];
+                        }
+                        std::cout << "\n";
+                        continue;
+                    }
+                }
+                // v0.9.127: 拼音分词提示（长拼音串 → 分词显示）
+                {
+                    auto segHint = pinyin_ime::pinyin_segment_hint(line);
+                    if (!segHint.empty()) {
+                        // 输出分词提示到 stderr，不干扰正常候选
+                        std::cerr << "[分词] " << segHint << "\n";
+                    }
+                }
+                }
             }
             // --correct：先纠错再解码（C++ 原生，替换行模式每行 fork Python 的桥接）
             // v0.9.47: 数字→字母预处理（手机键盘误触）

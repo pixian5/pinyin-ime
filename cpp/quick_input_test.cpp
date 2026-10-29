@@ -292,6 +292,221 @@ int main() {
     check("assoc(怎么) not empty", !ap7.empty());
     std::cout << "  怎么 → " << (ap7.empty() ? "(empty)" : ap7[0]) << " " << (ap7.size() > 1 ? ap7[1] : "") << "\n";
 
+
+    // v0.9.126 自定义快捷词测试
+    std::cout << "\n--- 自定义快捷词 ---\n";
+    auto cp1 = custom_phrase_lookup("addr");
+    check("custom(addr) not empty", !cp1.empty());
+    check("custom(addr) has 地址", !cp1.empty() && cp1[0].find("北京") != std::string::npos);
+    std::cout << "  addr → " << (cp1.empty() ? "(empty)" : cp1[0]) << "\n";
+
+    auto cp2 = custom_phrase_lookup("todo");
+    check("custom(todo) not empty", !cp2.empty());
+    check("custom(todo) = 【待办】", !cp2.empty() && cp2[0] == "【待办】");
+    std::cout << "  todo → " << (cp2.empty() ? "(empty)" : cp2[0]) << "\n";
+
+    auto cp3 = custom_phrase_lookup("main");
+    check("custom(main) not empty", !cp3.empty());
+    check("custom(main) has int main", !cp3.empty() && cp3[0].find("int main") != std::string::npos);
+    std::cout << "  main → " << (cp3.empty() ? "(empty)" : cp3[0]) << "\n";
+
+    auto cp4 = custom_phrase_lookup("btw");
+    check("custom(btw) not empty", !cp4.empty());
+    std::cout << "  btw → " << (cp4.empty() ? "(empty)" : cp4[0]) << "\n";
+
+    auto cp5 = custom_phrase_lookup("xyz");
+    check("custom(xyz) empty", cp5.empty());
+
+    check("is_custom_phrase(todo)", is_custom_phrase("todo"));
+    check("!is_custom_phrase(xyz)", !is_custom_phrase("xyz"));
+
+    // v0.9.126 中英文混输测试
+    std::cout << "\n--- 中英文混输 ---\n";
+    auto mi1 = mixed_input_lookup("hello");
+    check("mixed(hello) not empty", !mi1.empty());
+    check("mixed(hello) = hello", !mi1.empty() && mi1[0] == "hello");
+    std::cout << "  hello → " << (mi1.empty() ? "(empty)" : mi1[0]) << "\n";
+
+    auto mi2 = mixed_input_lookup("test");
+    check("mixed(test) not empty", !mi2.empty());
+    check("mixed(test) = test", !mi2.empty() && mi2[0] == "test");
+    std::cout << "  test → " << (mi2.empty() ? "(empty)" : mi2[0]) << "\n";
+
+    auto mi3 = mixed_input_lookup("py");  // 前缀匹配 python
+    check("mixed(py) has python", !mi3.empty() && mi3[0] == "python");
+    std::cout << "  py → " << (mi3.empty() ? "(empty)" : mi3[0]) << "\n";
+
+    auto mi4 = mixed_input_lookup("xyz");
+    check("mixed(xyz) empty", mi4.empty());
+
+    auto mi5 = mixed_input_lookup("json");
+    check("mixed(json) = json", !mi5.empty() && mi5[0] == "json");
+    std::cout << "  json → " << (mi5.empty() ? "(empty)" : mi5[0]) << "\n";
+
+    check("is_mixed_english(hello)", is_mixed_english("hello"));
+    check("!is_mixed_english(123)", !is_mixed_english("123"));
+
+    // v0.9.126 错音纠正测试
+    std::cout << "\n--- 错音纠正 ---\n";
+    auto tc1 = typo_correction_lookup("nihoa");
+    check("typo(nihoa) not empty", !tc1.empty());
+    check("typo(nihoa) = nihao", !tc1.empty() && tc1[0] == "nihao");
+    std::cout << "  nihoa → " << (tc1.empty() ? "(empty)" : tc1[0]) << "\n";
+
+    auto tc2 = typo_correction_lookup("zhonggu");
+    check("typo(zhonggu) = zhongguo", !tc2.empty() && tc2[0] == "zhongguo");
+    std::cout << "  zhonggu → " << (tc2.empty() ? "(empty)" : tc2[0]) << "\n";
+
+    auto tc3 = typo_correction_lookup("inaho");
+    check("typo(inaho) not empty", !tc3.empty());
+    std::cout << "  inaho → " << (tc3.empty() ? "(empty)" : tc3[0]) << "\n";
+
+    auto tc4 = typo_correction_lookup("nihao");
+    check("typo(nihao) empty (already correct)", tc4.empty());
+
+    // v0.9.126 成语速查测试
+    std::cout << "\n--- 成语速查 ---\n";
+    auto id1 = idiom_lookup("yffs");
+    check("idiom(yffs) has 一帆风顺", !id1.empty() && id1[0] == "一帆风顺");
+    std::cout << "  yffs → " << (id1.empty() ? "(empty)" : id1[0]) << "\n";
+
+    auto id2 = idiom_lookup("mdcg");
+    check("idiom(mdcg) has 马到成功", !id2.empty() && id2[0] == "马到成功");
+    std::cout << "  mdcg → " << (id2.empty() ? "(empty)" : id2[0]) << "\n";
+
+    auto id3 = idiom_lookup("hktt");
+    check("idiom(hktt) has 海阔天空", !id3.empty() && id3[0] == "海阔天空");
+    std::cout << "  hktt → " << (id3.empty() ? "(empty)" : id3[0]) << "\n";
+
+    auto id4 = idiom_lookup("xxsc");
+    check("idiom(xxsc) has 心想事成", !id4.empty() && id4[0] == "心想事成");
+    std::cout << "  xxsc → " << (id4.empty() ? "(empty)" : id4[0]) << "\n";
+
+    auto id5 = idiom_lookup("zzz");
+    check("idiom(zzz) empty", id5.empty());
+
+    check("is_idiom_input(yffs)", is_idiom_input("yffs"));
+
+    // v0.9.126 繁简转换测试
+    std::cout << "\n--- 繁简转换 ---\n";
+    std::string trad1 = to_traditional("中国");
+    check("trad(中国) contains 國", trad1.find("國") != std::string::npos);
+    std::cout << "  中国 → " << trad1 << "\n";
+
+    std::string trad2 = to_traditional("学习");
+    check("trad(学习) contains 學", trad2.find("學") != std::string::npos);
+    std::cout << "  学习 → " << trad2 << "\n";
+
+    std::string trad3 = to_traditional("电脑");
+    check("trad(电脑) contains 電", trad3.find("電") != std::string::npos);
+    std::cout << "  电脑 → " << trad3 << "\n";
+
+    std::string trad4 = to_traditional("abc");
+    check("trad(abc) = abc", trad4 == "abc");
+
+    // v0.9.126 quick_candidates_v2 统一入口测试
+    std::cout << "\n--- quick_candidates_v2 统一入口 ---\n";
+    auto qc2_1 = quick_candidates_v2("todo");
+    check("qc2(todo) has 【待办】", !qc2_1.empty());
+    for (auto &c : qc2_1) std::cout << "  " << c << " ";
+    std::cout << "\n";
+
+    auto qc2_2 = quick_candidates_v2("yffs");
+    check("qc2(yffs) has 一帆风顺", !qc2_2.empty());
+    for (auto &c : qc2_2) std::cout << "  " << c << " ";
+    std::cout << "\n";
+
+    auto qc2_3 = quick_candidates_v2("hello");
+    check("qc2(hello) has hello", !qc2_3.empty());
+    for (auto &c : qc2_3) std::cout << "  " << c << " ";
+    std::cout << "\n";
+    std::cout << "\n--- v0.9.127 网址/邮箱智能识别 ---\n";
+    
+    // 网址识别
+    auto urls = smart_url_lookup("www.baidu.com");
+    check("url(www.baidu.com) not empty", !urls.empty());
+    check("url(www.baidu.com) = www.baidu.com", urls[0] == "www.baidu.com");
+    std::cout << "  www.baidu.com → ";
+    for (auto &u : urls) std::cout << u << " ";
+    std::cout << "\n";
+    
+    auto urls2 = smart_url_lookup("https://github.com");
+    check("url(https) not empty", !urls2.empty());
+    
+    // 邮箱识别
+    auto emails = smart_url_lookup("admin@example.com");
+    check("email not empty", !emails.empty());
+    std::cout << "  admin@example.com → " << emails[0] << "\n";
+    
+    // 域名补全
+    auto domains = smart_url_lookup("baidu");
+    check("domain(baidu) not empty", !domains.empty());
+    std::cout << "  baidu → ";
+    for (auto &d : domains) std::cout << d << " ";
+    std::cout << "\n";
+    
+    auto domains2 = smart_url_lookup("github");
+    check("domain(github) not empty", !domains2.empty());
+    
+    check("url(hello) empty", smart_url_lookup("hello").empty());
+    check("is_smart_url(www)", is_smart_url("www.google.com"));
+    check("!is_smart_url(nihao)", !is_smart_url("nihao"));
+    
+    std::cout << "\n--- v0.9.127 拼音分词提示 ---\n";
+    
+    auto seg = pinyin_segment_hint("nihaozhongguo");
+    check("segment(nihaozhongguo) not empty", !seg.empty());
+    check("segment has separator", seg.find("'") != std::string::npos);
+    std::cout << "  nihaozhongguo → " << seg << "\n";
+    
+    auto seg2 = pinyin_segment_hint("beijingdaxue");
+    check("segment(beijingdaxue) not empty", !seg2.empty());
+    std::cout << "  beijingdaxue → " << seg2 << "\n";
+    
+    auto seg3 = pinyin_segment_hint("shurufa");
+    check("segment(shurufa) not empty", !seg3.empty());
+    std::cout << "  shurufa → " << seg3 << "\n";
+    
+    // 短输入不分割
+    check("segment(ni) empty", pinyin_segment_hint("ni").empty());
+    
+    std::cout << "\n--- v0.9.127 词频表 ---\n";
+    
+    check("freq(你好) = 100", get_word_freq("你好") == 100);
+    check("freq(中国) = 95", get_word_freq("中国") == 95);
+    check("freq(xyz) = 0", get_word_freq("xyz") == 0);
+    
+    std::cout << "\n--- v0.9.127 长句断句 ---\n";
+    
+    auto parts = long_sentence_split("nihaozhongguo");
+    check("long_sentence(nihaozhongguo) not empty", !parts.empty());
+    check("long_sentence has >= 2 parts", parts.size() >= 2);
+    std::cout << "  nihaozhongguo → ";
+    for (auto &p : parts) std::cout << p << " ";
+    std::cout << "\n";
+    
+    auto parts2 = long_sentence_split("beijingdaxue");
+    check("long_sentence(beijingdaxue) not empty", !parts2.empty());
+    std::cout << "  beijingdaxue → ";
+    for (auto &p : parts2) std::cout << p << " ";
+    std::cout << "\n";
+    
+    std::cout << "\n--- v0.9.127 quick_candidates_v3 统一入口 ---\n";
+    
+    auto qc3v3 = quick_candidates_v3("www.baidu.com");
+    check("qc3v3(www.baidu.com) not empty", !qc3v3.empty());
+    
+    auto qc3v3bb = quick_candidates_v3("baidu");
+    check("qc3(baidu) not empty", !qc3v3bb.empty());
+    std::cout << "  qc3(baidu) → ";
+    for (auto &c : qc3v3bb) std::cout << c << " ";
+    std::cout << "\n";
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
+
+// ════════════════════════════════════════════════════════════════════
+// v0.9.127 测试
+// ════════════════════════════════════════════════════════════════════
+

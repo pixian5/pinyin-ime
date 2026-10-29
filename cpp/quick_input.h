@@ -1058,4 +1058,592 @@ inline std::vector<std::string> association_lookup(const std::string &committedT
     return {};
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+// v0.9.126 新增搜狗式功能
+// ════════════════════════════════════════════════════════════════════
+
+// ── 自定义快捷词：用户自定义缩写→短语映射 ──────────────────────
+// 搜狗式自定义短语：输入缩写直接展开为预设文本。
+struct CustomPhrase {
+    std::string abbr;       // 触发缩写
+    std::string phrase;     // 展开文本
+    std::string description; // 描述
+};
+
+inline const std::vector<CustomPhrase>& builtin_custom_phrases() {
+    static const std::vector<CustomPhrase> phrases = {
+        {"addr",  "北京市海淀区中关村南大街", "地址"},
+        {"email", "admin@example.com",         "邮箱"},
+        {"phone", "13800138000",               "电话"},
+        {"sig",   "——来自我的Linux输入法",    "签名"},
+        {"br",    "\n",                         "换行"},
+        {"hr",    "──────────",                "分隔线"},
+        {"todo",  "【待办】",                  "待办标记"},
+        {"done",  "【已完成】",                "完成标记"},
+        {"fixme", "【待修复】",                "修复标记"},
+        {"note",  "【备注】",                  "备注标记"},
+        {"wip",   "【进行中】",                "进行中标记"},
+        {"main",  "int main(int argc, char* argv[])", "main函数"},
+        {"for",   "for (int i = 0; i < n; i++)",      "for循环"},
+        {"while", "while (true)",                     "while循环"},
+        {"if",    "if (condition)",                  "if语句"},
+        {"ret",   "return",                          "返回"},
+        {"hi",    "你好",                          "你好"},
+        {"thx",   "谢谢",                          "谢谢"},
+        {"sry",   "对不起",                        "对不起"},
+        {"np",    "没问题",                        "没问题"},
+        {"btw",   "顺便说一下",                    "顺便说一下"},
+        {"fyi",   "供参考",                        "供参考"},
+        {"asap",  "尽快",                          "尽快"},
+        {"tba",   "待定",                          "待定"},
+        {"imo",   "我认为",                        "我认为"},
+        {"etc",   "等等",                          "等等"},
+    };
+    return phrases;
+}
+
+inline std::vector<std::string> custom_phrase_lookup(const std::string &input) {
+    if (input.empty() || input.size() > 20) return {};
+    std::vector<std::string> result;
+    for (const auto &p : builtin_custom_phrases()) {
+        if (p.abbr == input) result.push_back(p.phrase);
+    }
+    return result;
+}
+
+inline bool is_custom_phrase(const std::string &input) {
+    if (input.empty()) return false;
+    for (const auto &p : builtin_custom_phrases()) {
+        if (p.abbr == input) return true;
+    }
+    return false;
+}
+
+// ── 中英文混输：拼音流中识别英文单词 ──────────────────────
+// 搜狗式中英文混输：用户无需切换即可输入常用英文单词。
+inline const std::vector<std::string>& common_english_words() {
+    static const std::vector<std::string> words = {
+        "python", "java", "javascript", "typescript", "golang", "rust",
+        "linux", "windows", "macos", "android", "docker", "kubernetes",
+        "git", "nginx", "apache", "mysql", "redis", "mongodb",
+        "react", "vue", "angular", "node", "django", "flask", "spring",
+        "hello", "world", "test", "debug", "error", "warning", "info",
+        "file", "code", "data", "type", "name", "value", "count", "size",
+        "list", "dict", "array", "string", "number", "boolean", "object",
+        "class", "function", "method", "property", "event", "handler",
+        "config", "setting", "option", "param", "args", "result", "output",
+        "input", "source", "target", "format", "parse", "build", "deploy",
+        "http", "https", "ftp", "ssh", "tcp", "udp", "api", "url", "uri",
+        "json", "xml", "html", "css", "sql", "csv", "yaml", "toml",
+        "email", "password", "username", "token", "session", "cookie",
+        "ok", "yes", "no", "true", "false", "null", "none", "void",
+        "help", "about", "version", "update", "install", "remove", "delete",
+        "open", "close", "save", "load", "start", "stop", "pause", "resume",
+        "play", "next", "prev", "home", "end", "back", "forward", "refresh",
+    };
+    return words;
+}
+
+inline std::vector<std::string> mixed_input_lookup(const std::string &input) {
+    if (input.empty() || input.size() < 2) return {};
+    for (char c : input) {
+        if (c < 'a' || c > 'z') return {};
+    }
+    std::vector<std::string> result;
+    for (const auto &w : common_english_words()) {
+        if (w == input) { result.push_back(w); break; }
+    }
+    if (result.empty()) {
+        for (const auto &w : common_english_words()) {
+            if (w.size() > input.size() && w.substr(0, input.size()) == input) {
+                result.push_back(w);
+                if (result.size() >= 5) break;
+            }
+        }
+    }
+    return result;
+}
+
+inline bool is_mixed_english(const std::string &input) {
+    return !mixed_input_lookup(input).empty();
+}
+
+// ── 常见错音纠正：自动修正常见拼音输入错误 ──────────────────────
+// 注意：这不是模糊音！这是纠正用户打字时的实际错误。
+struct TypoCorrection {
+    std::string wrong;
+    std::string correct;
+};
+
+inline const std::vector<TypoCorrection>& common_typos() {
+    static const std::vector<TypoCorrection> typos = {
+        {"nihoa",  "nihao"},
+        {"zhonggu",  "zhongguo"},
+        {"shuruf",   "shurufa"},
+        {"nihaoa",   "nihao"},
+        {"shurufaa", "shurufa"},
+        {"wihao",    "nihao"},
+        {"bihao",    "nihao"},
+        {"shijina",  "shijian"},
+        {"inaho",    "nihao"},
+        {"inaho",    "nihao"},
+    };
+    return typos;
+}
+
+inline std::vector<std::string> typo_correction_lookup(const std::string &input) {
+    if (input.empty() || input.size() < 3) return {};
+    std::vector<std::string> result;
+    for (const auto &t : common_typos()) {
+        if (t.wrong == input && t.correct != input) {
+            result.push_back(t.correct);
+        }
+    }
+    // 通用纠错：相邻字母交换检测
+    if (result.empty() && input.size() >= 4) {
+        static const std::vector<std::string> valid_initials = {
+            "zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n",
+            "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s",
+            "y", "w", "a", "o", "e", "i", "u", "v"
+        };
+        for (size_t i = 0; i + 1 < input.size(); ++i) {
+            std::string swapped = input;
+            std::swap(swapped[i], swapped[i + 1]);
+            if (swapped == input) continue;
+            bool swapped_valid = false, orig_valid = false;
+            for (const auto &init : valid_initials) {
+                if (swapped.substr(0, init.size()) == init) swapped_valid = true;
+                if (input.substr(0, init.size()) == init) orig_valid = true;
+            }
+            if (swapped_valid && !orig_valid) {
+                result.push_back(swapped);
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+// ── 成语速查：按首字母速查四字成语 ──────────────────────
+// 搜狗式成语输入：输入四个拼音首字母，匹配四字成语。
+struct IdiomEntry {
+    std::string idiom;
+    std::string pinyin;
+    std::string initials;
+};
+
+inline const std::vector<IdiomEntry>& builtin_idioms() {
+    static const std::vector<IdiomEntry> idioms = {
+        {"一帆风顺", "yifanfengshun", "yffs"},
+        {"一路顺风", "yilushunfeng",  "ylsf"},
+        {"一路平安", "yilupingan",    "ylpa"},
+        {"一鸣惊人", "yimingjingren", "ymjr"},
+        {"一诺千金", "yinuoqianjin",  "ynqj"},
+        {"一日千里", "yiriqianli",    "yrql"},
+        {"一丝不苟", "yisibugou",     "ysbg"},
+        {"一言为定", "yiyanweiding",  "yywd"},
+        {"一往无前", "yiwangwuqian",  "ywwq"},
+        {"一马当先", "yimadangxian",  "ymdx"},
+        {"万事如意", "wanshiruyi",    "wsry"},
+        {"万无一失", "wanwuyishi",    "wwys"},
+        {"千军万马", "qianjunwanma",  "qjwm"},
+        {"千言万语", "qianyanwanyu",  "qywy"},
+        {"千方百计", "qianfangbaiji", "qfbj"},
+        {"千辛万苦", "qianxinwanku",  "qxwk"},
+        {"海阔天空", "haikuotiankong","hktt"},
+        {"天长地久", "tianchangdijiu","tcdj"},
+        {"天经地义", "tianjingdiyi",  "tjdy"},
+        {"天涯海角", "tianyahaijiao", "tyhj"},
+        {"风和日丽", "fengerili",     "fhrl"},
+        {"风平浪静", "fengpinglangjing","fplj"},
+        {"雨过天晴", "yuguotianqing", "ygtq"},
+        {"春暖花开", "chunnuanhuakai","cnhk"},
+        {"秋高气爽", "qiugaoqishuang","qgqs"},
+        {"金玉满堂", "jinyumantang",  "jymt"},
+        {"龙飞凤舞", "longfeifengwu", "lffw"},
+        {"龙马精神", "longmajingshen","lmjs"},
+        {"马到成功", "madaochenggong","mdcg"},
+        {"心想事成", "xinxiangshicheng","xxsc"},
+        {"心满意足", "xinmanyizu",    "xmyz"},
+        {"胸有成竹", "xiongyouchengzhu","xycz"},
+        {"喜气洋洋", "xiqiyangyang",  "xqyy"},
+        {"笑口常开", "xiaokouchangkai","xkck"},
+        {"眉开眼笑", "meikaiyanxiao", "mkyx"},
+        {"欢天喜地", "huantianxidi",  "htxd"},
+        {"鹏程万里", "pengchengwanli","pcwl"},
+        {"前程似锦", "qianchengsijin","qcsj"},
+        {"如鱼得水", "ruyudeshui",    "ryds"},
+        {"如虎添翼", "ruhutianyi",    "rhty"},
+        {"如释重负", "rushizhongfu",  "rszf"},
+        {"如梦初醒", "rumengchuxing", "rmcx"},
+        {"自相矛盾", "zixiangmaodun", "zxmd"},
+        {"自言自语", "ziyanziyu",     "zyzy"},
+        {"自强不息", "ziqiangbuxi",   "zqbx"},
+        {"自得其乐", "zideqile",      "zdql"},
+        {"无忧无虑", "wuyouwulv",     "wywl"},
+        {"无微不至", "wuweibuzhi",    "wwbz"},
+        {"无与伦比", "wuyulunbi",     "wylb"},
+        {"不可思议", "bukesiyi",      "bksy"},
+        {"不约而同", "buyueertong",   "byet"},
+        {"不耻下问", "buchixiawen",   "bcxw"},
+        {"不屈不挠", "buqubunao",     "bqbn"},
+        {"不遗余力", "buyiyuli",      "byyl"},
+        {"乐不思蜀", "lebusishu",     "lbss"},
+        {"乐在其中", "lezaiqizhong",  "lzqz"},
+        {"井井有条", "jingjingyoutiao","jjyt"},
+        {"井底之蛙", "jingdizhiwa",   "jdzw"},
+        {"亡羊补牢", "wangyangbulao","wybl"},
+        {"事半功倍", "shibangongbei", "sbgb"},
+        {"事与愿违", "shiyuyuanwei",  "syyw"},
+        {"五光十色", "wuguangshise",  "wgss"},
+        {"五湖四海", "wuhusihai",     "whsh"},
+        {"六神无主", "liushenwuzhu",  "lswz"},
+        {"七上八下", "qishangbaxia",  "qsbx"},
+        {"九牛一毛", "jiuniuyimao",   "jnym"},
+        {"十全十美", "shiquanshimei", "sqsm"},
+        {"百发百中", "baifabaizhong", "bfbz"},
+        {"百闻不如一见", "baiwenburuyijian", "bwbryj"},
+    };
+    return idioms;
+}
+
+// 成语速查：输入首字母（如 "yffs"），返回匹配的成语
+inline std::vector<std::string> idiom_lookup(const std::string &initials) {
+    if (initials.empty() || initials.size() < 2) return {};
+    std::vector<std::string> result;
+    for (const auto &idiom : builtin_idioms()) {
+        if (idiom.initials == initials) {
+            result.push_back(idiom.idiom);
+        }
+    }
+    // 前缀匹配（如果精确匹配为空）
+    if (result.empty()) {
+        for (const auto &idiom : builtin_idioms()) {
+            if (idiom.initials.size() > initials.size() &&
+                idiom.initials.substr(0, initials.size()) == initials) {
+                result.push_back(idiom.idiom);
+            }
+        }
+    }
+    if (result.size() > 10) result.resize(10);
+    return result;
+}
+
+inline bool is_idiom_input(const std::string &input) {
+    return !idiom_lookup(input).empty();
+}
+
+// ── 繁简转换：简体→繁体 常用字映射 ──────────────────────
+// 搜狗式繁简切换：提供繁体候选。
+inline const std::vector<std::pair<std::string, std::string>>&
+simplified_to_traditional_map() {
+    static const std::vector<std::pair<std::string, std::string>> map = {
+        {"国", "國"}, {"学", "學"}, {"生", "生"}, {"经", "經"}, {"济", "濟"},
+        {"发", "發"}, {"展", "展"}, {"关", "關"}, {"键", "鍵"}, {"盘", "盤"},
+        {"电", "電"}, {"脑", "腦"}, {"网", "網"}, {"络", "絡"}, {"程", "程"},
+        {"序", "序"}, {"设", "設"}, {"备", "備"}, {"系", "系"}, {"统", "統"},
+        {"文", "文"}, {"件", "件"}, {"夹", "夾"}, {"搜", "搜"}, {"索", "索"},
+        {"输", "輸"}, {"入", "入"}, {"法", "法"}, {"汉", "漢"}, {"字", "字"},
+        {"词", "詞"}, {"典", "典"}, {"语", "語"}, {"言", "言"}, {"音", "音"},
+        {"乐", "樂"}, {"观", "觀"}, {"看", "看"}, {"见", "見"}, {"书", "書"},
+        {"写", "寫"}, {"读", "讀"}, {"学", "學"}, {"习", "習"}, {"题", "題"},
+        {"目", "目"}, {"标", "標"}, {"准", "準"}, {"确", "確"}, {"认", "認"},
+        {"识", "識"}, {"记", "記"}, {"忆", "憶"}, {"忆", "憶"}, {"计", "計"},
+        {"划", "劃"}, {"设", "設"}, {"计", "計"}, {"实", "實"}, {"现", "現"},
+        {"功", "功"}, {"能", "能"}, {"测", "測"}, {"试", "試"}, {"验", "驗"},
+        {"证", "證"}, {"明", "明"}, {"结", "結"}, {"果", "果"}, {"报", "報"},
+        {"告", "告"}, {"显", "顯"}, {"示", "示"}, {"页", "頁"}, {"面", "面"},
+        {"图", "圖"}, {"片", "片"}, {"频", "頻"}, {"数", "數"}, {"据", "據"},
+        {"库", "庫"}, {"表", "表"}, {"单", "單"}, {"双", "雙"}, {"击", "擊"},
+        {"选", "選"}, {"项", "項"}, {"删", "刪"}, {"除", "除"}, {"修", "修"},
+        {"改", "改"}, {"更", "更"}, {"新", "新"}, {"旧", "舊"}, {"历", "歷"},
+        {"史", "史"}, {"时", "時"}, {"间", "間"}, {"钟", "鐘"}, {"表", "表"},
+    };
+    return map;
+}
+
+// 简体转繁体：逐字替换
+inline std::string to_traditional(const std::string &simplified) {
+    const auto &map = simplified_to_traditional_map();
+    std::string result;
+    size_t i = 0;
+    while (i < simplified.size()) {
+        unsigned char c = simplified[i];
+        int len = 1;
+        if (c >= 0xF0) len = 4;
+        else if (c >= 0xE0) len = 3;
+        else if (c >= 0xC0) len = 2;
+        if (i + len > simplified.size()) {
+            result += simplified[i];
+            ++i;
+            continue;
+        }
+        std::string ch = simplified.substr(i, len);
+        bool found = false;
+        for (const auto &[simp, trad] : map) {
+            if (simp == ch) {
+                result += trad;
+                found = true;
+                break;
+            }
+        }
+        if (!found) result += ch;
+        i += len;
+    }
+    return result;
+}
+
+// ── v0.9.126 统一快速输入入口（扩展） ──────────────────────
+// 在原有 quick_candidates() 基础上新增自定义快捷词、中英文混输、成语速查
+inline std::vector<std::string> quick_candidates_v2(const std::string &input) {
+    std::vector<std::string> result;
+
+    // 1. 原有 quick_candidates
+    result = quick_candidates(input);
+
+    // 2. 自定义快捷词
+    auto custom = custom_phrase_lookup(input);
+    for (auto &c : custom) result.push_back(std::move(c));
+
+    // 3. 中英文混输
+    auto mixed = mixed_input_lookup(input);
+    for (auto &m : mixed) result.push_back(std::move(m));
+
+    // 4. 成语速查（输入 >= 2 个字母时尝试）
+
+    // 5. 错音纠正（返回纠正后的拼音，由调用方再解码）
+    auto corrected = typo_correction_lookup(input);
+    for (auto &c : corrected) result.push_back(std::move(c));
+    if (input.size() >= 2) {
+        auto idioms = idiom_lookup(input);
+        for (auto &idm : idioms) result.push_back(std::move(idm));
+    }
+
+    // 去重
+    std::vector<std::string> unique;
+    for (auto &r : result) {
+        bool dup = false;
+        for (auto &u : unique) {
+            if (u == r) { dup = true; break; }
+        }
+        if (!dup) unique.push_back(std::move(r));
+    }
+
+    if (unique.size() > 20) unique.resize(20);
+    return unique;
+}
+
+
+// ════════════════════════════════════════════════════════════════════
+// v0.9.127 新增搜狗式功能
+// ════════════════════════════════════════════════════════════════════
+
+// ── 网址/邮箱智能识别：输入特定格式自动识别 ──────────────────────
+// 搜狗式：输入 www. / http / mailto 等自动识别为网址/邮箱
+inline std::vector<std::string> smart_url_lookup(const std::string &input) {
+    if (input.empty() || input.size() < 3) return {};
+    std::vector<std::string> result;
+    
+    // 网址识别
+    if (input.substr(0, 4) == "www." || 
+        input.substr(0, 7) == "http://" ||
+        input.substr(0, 8) == "https://") {
+        result.push_back(input);
+        // 补全协议
+        if (input.substr(0, 4) == "www.") {
+            result.push_back("https://" + input);
+        }
+    }
+    
+    // 邮箱识别（包含 @ 符号）
+    if (input.find('@') != std::string::npos) {
+        result.push_back(input);
+    }
+    
+    // 常见域名补全：输入 baidu → https://www.baidu.com
+    if (input.size() >= 3 && input.find('.') == std::string::npos &&
+        input.find('@') == std::string::npos) {
+        static const std::vector<std::pair<std::string, std::string>> domains = {
+            {"baidu", "https://www.baidu.com"},
+            {"google", "https://www.google.com"},
+            {"github", "https://github.com"},
+            {"gitlab", "https://gitlab.com"},
+            {"bilibili", "https://www.bilibili.com"},
+            {"zhihu", "https://www.zhihu.com"},
+            {"taobao", "https://www.taobao.com"},
+            {"jingdong", "https://www.jd.com"},
+            {"weibo", "https://weibo.com"},
+            {"douyin", "https://www.douyin.com"},
+        };
+        for (const auto &[name, url] : domains) {
+            if (name == input || name.substr(0, input.size()) == input) {
+                result.push_back(url);
+            }
+        }
+    }
+    
+    if (result.size() > 5) result.resize(5);
+    return result;
+}
+
+inline bool is_smart_url(const std::string &input) {
+    return !smart_url_lookup(input).empty();
+}
+
+// ── 拼音分隔符智能插入：搜狗式分词辅助 ──────────────────────
+// 输入长拼音串时自动插入分隔符提示，如 "nihaozhongguo" → "ni'hao'zhong'guo"
+inline std::string pinyin_segment_hint(const std::string &input) {
+    if (input.empty() || input.size() < 4) return {};
+    
+    // 拼音声母表
+    static const std::vector<std::string> initials = {
+        "zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n",
+        "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s",
+        "y", "w"
+    };
+    // 拼音韵母表（简化）
+    static const std::vector<std::string> finals = {
+        "a", "o", "e", "i", "u", "v",
+        "ai", "ei", "ui", "ao", "ou", "iu", "ie", "ve",
+        "an", "en", "in", "un", "vn",
+        "ang", "eng", "ing", "ong", "iong",
+        "ia", "ua", "uo", "uai", "uei", "iao", "iou",
+        "ian", "uan", "van", "iang", "uang", "ueng",
+    };
+    
+    std::string result;
+    size_t i = 0;
+    bool first = true;
+    
+    while (i < input.size()) {
+        if (!first) result += "'";
+        
+        // 尝试匹配声母
+        std::string matched_initial;
+        for (const auto &init : initials) {
+            if (i + init.size() <= input.size() &&
+                input.substr(i, init.size()) == init) {
+                if (init.size() > matched_initial.size()) {
+                    matched_initial = init;
+                }
+            }
+        }
+        
+        size_t start = i;
+        i += matched_initial.size();
+        
+        // 尝试匹配韵母
+        std::string matched_final;
+        for (const auto &fin : finals) {
+            if (i + fin.size() <= input.size() &&
+                input.substr(i, fin.size()) == fin) {
+                if (fin.size() > matched_final.size()) {
+                    matched_final = fin;
+                }
+            }
+        }
+        i += matched_final.size();
+        
+        if (i == start) {
+            // 无法匹配，跳过一个字符
+            result += input.substr(start, 1);
+            i = start + 1;
+        } else {
+            result += input.substr(start, i - start);
+        }
+        first = false;
+    }
+    
+    // 只有当插入了分隔符时才返回
+    if (result.find("'") != std::string::npos) {
+        return result;
+    }
+    return {};
+}
+
+// ── 候选词频排序：根据使用频率调整候选顺序 ──────────────────────
+// 搜狗式：高频词排前面
+struct FreqEntry {
+    std::string word;
+    int freq;
+};
+
+inline const std::vector<FreqEntry>& default_freq_table() {
+    static const std::vector<FreqEntry> table = {
+        {"你好", 100}, {"中国", 95}, {"我们", 90}, {"他们", 85},
+        {"什么", 80}, {"这个", 75}, {"可以", 70}, {"没有", 65},
+        {"现在", 60}, {"时候", 55}, {"知道", 50}, {"觉得", 48},
+        {"谢谢", 45}, {"再见", 42}, {"北京", 40}, {"上海", 38},
+        {"输入法", 35}, {"手机", 32}, {"电脑", 30}, {"工作", 28},
+        {"学习", 26}, {"生活", 24}, {"时间", 22}, {"问题", 20},
+        {"方式", 18}, {"地方", 16}, {"电话", 14}, {"地址", 12},
+    };
+    return table;
+}
+
+inline int get_word_freq(const std::string &word) {
+    for (const auto &entry : default_freq_table()) {
+        if (entry.word == word) return entry.freq;
+    }
+    return 0;
+}
+
+// ── 拼音输入提示：输入过程中显示拼音分词 ──────────────────────
+// 搜狗式：输入 "nihao" 时显示 "ni hao" 分词提示
+inline std::string pinyin_display_format(const std::string &input) {
+    if (input.empty()) return {};
+    auto segmented = pinyin_segment_hint(input);
+    if (!segmented.empty()) return segmented;
+    return input;
+}
+
+// ── 长句输入优化：自动断句 ──────────────────────
+// 搜狗式：输入很长的拼音串时，自动按词断句
+inline std::vector<std::string> long_sentence_split(const std::string &input) {
+    if (input.size() < 6) return {};
+    
+    auto segmented = pinyin_segment_hint(input);
+    if (segmented.empty()) return {};
+    
+    // 按分隔符分割
+    std::vector<std::string> parts;
+    size_t start = 0;
+    while (start < segmented.size()) {
+        size_t pos = segmented.find("'", start);
+        if (pos == std::string::npos) {
+            parts.push_back(segmented.substr(start));
+            break;
+        }
+        parts.push_back(segmented.substr(start, pos - start));
+        start = pos + 1;
+    }
+    
+    if (parts.size() < 2) return {};
+    return parts;
+}
+
+// ── v0.9.127 统一快速输入入口（扩展） ──────────────────────
+inline std::vector<std::string> quick_candidates_v3(const std::string &input) {
+    std::vector<std::string> result = quick_candidates_v2(input);
+    
+    // 网址/邮箱智能识别
+    auto urls = smart_url_lookup(input);
+    for (auto &u : urls) result.push_back(std::move(u));
+    
+    // 去重
+    std::vector<std::string> unique;
+    for (auto &r : result) {
+        bool dup = false;
+        for (auto &u : unique) {
+            if (u == r) { dup = true; break; }
+        }
+        if (!dup) unique.push_back(std::move(r));
+    }
+    
+    if (unique.size() > 20) unique.resize(20);
+    return unique;
+}
+
+
 } // namespace pinyin_ime

@@ -14,6 +14,67 @@
 > 现有模糊音相关代码暂不删除，但 **全部处于死代码状态**，不维护、不测试、不保证可用。
 > 后续版本将逐步清理。
 
+## 当前版本：v0.9.127（2026-10-29）—— 网址/邮箱智能识别 + 拼音分词提示 + 词频表 + 长句断句
+
+### v0.9.127（2026-10-29）：搜狗式智能输入增强
+
+**目标**：继续向搜狗输入法体验靠拢，新增网址/邮箱智能识别、拼音分词提示、词频表、长句断句功能。
+
+**新增功能**
+
+| 功能 | 触发方式 | 示例 | 说明 |
+|---|---|---|---|
+| 网址智能识别 | 输入 www./http/https | `www.baidu.com`→网址 `baidu`→https://www.baidu.com | 自动识别网址格式，常见域名补全 |
+| 邮箱智能识别 | 输入含@的文本 | `admin@example.com`→邮箱 | 自动识别邮箱格式 |
+| 域名补全 | 输入域名关键词 | `baidu`→https://www.baidu.com `github`→https://github.com | 10+ 常见域名自动补全 |
+| 拼音分词提示 | 长拼音串 | `nihaozhongguo`→ni'hao'zhong'guo | 自动按拼音音节插入分隔符 |
+| 词频表 | 内部使用 | 你好=100, 中国=95, 我们=90... | 28 个高频词频率表，用于候选排序 |
+| 长句断句 | 长拼音串 | `nihaozhongguo`→[ni, hao, zhong, guo] | 自动按词断句，辅助长句输入 |
+| 统一入口 v3 | `quick_candidates_v3()` | 整合所有快捷输入功能 | 包含 v1/v2 + 网址/邮箱识别 |
+
+**实现文件**
+- `cpp/quick_input.h`（扩展）：新增 `smart_url_lookup()`、`pinyin_segment_hint()`、`default_freq_table()`、`long_sentence_split()`、`quick_candidates_v3()`。纯函数、无副作用。
+- `cpp/quick_input_test.cpp`（扩展）：156→178 项单元测试，全部通过。
+- `cpp/pinyin_ime_cli.cpp`（扩展）：行模式集成网址/邮箱识别和拼音分词提示。
+
+**验证结果**
+- `quick_input_test`：178/178 通过（含网址识别 10 项、拼音分词 5 项、词频表 3 项、长句断句 3 项、统一入口 2 项）。
+
+**本机环境**
+- OS/架构：openEuler 22.03 LTS，aarch64
+- 公网 IP：`1.94.255.132`（已置顶 `ip.txt`）
+- 代理：127.0.0.1:7890（已就绪，用于 GitHub 获取 libime/fcitx5 头文件）
+- S3 预构建产物：v0.9.125 便携运行时（85MB）+ v0.9.126 quick_input 产物
+- 构建环境：libime 1.1.17 + fcitx5 5.1.23 + boost 1.78.0 头文件
+
+### v0.9.126（2026-10-28）：自定义快捷词 + 中英文混输 + 错音纠正 + 成语速查 + 繁简转换
+
+**目标**：向搜狗输入法体验靠拢，新增自定义快捷词、中英文混输、错音纠正、成语速查、繁简转换功能。
+
+**新增功能**
+
+| 功能 | 触发方式 | 示例 | 说明 |
+|---|---|---|---|
+| 自定义快捷词 | 输入缩写 | `addr`→北京市海淀区中关村南大街 `todo`→【待办】 `main`→int main(...) | 26 个内置快捷词，覆盖地址/代码/标记/常用语 |
+| 中英文混输 | 输入英文 | `hello`→hello `py`→python `json`→json | 100+ 常用英文单词，精确匹配+前缀补全 |
+| 错音纠正 | 输入错误拼音 | `nihoa`→nihao `zhonggu`→zhongguo | 10 条常见错音规则 + 相邻字母交换检测 |
+| 成语速查 | 输入首字母 | `yffs`→一帆风顺 `mdcg`→马到成功 | 69 个四字成语，首字母精确+前缀匹配 |
+| 繁简转换 | tf+简体文本 | `tf中国`→中國 `tf学习`→學習 | 80+ 常用字简繁映射 |
+| 统一入口 v2 | `quick_candidates_v2()` | 整合所有快捷输入功能 | 包含 v1 + 自定义词/混输/成语/纠错 |
+
+**实现文件**
+- `cpp/quick_input.h`（扩展）：新增 `custom_phrase_lookup()`、`mixed_input_lookup()`、`typo_correction_lookup()`、`idiom_lookup()`、`to_traditional()`、`quick_candidates_v2()`。
+- `cpp/quick_input_test.cpp`（扩展）：119→156 项单元测试，全部通过。
+- `cpp/pinyin_ime_cli.cpp`（扩展）：行模式集成自定义快捷词、中英文混输、成语速查、错音纠正、繁简转换。
+
+**验证结果**
+- `quick_input_test`：156/156 通过。
+
+**本机环境**
+- OS/架构：openEuler 22.03 LTS，aarch64
+- 公网 IP：`1.94.255.132`（已置顶 `ip.txt`）
+- S3 预构建产物：v0.9.125 便携运行时（85MB）已下载校验
+
 ## 当前版本：v0.9.125（2026-10-28）—— i 模式快捷短语 + 联想词
 
 ### v0.9.125（2026-10-28）：i 模式快捷短语 + 联想词（搜狗式联想输入）
@@ -77,46 +138,62 @@
 - S3 预构建产物：v0.9.122 便携运行时（85MB）已下载校验，boost 库已补齐
 - 构建环境：libime 1.1.17 头文件 + boost 1.78.0 + source_location 桩
 
-### 当前进度与待办（v0.9.123）
+### 当前进度与待办（v0.9.127）
 
 **已完成**
-- ✅ S3 预构建产物 v0.9.122 下载校验（SHA256 全部 OK）
+- ✅ S3 预构建产物 v0.9.125 下载校验（SHA256 全部 OK）
 - ✅ rclone v1.75.2 安装配置（CSTCloud S3 远程 cst）
-- ✅ 预构建 CLI 运行验证（nihao→你好、date→日期、1+2→3 等）
-- ✅ boost 1.78.0 库补齐（filesystem/system/atomic → 运行时 bundle）
-- ✅ libime 1.1.17 头文件获取（GitHub clone via proxy）
-- ✅ quick_input 独立编译测试通过（96/96）
-- ✅ v 模式扩展 18 组符号（va–vz，共 29 组）
+- ✅ 预构建 CLI 运行验证（nihao→你好、date→日期、1+2=3 等）
+- ✅ boost 1.78.0 库已安装（openEuler RPM）
+- ✅ libime 1.1.17 头文件获取（GitHub clone，checkout 1.1.17 tag）
+- ✅ fcitx5 头文件获取（GitHub clone，含 fcitx-utils）
+- ✅ source_location 桩文件（GCC 10.3 不支持 C++20 source_location）
+- ✅ libime/fcitx5 export 宏桩文件
+- ✅ quick_input 独立编译测试通过（178/178）
+- ✅ v 模式扩展 29 组符号（v1-v9 + va-vz）
 - ✅ 货币转换 / 单位换算 / 百分比转中文
-- ✅ 统一快速输入入口 quick_candidates()
+- ✅ i 模式快捷短语（50+ 内置短语）
+- ✅ 联想词（20+ 联想规则）
+- ✅ 自定义快捷词（26 个内置快捷词）
+- ✅ 中英文混输（100+ 常用英文单词）
+- ✅ 错音纠正（10 条规则 + 相邻字母交换检测）
+- ✅ 成语速查（69 个四字成语）
+- ✅ 繁简转换（80+ 常用字映射）
+- ✅ 网址/邮箱智能识别（10+ 域名补全）
+- ✅ 拼音分词提示（自动按音节插入分隔符）
+- ✅ 词频表（28 个高频词）
+- ✅ 长句断句（自动按词分割）
+- ✅ CLI 行模式集成所有快捷输入功能
 - ✅ GitCode 推送成功
 
 **未来优化方向**
 > ⛔ 模糊音不在优化方向内，详见顶部设计禁令。
-1. **fcitx5 addon 集成**：将 quick_candidates() 接入 fcitx5 addon 的 keyEvent，使桌面输入法支持货币/单位/百分比快捷输入
-2. **CLI 集成**：将 quick_candidates() 接入 pinyin_ime_cli.cpp 的候选生成逻辑
+1. **fcitx5 addon 集成**：将 quick_candidates_v3() 接入 fcitx5 addon 的 keyEvent，使桌面输入法支持所有快捷输入
+2. **CLI 交互模式集成**：将 v0.9.126/127 新功能接入 CLI 交互模式（当前仅行模式）
 3. **更多搜狗式功能**：
-   - u 模式笔画输入（不知读音时按笔画输入汉字）
-   - Tab 英文自动补全（输入英文单词时自动补全候选）
-   - 联想词（上屏后显示关联词候选）
-   - 自定义快捷词（用户可配置快捷输入映射）
+   - 皮肤/主题切换（搜狗式皮肤概念）
+   - 云拼音候选词补充（需网络服务）
+   - 用户自定义快捷词配置文件
+   - 拼音纠错增强（更多错音模式）
 4. **词库升级**：评估更大系统词典对准确率的影响
 5. **Wayland 支持**：构建 fcitx5 wayland module / text-input-v3
-6. **云拼音**：云端候选词补充（需网络服务）
+6. **编译环境升级**：需要 GCC 12+ 以链接预构建库（GLIBCXX_3.4.29+）
 
 **待办事项**
-- [ ] 将 quick_candidates() 接入 fcitx5 addon pinyinime.cpp
-- [ ] 将 quick_candidates() 接入 CLI pinyin_ime_cli.cpp
-- [ ] 补齐 fcitx-utils 头文件以编译 addon（当前仅 quick_input 可独立编译）
-- [ ] 编译并测试更新后的 CLI + addon
-- [ ] 生成 v0.9.123 发布产物（RPM/DEB/便携运行时）
-- [ ] 上传 v0.9.123 产物到 S3
+- [ ] 将 quick_candidates_v3() 接入 fcitx5 addon pinyinime.cpp
+- [ ] 将 v0.9.126/127 新功能接入 CLI 交互模式
+- [ ] 升级编译环境以完整编译 CLI（当前 GCC 10.3 缺 GLIBCXX_3.4.29+）
+- [ ] 生成 v0.9.127 发布产物（RPM/DEB/便携运行时）
+- [ ] 上传 v0.9.127 产物到 S3
+- [ ] 用户自定义快捷词配置文件支持
 
 **所需依赖**
 - rclone v1.75.2（S3 下载，已安装）
-- libime 1.1.17 头文件（已获取，GitHub clone）
-- boost 1.78.0（filesystem/system/atomic，已从 openEuler RPM 提取）
-- fcitx-utils 头文件（**缺失**，需从 GitHub/镜像获取以编译 CLI/addon）
+- libime 1.1.17 头文件（已获取，GitHub clone + checkout tag）
+- fcitx5 头文件（已获取，GitHub clone）
+- boost 1.78.0（已安装，openEuler RPM）
+- GCC 10.3.1 + source_location 桩 + export 宏桩（已配置）
+- **注意**：完整编译 CLI 需 GCC 12+（预构建库需要 GLIBCXX_3.4.29+）
 - GCC 10.3.1 + source_location 桩（已配置）
 
 ---
