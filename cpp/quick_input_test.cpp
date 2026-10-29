@@ -934,6 +934,57 @@ int main() {
         check("clipboard persist size=1", ch2.items.size() == 1);
         check("clipboard persist has newline", ch2.get(1).find('\n') != std::string::npos);
     }
+    // ── v0.9.137 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.137: 长句智能切分 ──\n";
+    {
+        auto seg = smart_segment("nihao");
+        check("segment nihao size=2", seg.size() == 2);
+        check("segment nihao[0]=ni", seg[0] == "ni");
+        check("segment nihao[1]=hao", seg[1] == "hao");
+    }
+    {
+        auto seg = smart_segment("nihaoshijie");
+        check("segment nihaoshijie size=4", seg.size() == 4);
+        check("segment nihaoshijie[0]=ni", seg[0] == "ni");
+        check("segment nihaoshijie[1]=hao", seg[1] == "hao");
+        check("segment nihaoshijie[2]=shi", seg[2] == "shi");
+        check("segment nihaoshijie[3]=jie", seg[3] == "jie");
+    }
+    {
+        auto seg = smart_segment("zhongguo");
+        check("segment zhongguo size=2", seg.size() == 2);
+        check("segment zhongguo[0]=zhong", seg[0] == "zhong");
+        check("segment zhongguo[1]=guo", seg[1] == "guo");
+    }
+    {
+        auto seg = smart_segment("wangluoyouxi");
+        check("segment wangluoyouxi size=4", seg.size() == 4);
+    }
+    {
+        auto seg = smart_segment("woshizhongguoren");
+        check("segment woshizhongguoren size=5", seg.size() == 5);
+        check("segment woshizhongguoren[0]=wo", seg[0] == "wo");
+        check("segment woshizhongguoren[4]=ren", seg[4] == "ren");
+    }
+    {
+        auto s = smart_segment_string("nihao");
+        check("segment_string nihao", s == "ni hao");
+    }
+    {
+        auto s = insert_separators("nihaoshijie");
+        check("insert_separators nihaoshijie", s == "ni hao shi jie");
+    }
+    {
+        check("is_syllable ni", is_pinyin_syllable("ni"));
+        check("is_syllable hao", is_pinyin_syllable("hao"));
+        check("is_syllable zhz false", !is_pinyin_syllable("zhz"));
+        check("is_syllable chuang", is_pinyin_syllable("chuang"));
+    }
+    {
+        // 零声母测试
+        auto seg = smart_segment("yiyao");
+        check("segment yiyao size=2", seg.size() == 2);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
