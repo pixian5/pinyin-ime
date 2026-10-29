@@ -7913,3 +7913,30 @@ start-fcitx5.sh
 - WaylandInputContext 状态机
 - ContentHint/ContentPurpose 内容类型
 - 根据目的调整输入法行为
+
+### v0.9.135 — 模糊音
+- FuzzyPinyinConfig: 10种模糊音映射 (z/zh, c/ch, s/sh, n/l, an/ang...)
+- fuzzy_pinyin_expand(): 多音节笛卡尔积展开
+- CLI --fuzzy 选项
+
+### v0.9.136 — 剪贴板历史
+- ClipboardHistory: 记录/搜索/粘贴最近文本
+- 去重、持久化、格式化显示
+- CLI --clipboard 选项
+
+### v0.9.137 — 长句智能切分
+- smart_segment(): DP 智能音节切分
+- ~400个拼音音节表
+- nihaoshijie → ni hao shi jie
+- 自动插入隔音符
+
+### v0.9.138 — 自定义短语运行时管理
+- UserPhraseManager: 增删查自定义快捷词
+- 持久化到 user_phrases.txt
+- CLI --phrase-add/--phrase-del/--phrase-list
+
+### v0.9.139 — 输入统计增强
+- InputStatistics: 会话级+累计统计
+- 准确率、速度(字/分)、高频词 Top10
+- 持久化到 stats.txt
+- format_report() 格式化报告
