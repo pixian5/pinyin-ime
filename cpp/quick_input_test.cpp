@@ -831,6 +831,57 @@ int main() {
         check("wayland config vk default", cfg.enable_virtual_keyboard);
         check("wayland config repeat_rate", cfg.repeat_rate == 25);
     }
+    // ── v0.9.135 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.135: 模糊音 ──\n";
+    {
+        FuzzyPinyinConfig cfg;
+        auto variants = fuzzy_syllable_variants("zai", cfg);
+        check("fuzzy zai has zhai", [&]{ for(auto&v:variants) if(v=="zhai") return true; return false; }());
+        check("fuzzy zai has zai", [&]{ for(auto&v:variants) if(v=="zai") return true; return false; }());
+    }
+    {
+        FuzzyPinyinConfig cfg;
+        auto variants = fuzzy_syllable_variants("ni", cfg);
+        check("fuzzy ni has li", [&]{ for(auto&v:variants) if(v=="li") return true; return false; }());
+        check("fuzzy ni has ni", [&]{ for(auto&v:variants) if(v=="ni") return true; return false; }());
+    }
+    {
+        FuzzyPinyinConfig cfg;
+        auto variants = fuzzy_syllable_variants("lan", cfg);
+        check("fuzzy lan has nan", [&]{ for(auto&v:variants) if(v=="nan") return true; return false; }());
+        check("fuzzy lan has lang", [&]{ for(auto&v:variants) if(v=="lang") return true; return false; }());
+        check("fuzzy lan has nang", [&]{ for(auto&v:variants) if(v=="nang") return true; return false; }());
+    }
+    {
+        FuzzyPinyinConfig cfg;
+        auto variants = fuzzy_syllable_variants("shen", cfg);
+        check("fuzzy shen has sen", [&]{ for(auto&v:variants) if(v=="sen") return true; return false; }());
+        check("fuzzy shen has sheng", [&]{ for(auto&v:variants) if(v=="sheng") return true; return false; }());
+    }
+    {
+        FuzzyPinyinConfig cfg;
+        cfg.z_zh = false;
+        auto variants = fuzzy_syllable_variants("zai", cfg);
+        check("fuzzy z_zh off: no zhai", [&]{ for(auto&v:variants) if(v=="zhai") return false; return true; }());
+    }
+    {
+        FuzzyPinyinConfig cfg;
+        auto results = fuzzy_pinyin_expand("ni hao", cfg);
+        check("fuzzy expand ni hao not empty", !results.empty());
+        check("fuzzy expand ni hao has li hao", [&]{ for(auto&v:results) if(v=="li hao") return true; return false; }());
+        check("fuzzy expand ni hao has ni hao", [&]{ for(auto&v:results) if(v=="ni hao") return true; return false; }());
+    }
+    {
+        auto cfg = FuzzyPinyinConfig::parse("z_zh,n_l");
+        check("fuzzy parse z_zh", cfg.z_zh);
+        check("fuzzy parse n_l", cfg.n_l);
+        check("fuzzy parse c_ch off", !cfg.c_ch);
+    }
+    {
+        auto cfg = FuzzyPinyinConfig::parse("all");
+        check("fuzzy parse all f_h", cfg.f_h);
+        check("fuzzy parse all r_l", cfg.r_l);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
