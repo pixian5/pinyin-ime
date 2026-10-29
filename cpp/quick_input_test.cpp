@@ -1,5 +1,6 @@
 // quick_input_test.cpp — 测试搜狗式快速输入功能
 #include "quick_input.h"
+#include "../fcitx5-addon/wayland_integration.h"
 #include "emoji_list.h"
 #include <iostream>
 #include <cassert>
@@ -795,6 +796,40 @@ int main() {
         std::vector<CloudCandidate> cloud = {{"你好", "nihao", 90, "cloud"}};
         auto merged = client.merge_candidates(local, cloud);
         check("cloud merge dedup size=1", merged.size() == 1);
+    }
+    // ── v0.9.134 测试 ──────────────────────────────────────
+    std::cout << "\n── v0.9.134: Wayland 支持 ──\n";
+    {
+        auto wd = pinyin_ime::wayland::detect_wayland();
+        // 环境相关，只检查不崩溃
+        check("wayland detect runs", true);
+    }
+    {
+        pinyin_ime::wayland::WaylandInputContext ic;
+        check("wayland ic initial inactive", ic.state == pinyin_ime::wayland::TextInputState::Inactive);
+        ic.activate();
+        check("wayland ic active", ic.state == pinyin_ime::wayland::TextInputState::Active);
+        ic.set_preedit("你好", 2);
+        check("wayland ic preedit=你好", ic.preedit_string == "你好");
+        ic.commit("你好");
+        check("wayland ic pending commit", ic.state == pinyin_ime::wayland::TextInputState::PendingCommit);
+        ic.deactivate();
+        check("wayland ic deactivated", ic.state == pinyin_ime::wayland::TextInputState::Inactive);
+    }
+    {
+        using namespace pinyin_ime::wayland;
+        check("wayland purpose(password)", purpose_to_hint(ContentPurpose::Password) == "password");
+        check("wayland purpose(number)", purpose_to_hint(ContentPurpose::Number) == "number");
+        check("wayland purpose(url)", purpose_to_hint(ContentPurpose::Url) == "url");
+        check("wayland purpose(email)", purpose_to_hint(ContentPurpose::Email) == "email");
+        check("wayland purpose(terminal)", purpose_to_hint(ContentPurpose::Terminal) == "terminal");
+        check("wayland purpose(normal)", purpose_to_hint(ContentPurpose::Normal) == "normal");
+    }
+    {
+        pinyin_ime::wayland::WaylandModuleConfig cfg;
+        check("wayland config v3 default", cfg.enable_text_input_v3);
+        check("wayland config vk default", cfg.enable_virtual_keyboard);
+        check("wayland config repeat_rate", cfg.repeat_rate == 25);
     }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
