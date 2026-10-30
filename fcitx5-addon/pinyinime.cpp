@@ -515,6 +515,10 @@ void PinyinIMEState::updateUI() {
     }
 
     inputContext_->inputPanel().reset();
+    // v0.9.162: 皮肤系统 — 应用TextFormatFlag增强预编辑区显示
+    if (!skinName_.empty()) {
+        preeditText.applyFormat(TextFormatFlag::Underline | TextFormatFlag::Bold);
+    }
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();

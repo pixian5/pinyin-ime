@@ -112,6 +112,7 @@ public:
     int emojiCategory_ = 0;      // v0.9.161: 表情分类
     bool emojiSearchMode_ = false; // v0.9.161: 表情搜索
     std::string emojiSearchBuf_;   // v0.9.161: 搜索缓冲
+    std::string skinName_;          // v0.9.162: 皮肤名称
     // v 模式（搜狗式符号输入）：输入 v 后跟数字/字母进入符号选择。
     bool vMode_ = false;
     std::string vModeSub_;    // v 后的子输入（如 "1"）
