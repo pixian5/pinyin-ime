@@ -4428,4 +4428,145 @@ inline std::string render_candidate_window_with_skin(
     return result;
 }
 
+// ── v0.9.148 表情/符号可视化面板 ──────────────────────────────
+// 表情分类
+struct EmojiCategory {
+    std::string name;
+    std::string keyword;  // 搜索关键词
+    std::vector<std::string> emojis;
+};
+
+inline const std::vector<EmojiCategory>& emoji_categories() {
+    static const std::vector<EmojiCategory> cats = {
+        {"笑脸", "face smile happy laugh",
+         {"😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃",
+          "😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚"}},
+        {"表情", "expression sad cry angry",
+         {"😐","😑","😶","😏","😣","😥","😮","🤐","😯","😪",
+          "😫","🥱","😴","😌","😛","😜","🤪","😝","🤑","🤗"}},
+        {"手势", "gesture hand thumbs ok",
+         {"👍","👎","👌","✌️","🤞"," crossed","🤟","🤘","🤙","👈",
+          "👉","👆","🖕","👇","☝️","👋","🤚","🖐️","✋","🖖"}},
+        {"人物", "person body heart",
+         {"❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","❣️",
+          "💕","💞","💓","💗","💖","💘","💝","💟","♥️","💯"}},
+        {"动物", "animal cat dog bird fish",
+         {"🐱","🐶","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯",
+          "🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🦆","🦅"}},
+        {"食物", "food drink coffee tea cake",
+         {"🍎","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒",
+          "🍑","🥭","🍍","🥥","🥝","🍅","🥑","🥦","🥕","🌽"}},
+        {"活动", "activity sport game music",
+         {"⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉","🥏","🎱",
+          "🏓","🏸","🥅","🏒","🏑","🥍","🏏","🥊","🥋","⛳"}},
+        {"旅行", "travel car plane train boat",
+         {"🚗","🚕","🚙","🚌","🚎","🚐","🚑","🚒","🚓","🚔",
+          "🚨","🚲","🚳","🚴","🚵","🏎️","🚂","🚃","🚄","🚅"}},
+        {"物品", "object phone computer book gift",
+         {"📱","💻","⌨️","🖥️","🖨️","🖱️","🖲️","🕹️","🗜️","💽",
+          "💾","💿","📀","📼","📷","📸","📹","🎥","📞","☎️"}},
+        {"符号", "symbol sign flag check cross",
+         {"✅","❌","❎","✔️","✖️","➕","➖","➗","➰","➿",
+          "🔆","⚡","💣","🔥","✨","🎉","🎊","🎈","🎁","🏆"}},
+        {"时间", "time clock calendar date",
+         {"⏰","⏰","⏳","⌛","📅","📆","🗓️","_clock","🌅","🌄",
+          "🌠","🌇","🌆","🌃","🌌","🌉","🌍","🌎","🌏","🌐"}},
+        {"天气", "weather sun rain snow cloud",
+         {"☀️","🌤️","⛅","🌥️","☁️","🌦️","🌧️","⛈️","🌩️","🌨️",
+          "❄️","☃️","⛄","🌬️","💨","🌪️","🌫️","🌈","☔","🌊"}},
+    };
+    return cats;
+}
+
+// 表情面板：列出所有分类
+inline std::vector<std::string> emoji_panel_categories() {
+    std::vector<std::string> result;
+    for (const auto& cat : emoji_categories()) {
+        result.push_back(cat.name);
+    }
+    return result;
+}
+
+// 表情面板：获取某分类的表情
+inline std::vector<std::string> emoji_panel_by_category(const std::string& cat_name) {
+    for (const auto& cat : emoji_categories()) {
+        if (cat.name == cat_name) return cat.emojis;
+    }
+    return {};
+}
+
+// 表情面板：搜索表情
+inline std::vector<std::pair<std::string, std::string>> emoji_search(const std::string& query) {
+    std::vector<std::pair<std::string, std::string>> result;
+    if (query.empty()) return result;
+
+    for (const auto& cat : emoji_categories()) {
+        // 匹配分类名
+        if (cat.name.find(query) != std::string::npos ||
+            cat.keyword.find(query) != std::string::npos) {
+            for (const auto& e : cat.emojis) {
+                result.push_back({e, cat.name});
+            }
+        }
+    }
+
+    if (result.size() > 50) result.resize(50);
+    return result;
+}
+
+// 表情面板：渲染可视化界面
+inline std::string emoji_panel_render(int selected_cat = 0) {
+    const auto& cats = emoji_categories();
+    if (cats.empty()) return "";
+
+    std::string result = "═══ 表情面板 ═══\n\n";
+
+    // 分类标签栏
+    result += "分类: ";
+    for (size_t i = 0; i < cats.size(); ++i) {
+        if ((int)i == selected_cat) {
+            result += "[" + cats[i].name + "] ";
+        } else {
+            result += cats[i].name + " ";
+        }
+    }
+    result += "\n\n";
+
+    // 选中分类的表情
+    if (selected_cat >= 0 && selected_cat < (int)cats.size()) {
+        result += cats[selected_cat].name + ":\n";
+        for (size_t i = 0; i < cats[selected_cat].emojis.size(); ++i) {
+            result += cats[selected_cat].emojis[i] + " ";
+            if ((i + 1) % 10 == 0) result += "\n";
+        }
+        result += "\n\n";
+    }
+
+    result += "提示: 输入分类名或关键词搜索，数字键选择表情\n";
+    return result;
+}
+
+// 特殊字符面板
+inline std::vector<std::pair<std::string, std::string>> special_char_panel() {
+    return {
+        {"数学符号", "± × ÷ ≈ ≠ ≤ ≥ ∞ √ ∑ ∏ ∫ ∂ ∇ ∝ ∈ ∉ ∪ ∩ ∀ ∃"},
+        {"箭头符号", "→ ← ↑ ↓ ↔ ↕ ⇒ ⇐ ⇑ ⇓ ↗ ↘ ↖ ↙ ↦ ↪ ↩ ⇄ ⇆ ⇵"},
+        {"希腊字母", "α β γ δ ε ζ η θ ι κ λ μ ν ξ π ρ σ τ φ ψ ω"},
+        {"罗马数字", "Ⅰ Ⅱ Ⅲ Ⅳ Ⅴ Ⅵ Ⅶ Ⅷ Ⅸ Ⅹ Ⅺ Ⅻ"},
+        {"中文标点", "「 」 『 』 【 】 〈 〉 《 》 〔 〕 〖 〗"},
+        {"特殊符号", "★ ☆ ♀ ♂ ○ ● ◇ ◆ □ ■ △ ▲ ▽ ▼ ⊕ ⊗ ⊙ ◎ ※ ✦"},
+        {"货币符号", "￥ $ € £ ¢ ₩ ₪ ₫ ₱ ﷼"},
+        {"单位符号", "℃ ℉ ‰ § № ° ′ ″ ‴"},
+    };
+}
+
+// 渲染特殊字符面板
+inline std::string special_char_panel_render() {
+    std::string result = "═══ 特殊字符面板 ═══\n\n";
+    for (const auto& [name, chars] : special_char_panel()) {
+        result += name + ": " + chars + "\n\n";
+    }
+    return result;
+}
+
 } // namespace pinyin_ime

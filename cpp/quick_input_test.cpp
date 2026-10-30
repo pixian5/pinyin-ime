@@ -1480,6 +1480,57 @@ int main() {
         auto empty_render = render_candidate_window_with_skin({}, "test", get_skin("default"));
         check("v147 render empty candidates", empty_render.empty());
     }
+
+    // ═══ v0.9.148 测试 ═══════════════════════════════════════════
+    {
+        // 表情分类
+        auto cats = emoji_panel_categories();
+        check("v148 12 emoji categories", cats.size() == 12);
+        check("v148 has 笑脸 category", std::find(cats.begin(), cats.end(), "笑脸") != cats.end());
+        check("v148 has 天气 category", std::find(cats.begin(), cats.end(), "天气") != cats.end());
+
+        // 按分类获取表情
+        auto faces = emoji_panel_by_category("笑脸");
+        check("v148 笑脸 has 20 emojis", faces.size() == 20);
+        check("v148 笑脸[0] is 😀", faces[0] == "😀");
+
+        auto weather = emoji_panel_by_category("天气");
+        check("v148 天气 has 20 emojis", weather.size() == 20);
+
+        auto nonexistent = emoji_panel_by_category("不存在");
+        check("v148 nonexistent category empty", nonexistent.empty());
+
+        // 搜索表情
+        auto search_results = emoji_search("笑脸");
+        check("v148 search 笑脸 non-empty", !search_results.empty());
+
+        auto search_face = emoji_search("face");
+        check("v148 search face non-empty", !search_face.empty());
+
+        auto search_empty = emoji_search("");
+        check("v148 search empty query", search_empty.empty());
+
+        auto search_food = emoji_search("food");
+        check("v148 search food non-empty", !search_food.empty());
+
+        // 渲染面板
+        auto panel = emoji_panel_render(0);
+        check("v148 panel render non-empty", !panel.empty());
+        check("v148 panel has title", panel.find("表情面板") != std::string::npos);
+        check("v148 panel has hint", panel.find("提示") != std::string::npos);
+
+        auto panel2 = emoji_panel_render(5);
+        check("v148 panel render cat 5", panel2.find("食物") != std::string::npos);
+
+        // 特殊字符面板
+        auto special = special_char_panel();
+        check("v148 8 special char categories", special.size() == 8);
+
+        auto special_render = special_char_panel_render();
+        check("v148 special panel non-empty", !special_render.empty());
+        check("v148 special panel has title", special_render.find("特殊字符面板") != std::string::npos);
+        check("v148 special has math", special_render.find("数学符号") != std::string::npos);
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
