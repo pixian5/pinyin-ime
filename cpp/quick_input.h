@@ -4023,4 +4023,189 @@ inline std::vector<std::string> quick_candidates_v6(const std::string& input,
     return result;
 }
 
+// ── v0.9.146 动态规划拼音分词 ──────────────────────────────────
+// 完整的有效拼音音节表（用于DP分词）
+inline const std::set<std::string>& valid_pinyin_syllables() {
+    static const std::set<std::string> syllables = {
+        // a
+        "a", "ai", "an", "ang", "ao",
+        // b
+        "ba", "bai", "ban", "bang", "bao", "bei", "ben", "beng", "bi", "bian",
+        "biao", "bie", "bin", "bing", "bo", "bu",
+        // c
+        "ca", "cai", "can", "cang", "cao", "ce", "cen", "ceng", "cha", "chai",
+        "chan", "chang", "chao", "che", "chen", "cheng", "chi", "chong", "chou",
+        "chu", "chua", "chuai", "chuan", "chuang", "chui", "chun", "chuo", "ci",
+        "cong", "cou", "cu", "cuan", "cui", "cun", "cuo",
+        // d
+        "da", "dai", "dan", "dang", "dao", "de", "dei", "den", "deng", "di",
+        "dia", "dian", "diao", "die", "ding", "diu", "dong", "dou", "du", "duan",
+        "dui", "dun", "duo",
+        // e
+        "e", "ei", "en", "eng", "er",
+        // f
+        "fa", "fan", "fang", "fei", "fen", "feng", "fo", "fou", "fu",
+        // g
+        "ga", "gai", "gan", "gang", "gao", "ge", "gei", "gen", "geng", "gong",
+        "gou", "gu", "gua", "guai", "guan", "guang", "gui", "gun", "guo",
+        // h
+        "ha", "hai", "han", "hang", "hao", "he", "hei", "hen", "heng", "hong",
+        "hou", "hu", "hua", "huai", "huan", "huang", "hui", "hun", "huo",
+        // j
+        "ji", "jia", "jian", "jiang", "jiao", "jie", "jin", "jing", "jiong",
+        "jiu", "ju", "juan", "jue", "jun",
+        // k
+        "ka", "kai", "kan", "kang", "kao", "ke", "kei", "ken", "keng", "kong",
+        "kou", "ku", "kua", "kuai", "kuan", "kuang", "kui", "kun", "kuo",
+        // l
+        "la", "lai", "lan", "lang", "lao", "le", "lei", "leng", "li", "lia",
+        "lian", "liang", "liao", "lie", "lin", "ling", "liu", "long", "lou",
+        "lu", "luan", "lun", "luo", "lv", "lve",
+        // m
+        "ma", "mai", "man", "mang", "mao", "me", "mei", "men", "meng", "mi",
+        "mian", "miao", "mie", "min", "ming", "miu", "mo", "mou", "mu",
+        // n
+        "na", "nai", "nan", "nang", "nao", "ne", "nei", "nen", "neng", "ni",
+        "nian", "niang", "niao", "nie", "nin", "ning", "niu", "nong", "nou",
+        "nu", "nuan", "nun", "nuo", "nv", "nve",
+        // o
+        "o", "ou",
+        // p
+        "pa", "pai", "pan", "pang", "pao", "pei", "pen", "peng", "pi", "pian",
+        "piao", "pie", "pin", "ping", "po", "pou", "pu",
+        // q
+        "qi", "qia", "qian", "qiang", "qiao", "qie", "qin", "qing", "qiong",
+        "qiu", "qu", "quan", "que", "qun",
+        // r
+        "ran", "rang", "rao", "re", "ren", "reng", "ri", "rong", "rou", "ru",
+        "rua", "ruan", "rui", "run", "ruo",
+        // s
+        "sa", "sai", "san", "sang", "sao", "se", "sen", "seng", "sha", "shai",
+        "shan", "shang", "shao", "she", "shei", "shen", "sheng", "shi", "shong",
+        "shou", "shu", "shua", "shuai", "shuan", "shuang", "shui", "shun", "shuo",
+        "si", "song", "sou", "su", "suan", "sui", "sun", "suo",
+        // t
+        "ta", "tai", "tan", "tang", "tao", "te", "teng", "ti", "tian", "tiao",
+        "tie", "ting", "tong", "tou", "tu", "tuan", "tui", "tun", "tuo",
+        // w
+        "wa", "wai", "wan", "wang", "wei", "wen", "weng", "wo", "wu",
+        // x
+        "xi", "xia", "xian", "xiang", "xiao", "xie", "xin", "xing", "xiong",
+        "xiu", "xu", "xuan", "xue", "xun",
+        // y
+        "ya", "yan", "yang", "yao", "ye", "yi", "yin", "ying", "yong", "you",
+        "yu", "yuan", "yue", "yun",
+        // z
+        "za", "zai", "zan", "zang", "zao", "ze", "zei", "zen", "zeng", "zha",
+        "zhai", "zhan", "zhang", "zhao", "zhe", "zhei", "zhen", "zheng", "zhi",
+        "zhong", "zhou", "zhu", "zhua", "zhuai", "zhuan", "zhuang", "zhui",
+        "zhun", "zhuo", "zi", "zong", "zou", "zu", "zuan", "zui", "zun", "zuo",
+    };
+    return syllables;
+}
+
+// DP-based 最优拼音分词：最小化音节数量（偏好长音节匹配）
+inline std::vector<std::string> dp_pinyin_segment(const std::string& input) {
+    int n = (int)input.size();
+    if (n == 0) return {};
+
+    const auto& syllables = valid_pinyin_syllables();
+    const int INF = 1e9;
+
+    // dp[i] = 从位置i到末尾的最小音节数（覆盖全部字符）
+    // choice[i] = 最优切分中位置i选的音节长度
+    std::vector<int> dp(n + 1, INF);
+    std::vector<int> choice(n + 1, 0);
+    dp[n] = 0;  // 空串=0个音节
+
+    // 从后往前DP
+    for (int i = n - 1; i >= 0; --i) {
+        // 尝试所有可能的音节长度（1-6），优先长音节
+        for (int len = 6; len >= 1; --len) {
+            if (i + len > n) continue;
+            std::string syllable = input.substr(i, len);
+            if (syllables.count(syllable) && dp[i + len] < INF) {
+                int score = 1 + dp[i + len];
+                if (score < dp[i]) {
+                    dp[i] = score;
+                    choice[i] = len;
+                }
+            }
+        }
+        // 单字符回退：如果无法匹配任何音节，跳过一个字符
+        if (dp[i] >= INF && dp[i + 1] < INF) {
+            dp[i] = 1 + dp[i + 1];  // 作为1个无效音节
+            choice[i] = 1;
+        }
+    }
+
+    // 回溯构造分词结果
+    std::vector<std::string> result;
+    int i = 0;
+    while (i < n) {
+        int len = choice[i];
+        if (len <= 0) break;
+        result.push_back(input.substr(i, len));
+        i += len;
+    }
+
+    return result;
+}
+
+// v0.9.146 带分隔符的DP分词结果
+inline std::string dp_pinyin_segment_hint(const std::string& input) {
+    auto segments = dp_pinyin_segment(input);
+    if (segments.empty()) return {};
+
+    std::string result;
+    for (size_t i = 0; i < segments.size(); ++i) {
+        if (i > 0) result += "'";
+        result += segments[i];
+    }
+    return result;
+}
+
+// v0.9.146 增强长句分割（使用DP分词）
+inline std::vector<std::string> long_sentence_split_v2(const std::string& input) {
+    if (input.size() < 4) return {};
+
+    auto segments = dp_pinyin_segment(input);
+    if (segments.size() < 2) return {};
+
+    // 按常见词长分组（2-4音节一组）
+    std::vector<std::string> groups;
+    size_t i = 0;
+    while (i < segments.size()) {
+        // 尝试2-4音节一组
+        std::string group;
+        int take = 0;
+
+        // 优先尝试4音节，然后3，然后2
+        for (int try_take : {4, 3, 2}) {
+            if (i + try_take <= segments.size()) {
+                std::string candidate;
+                for (int j = 0; j < try_take; ++j) {
+                    candidate += segments[i + j];
+                }
+                // 简单启发式：如果组合后长度合理（6-12字符），采用
+                if (candidate.size() >= 4 && candidate.size() <= 12) {
+                    group = candidate;
+                    take = try_take;
+                    break;
+                }
+            }
+        }
+
+        if (take == 0) {
+            group = segments[i];
+            take = 1;
+        }
+
+        groups.push_back(group);
+        i += take;
+    }
+
+    return groups;
+}
+
 } // namespace pinyin_ime

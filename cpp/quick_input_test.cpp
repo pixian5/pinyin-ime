@@ -1364,6 +1364,55 @@ int main() {
         auto v6_ctx = quick_candidates_v6("hao", "你", "");
         check("v145 v6 with context non-empty", !v6_ctx.empty());
     }
+
+    // ═══ v0.9.146 测试 ═══════════════════════════════════════════
+    {
+        // DP分词基础
+        auto seg = dp_pinyin_segment("nihao");
+        check("v146 dp nihao 2 segments", seg.size() == 2);
+        check("v146 dp nihao[0]=ni", seg[0] == "ni");
+        check("v146 dp nihao[1]=hao", seg[1] == "hao");
+
+        // DP分词长句
+        auto seg2 = dp_pinyin_segment("nihaozhongguo");
+        check("v146 dp nihaozhongguo 4 segments", seg2.size() == 4);
+
+        // DP分词超长句
+        auto seg3 = dp_pinyin_segment("woshizhongguoren");
+        check("v146 dp woshizhongguoren 5 segments", seg3.size() == 5);
+
+        // DP分词提示
+        auto hint = dp_pinyin_segment_hint("nihao");
+        check("v146 hint has separator", hint.find("'") != std::string::npos);
+
+        // DP分词空输入
+        auto seg_empty = dp_pinyin_segment("");
+        check("v146 dp empty input", seg_empty.empty());
+
+        // DP分词单音节
+        auto seg_one = dp_pinyin_segment("a");
+        check("v146 dp single syllable", seg_one.size() == 1 && seg_one[0] == "a");
+
+        // 增强长句分割
+        auto groups = long_sentence_split_v2("nihaozhongguo");
+        check("v146 long split non-empty", !groups.empty());
+
+        // DP分词 vs 贪心：zhongguo 应该正确分词
+        auto seg_zg = dp_pinyin_segment("zhongguo");
+        check("v146 dp zhongguo 2 segments", seg_zg.size() == 2);
+        check("v146 dp zhongguo[0]=zhong", seg_zg[0] == "zhong");
+        check("v146 dp zhongguo[1]=guo", seg_zg[1] == "guo");
+
+        // 超长句20+音节
+        auto seg_long = dp_pinyin_segment("jintiantianqihenhaowochumenquwan");
+        check("v146 dp long sentence 10+ segments", seg_long.size() >= 10);
+
+        // 有效音节表
+        auto& syllables = valid_pinyin_syllables();
+        check("v146 syllables has nihao components", syllables.count("ni") && syllables.count("hao"));
+        check("v146 syllables has zhong", syllables.count("zhong"));
+        check("v146 syllables has guo", syllables.count("guo"));
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
