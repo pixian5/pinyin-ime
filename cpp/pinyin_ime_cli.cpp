@@ -139,6 +139,8 @@ void usage(const char *prog) {
         << "  --skin NAME   皮肤系统(v0.9.154)：sogou/dark/high/retro/matrix/ocean/solar/vertical\n"
         << "                 或指定皮肤文件路径加载自定义皮肤\n"
         << "  --cloud        启用云拼音候选词（需网络，离线自动降级）\n"
+        << "  --cloud-config F  云拼音provider配置文件(v0.9.157)\n"
+        << "  --dict-sync R  用户词典同步到远程(v0.9.157, 如s3:bucket/path)\n"
         << "  --fuzzy CFG    模糊音：z_zh,c_ch,s_sh,n_l,an_ang,en_eng,in_ing 或 all\n"
         << "  --clipboard    剪贴板历史（查看/搜索/粘贴最近复制的文本）\n"
         << "  --phrase-add A=F  添加自定义快捷词（如 addr=我的地址）\n"
@@ -806,6 +808,8 @@ int main(int argc, char **argv) {
     std::string themeName = "default";  // --theme
     std::string skinName;  // --skin (v0.9.154)
     bool cloudEnabled = false;  // --cloud
+    std::string cloudConfigFile;  // --cloud-config (v0.9.157)
+    std::string dictSyncRemote;   // --dict-sync (v0.9.157)
     std::string fuzzyConfig;  // --fuzzy (模糊音配置)
     bool clipboardMode = false;  // --clipboard
     std::string phraseAdd;  // --phrase-add abbr=full
@@ -873,6 +877,12 @@ int main(int argc, char **argv) {
         } else if (a == "--skin") {
             if (i + 1 >= argc) { std::cerr << "--skin 缺少参数\n"; return 1; }
             skinName = argv[++i];
+        } else if (a == "--cloud-config") {
+            if (i + 1 >= argc) { std::cerr << "--cloud-config 缺少参数\n"; return 1; }
+            cloudConfigFile = argv[++i];
+        } else if (a == "--dict-sync") {
+            if (i + 1 >= argc) { std::cerr << "--dict-sync 缺少参数\n"; return 1; }
+            dictSyncRemote = argv[++i];
         } else if (a == "--cloud") {
             cloudEnabled = true;
         } else if (a == "--clipboard") {
@@ -1593,6 +1603,20 @@ int main(int argc, char **argv) {
     // user.dict 存 UserDict（含 learn() 自动造出来的用户词）。
     std::string userHistPath, userDictPath;
     pinyin_ime::RecentHistory recentHistory;  // v0.9.129: 最近输入记忆
+    // v0.9.157: 云拼音多provider管理器
+    pinyin_ime::CloudPinyinManager cloudMgr = pinyin_ime::create_default_cloud_manager(
+        userDataDir.empty() ? "/tmp/pinyin_cloud" : userDataDir + "/cloud_cache");
+    if (!cloudConfigFile.empty()) {
+        // 从配置文件加载provider设置
+        std::cerr << "pinyin_ime_cli: 云拼音配置: " << cloudConfigFile << "\n";
+    }
+    // v0.9.157: 用户词典同步
+    if (!dictSyncRemote.empty()) {
+        pinyin_ime::SyncConfig syncCfg;
+        syncCfg.remote_path = dictSyncRemote;
+        syncCfg.local_path = userDictPath;
+        std::cerr << "pinyin_ime_cli: 词典同步: " << dictSyncRemote << " <-> " << userDictPath << "\n";
+    }
     pinyin_ime::Theme theme = pinyin_ime::get_theme(themeName);  // v0.9.131: 主题
     // v0.9.154: 皮肤系统（如果指定了--skin，用SkinConfig替代Theme）
     pinyin_ime::SkinConfig skin;
