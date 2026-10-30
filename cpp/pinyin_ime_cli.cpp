@@ -140,7 +140,7 @@ void usage(const char *prog) {
         << "                 或指定皮肤文件路径加载自定义皮肤\n"
         << "  --cloud        启用云拼音候选词（需网络，离线自动降级）\n"
         << "  --cloud-config F  云拼音provider配置文件(v0.9.157)\n"
-        << "  --dict-sync R  用户词典同步到远程(v0.9.157, 如s3:bucket/path)\n"
+        << "  --dict-sync R  词典同步(v0.9.160): push:s3://path / pull:s3://path / sync:s3://path\n"
         << "  --fuzzy CFG    模糊音：z_zh,c_ch,s_sh,n_l,an_ang,en_eng,in_ing 或 all\n"
         << "  --clipboard    剪贴板历史（查看/搜索/粘贴最近复制的文本）\n"
         << "  --phrase-add A=F  添加自定义快捷词（如 addr=我的地址）\n"
@@ -1610,12 +1610,35 @@ int main(int argc, char **argv) {
         // 从配置文件加载provider设置
         std::cerr << "pinyin_ime_cli: 云拼音配置: " << cloudConfigFile << "\n";
     }
-    // v0.9.157: 用户词典同步
+    // v0.9.157/v0.9.160: 用户词典同步 — 实际执行push/pull/sync
     if (!dictSyncRemote.empty()) {
         pinyin_ime::SyncConfig syncCfg;
         syncCfg.remote_path = dictSyncRemote;
         syncCfg.local_path = userDictPath;
-        std::cerr << "pinyin_ime_cli: 词典同步: " << dictSyncRemote << " <-> " << userDictPath << "\n";
+        // 解析操作: push/pull/sync (默认sync)
+        std::string syncOp = "sync";
+        auto colonPos = dictSyncRemote.find(':');
+        if (colonPos != std::string::npos) {
+            syncOp = dictSyncRemote.substr(0, colonPos);
+            syncCfg.remote_path = dictSyncRemote.substr(colonPos + 1);
+        }
+        std::cerr << "pinyin_ime_cli: 词典同步[" << syncOp << "] " << syncCfg.remote_path
+                  << " <-> " << userDictPath << "\n";
+        pinyin_ime::UserDictSyncManager syncMgr(syncCfg);
+        bool ok = false;
+        if (syncOp == "push") {
+            ok = syncMgr.push();
+            std::cerr << (ok ? "推送成功" : "推送失败") << "\n";
+        } else if (syncOp == "pull") {
+            ok = syncMgr.pull();
+            std::cerr << (ok ? "拉取成功" : "拉取失败") << "\n";
+        } else {
+            auto result = syncMgr.sync();
+            std::cerr << "同步完成: 合并" << result.added + result.updated << "条, 冲突"
+                      << result.conflicts << "条\n";
+            ok = result.conflicts == 0;
+        }
+        return ok ? 0 : 1;
     }
     pinyin_ime::Theme theme = pinyin_ime::get_theme(themeName);  // v0.9.131: 主题
     // v0.9.154: 皮肤系统（如果指定了--skin，用SkinConfig替代Theme）
