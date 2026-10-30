@@ -4777,4 +4777,286 @@ inline CloudPinyinManager create_default_cloud_manager(const std::string& cache_
     return mgr;
 }
 
+// ── v0.9.150 用户词典跨设备同步 ──────────────────────────────
+// 用户词典条目
+struct UserDictEntry {
+    std::string pinyin;
+    std::string chinese;
+    int frequency = 0;
+    int64_t timestamp = 0;     // 最后修改时间
+    std::string device_id;     // 来源设备
+};
+
+// 词典版本追踪
+struct DictVersion {
+    int64_t version = 0;
+    int64_t timestamp = 0;
+    std::string device_id;
+    int entry_count = 0;
+};
+
+// 用户词典管理器（支持CRUD+同步）
+class UserDictManager {
+public:
+    std::vector<UserDictEntry> entries;
+    DictVersion version;
+    std::string dict_file;
+    std::string device_id;
+
+    explicit UserDictManager(const std::string& file = "", const std::string& dev = "local")
+        : dict_file(file), device_id(dev) {
+        version.device_id = dev;
+        if (!file.empty()) load();
+    }
+
+    // CRUD: 添加
+    bool add(const std::string& pinyin, const std::string& chinese, int freq = 1) {
+        // 检查是否已存在
+        for (auto& e : entries) {
+            if (e.pinyin == pinyin && e.chinese == chinese) {
+                e.frequency += freq;
+                e.timestamp = (int64_t)time(nullptr);
+                e.device_id = device_id;
+                bump_version();
+                return true;
+            }
+        }
+        UserDictEntry entry;
+        entry.pinyin = pinyin;
+        entry.chinese = chinese;
+        entry.frequency = freq;
+        entry.timestamp = (int64_t)time(nullptr);
+        entry.device_id = device_id;
+        entries.push_back(entry);
+        bump_version();
+        return true;
+    }
+
+    // CRUD: 删除
+    bool remove(const std::string& pinyin, const std::string& chinese) {
+        auto it = std::find_if(entries.begin(), entries.end(),
+            [&](const UserDictEntry& e) {
+                return e.pinyin == pinyin && e.chinese == chinese;
+            });
+        if (it == entries.end()) return false;
+        entries.erase(it);
+        bump_version();
+        return true;
+    }
+
+    // CRUD: 更新
+    bool update(const std::string& pinyin, const std::string& chinese, int freq) {
+        for (auto& e : entries) {
+            if (e.pinyin == pinyin && e.chinese == chinese) {
+                e.frequency = freq;
+                e.timestamp = (int64_t)time(nullptr);
+                e.device_id = device_id;
+                bump_version();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // CRUD: 查询
+    std::vector<UserDictEntry> query(const std::string& pinyin) const {
+        std::vector<UserDictEntry> result;
+        for (const auto& e : entries) {
+            if (e.pinyin == pinyin) result.push_back(e);
+        }
+        // 按频率排序
+        std::sort(result.begin(), result.end(),
+                  [](const auto& a, const auto& b) { return a.frequency > b.frequency; });
+        return result;
+    }
+
+    // 保存到文件
+    bool save() {
+        if (dict_file.empty()) return false;
+        FILE* fp = std::fopen(dict_file.c_str(), "w");
+        if (!fp) return false;
+
+        std::fprintf(fp, "# pinyin-ime user dict v%lld\n", (long long)version.version);
+        std::fprintf(fp, "# device=%s timestamp=%lld entries=%d\n\n",
+                     device_id.c_str(), (long long)version.timestamp, (int)entries.size());
+
+        for (const auto& e : entries) {
+            std::fprintf(fp, "%s\t%s\t%d\t%lld\t%s\n",
+                         e.pinyin.c_str(), e.chinese.c_str(), e.frequency,
+                         (long long)e.timestamp, e.device_id.c_str());
+        }
+        std::fclose(fp);
+        return true;
+    }
+
+    // 从文件加载
+    bool load() {
+        if (dict_file.empty()) return false;
+        FILE* fp = std::fopen(dict_file.c_str(), "r");
+        if (!fp) return false;
+
+        entries.clear();
+        char line[512];
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty() || s[0] == '#') continue;
+
+            UserDictEntry e;
+            size_t pos = 0;
+            size_t tab = s.find('\t');
+            if (tab == std::string::npos) continue;
+            e.pinyin = s.substr(0, tab);
+            pos = tab + 1;
+
+            tab = s.find('\t', pos);
+            if (tab == std::string::npos) continue;
+            e.chinese = s.substr(pos, tab - pos);
+            pos = tab + 1;
+
+            tab = s.find('\t', pos);
+            if (tab == std::string::npos) {
+                e.frequency = std::atoi(s.substr(pos).c_str());
+            } else {
+                e.frequency = std::atoi(s.substr(pos, tab - pos).c_str());
+                pos = tab + 1;
+                tab = s.find('\t', pos);
+                if (tab == std::string::npos) {
+                    e.timestamp = std::atoll(s.substr(pos).c_str());
+                } else {
+                    e.timestamp = std::atoll(s.substr(pos, tab - pos).c_str());
+                    e.device_id = s.substr(tab + 1);
+                }
+            }
+            entries.push_back(e);
+        }
+        std::fclose(fp);
+        version.entry_count = (int)entries.size();
+        return true;
+    }
+
+    // 三方合并：合并远程词典
+    struct MergeResult {
+        int added = 0;
+        int updated = 0;
+        int conflicts = 0;
+        int unchanged = 0;
+    };
+
+    MergeResult merge(const UserDictManager& remote) {
+        MergeResult result;
+
+        for (const auto& re : remote.entries) {
+            bool found = false;
+            for (auto& le : entries) {
+                if (le.pinyin == re.pinyin && le.chinese == re.chinese) {
+                    found = true;
+                    if (re.timestamp > le.timestamp) {
+                        // 远程更新
+                        le.frequency = re.frequency;
+                        le.timestamp = re.timestamp;
+                        le.device_id = re.device_id;
+                        result.updated++;
+                    } else if (re.timestamp < le.timestamp) {
+                        // 本地更新，保留本地
+                        result.unchanged++;
+                    } else {
+                        // 时间戳相同
+                        if (re.frequency > le.frequency) {
+                            le.frequency = re.frequency;
+                            result.updated++;
+                        } else {
+                            result.unchanged++;
+                        }
+                    }
+                    break;
+                }
+            }
+            if (!found) {
+                entries.push_back(re);
+                result.added++;
+            }
+        }
+
+        version.entry_count = (int)entries.size();
+        bump_version();
+        return result;
+    }
+
+    // 导出为同步格式（JSON-like）
+    std::string export_sync() const {
+        std::string result = "{\n  \"version\": " + std::to_string(version.version) +
+                             ",\n  \"device\": \"" + device_id + "\",\n" +
+                             "  \"entries\": [\n";
+        for (size_t i = 0; i < entries.size(); ++i) {
+            result += "    {\"py\": \"" + entries[i].pinyin +
+                      "\", \"zh\": \"" + entries[i].chinese +
+                      "\", \"freq\": " + std::to_string(entries[i].frequency) +
+                      ", \"ts\": " + std::to_string(entries[i].timestamp) +
+                      "}\n";
+        }
+        result += "  ]\n}\n";
+        return result;
+    }
+
+    // 获取统计
+    std::string stats() const {
+        return "词条数: " + std::to_string(entries.size()) +
+               ", 版本: " + std::to_string(version.version);
+    }
+
+private:
+    void bump_version() {
+        version.version++;
+        version.timestamp = (int64_t)time(nullptr);
+        version.entry_count = (int)entries.size();
+    }
+};
+
+// S3/rclone同步框架
+struct SyncConfig {
+    std::string remote_type = "s3";      // s3/webdav/remote
+    std::string remote_path;              // 远程路径
+    std::string local_path;               // 本地路径
+    std::string rclone_config;            // rclone配置名
+    bool auto_sync = false;
+    int sync_interval_minutes = 30;
+};
+
+class UserDictSyncManager {
+public:
+    SyncConfig config;
+    UserDictManager local_dict;
+    UserDictManager remote_dict;
+
+    explicit UserDictSyncManager(const SyncConfig& cfg)
+        : config(cfg), local_dict(cfg.local_path, "local"),
+          remote_dict("", "remote") {}
+
+    // 推送本地到远程
+    bool push() {
+        // 框架：实际用rclone copy命令
+        // rclone copy local_path remote:remote_path
+        return local_dict.save();
+    }
+
+    // 从远程拉取
+    bool pull() {
+        // 框架：实际用rclone copy命令
+        // rclone copy remote:remote_path local_path
+        return local_dict.load();
+    }
+
+    // 同步（三方合并）
+    UserDictManager::MergeResult sync() {
+        // 1. 拉取远程
+        pull();
+        // 2. 三方合并
+        auto result = local_dict.merge(remote_dict);
+        // 3. 推送合并结果
+        push();
+        return result;
+    }
+};
+
 } // namespace pinyin_ime

@@ -1594,6 +1594,88 @@ int main() {
         mgr2.add_provider({"p2", CloudProviderType::LOCAL, "", "", 100, 1, true, 3600});
         check("v149 mgr2 sorted by priority", mgr2.providers[0].name == "p2");
     }
+
+    // ═══ v0.9.150 测试 ═══════════════════════════════════════════
+    {
+        // 用户词典CRUD
+        UserDictManager dict("/tmp/test_user_dict.txt", "device1");
+
+        // 添加
+        dict.add("nihao", "你好", 5);
+        dict.add("shijie", "世界", 3);
+        check("v150 dict 2 entries", dict.entries.size() == 2);
+        check("v150 dict version 2", dict.version.version == 2);
+
+        // 重复添加（增加频率）
+        dict.add("nihao", "你好", 2);
+        check("v150 dict still 2 entries", dict.entries.size() == 2);
+        check("v150 dict freq 7", dict.entries[0].frequency == 7);
+
+        // 查询
+        auto results = dict.query("nihao");
+        check("v150 query 1 result", results.size() == 1);
+        check("v150 query chinese", results[0].chinese == "你好");
+
+        auto no_results = dict.query("nonexistent");
+        check("v150 query empty", no_results.empty());
+
+        // 更新
+        bool updated = dict.update("shijie", "世界", 10);
+        check("v150 update success", updated);
+        check("v150 update freq 10", dict.entries[1].frequency == 10);
+
+        bool update_fail = dict.update("xxx", "xxx", 1);
+        check("v150 update fail", !update_fail);
+
+        // 删除
+        bool removed = dict.remove("shijie", "世界");
+        check("v150 remove success", removed);
+        check("v150 dict 1 entry after remove", dict.entries.size() == 1);
+
+        bool remove_fail = dict.remove("xxx", "xxx");
+        check("v150 remove fail", !remove_fail);
+
+        // 保存和加载
+        dict.add("ceshi", "测试", 1);
+        bool saved = dict.save();
+        check("v150 save success", saved);
+
+        UserDictManager dict2("/tmp/test_user_dict.txt", "device2");
+        check("v150 load 2 entries", dict2.entries.size() == 2);
+        check("v150 loaded nihao", dict2.entries[0].pinyin == "nihao");
+
+        // 三方合并
+        UserDictManager remote("", "remote");
+        remote.add("nihao", "你好", 10);
+        remote.add("xinwen", "新闻", 5);
+
+        auto merge_result = dict2.merge(remote);
+        check("v150 merge added 1", merge_result.added == 1);
+        check("v150 dict 3 entries after merge", dict2.entries.size() == 3);
+
+        // 导出同步格式
+        std::string exported = dict2.export_sync();
+        check("v150 export non-empty", !exported.empty());
+        check("v150 export has version", exported.find("version") != std::string::npos);
+        check("v150 export has entries", exported.find("entries") != std::string::npos);
+
+        // 统计
+        std::string stats = dict2.stats();
+        check("v150 stats non-empty", !stats.empty());
+
+        // 同步配置
+        SyncConfig sync_cfg;
+        sync_cfg.remote_type = "s3";
+        sync_cfg.remote_path = "mybucket/dict";
+        sync_cfg.local_path = "/tmp/test_user_dict.txt";
+        sync_cfg.auto_sync = true;
+        check("v150 sync cfg s3", sync_cfg.remote_type == "s3");
+        check("v150 sync cfg auto", sync_cfg.auto_sync == true);
+
+        // 同步管理器
+        UserDictSyncManager sync_mgr(sync_cfg);
+        check("v150 sync mgr local dict", sync_mgr.local_dict.dict_file == "/tmp/test_user_dict.txt");
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
