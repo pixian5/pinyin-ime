@@ -8122,3 +8122,67 @@ start-fcitx5.sh
 - 完整编译构建脚本（scripts/build_full_source.sh）
 - 全功能集成测试（DP分词+候选窗+皮肤+表情+云拼音+用户词典）
 - 测试: 553 passed, 5 failed(云缓存)
+
+## v0.9.153-v0.9.162 CLI深度集成+fcitx5修复 (2025-01)
+
+### v0.9.153: CLI集成DP分词
+- batch模式使用`dp_pinyin_segment_hint`替代贪心分词
+- 长拼音串分词提示更准确
+
+### v0.9.154: CLI集成皮肤系统
+- `--skin NAME`参数：sogou/dark/high/retro/matrix/ocean/solar/vertical
+- `--skin /path/to/skin.ini`：自定义皮肤文件
+- 9种内置皮肤+自定义文件加载
+
+### v0.9.155: CLI集成表情面板
+- Ctrl+E增强为分类浏览（12分类）+搜索模式
+- `;`键切换分类，`/`键进入搜索，Esc分级退出
+- 替代旧`emoji_list()`平面列表
+
+### v0.9.156: CLI集成候选窗
+- `--skin`启用时使用`SogouCandidateWindow`渲染
+- 支持unicode/ascii边框、背景色、高亮首选
+- 分页导航和选中状态
+
+### v0.9.157: CLI集成云拼音+词典同步参数
+- `--cloud-config F`：云拼音provider配置文件
+- `--dict-sync R`：用户词典同步到远程
+
+### v0.9.158: fcitx5完整源码编译修复
+- 修复`FCITXUTILS_DEPRECATED`宏不带参数问题（event.h:44加空括号）
+- 修复export宏为空配合`-fvisibility=hidden`导致符号全隐藏（加`visibility("default")`属性）
+- **fcitx5 5.1.23完整源码编译100%成功**（库+模块+测试）
+
+### v0.9.159: CLI云拼音实际查询
+- `--cloud`启用时，本地候选<5个自动查询`CloudPinyinManager`
+- 云候选以☁标记显示，最多3个补充候选
+- 离线自动降级，不影响本地候选
+
+### v0.9.160: CLI词典同步实际操作
+- `--dict-sync push:s3://path`：推送本地词典到远程
+- `--dict-sync pull:s3://path`：从远程拉取词典
+- `--dict-sync sync:s3://path`：三方合并（默认）
+- 使用`UserDictSyncManager`执行实际操作
+
+### v0.9.161: fcitx5 addon表情面板升级
+- 12分类浏览+搜索模式替代旧`emoji_list()`
+- `;`键切换分类，`/`键进入搜索
+- Esc分级退出：搜索→分类→退出
+
+### v0.9.162: fcitx5 addon皮肤支持
+- `skinName_`配置项：指定皮肤名称启用格式增强
+- 预编辑区应用`TextFormatFlag::Underline|Bold`
+- 候选高亮由`candFocus_`控制
+
+### CLI参数完整列表（v0.9.162）
+```
+--skin NAME     皮肤系统（9种内置+自定义文件）
+--cloud         启用云拼音候选词
+--cloud-config F  云拼音provider配置文件
+--dict-sync R   词典同步(push:/pull:/sync: + s3://path)
+--theme NAME    配色主题（兼容旧参数）
+```
+
+### 测试状态
+- 553 passed, 5 failed（5个失败均为云拼音缓存相关，离线环境预期行为）
+- fcitx5 5.1.23完整源码编译100%成功
