@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(LibIMEPinyin REQUIRED)
 
 # Fcitx5Utils library (from prebuilt runtime)
-set(FCITX5_UTILS_LIB "/tmp/pinyin-ime-deploy-v0.9.125/runtime/opt/fcitx5-x11/lib/libFcitx5Utils.so.2")
+set(FCITX5_UTILS_LIB "/root/workspace/pinyin-ime/pinyin-ime-s3/pinyin-ime-deploy-v0.9.125/runtime/opt/fcitx5-x11/lib/libFcitx5Utils.so.2")
 
 add_executable(libime_bench libime_bench.cpp)
 target_link_libraries(libime_bench PRIVATE LibIME::Pinyin LibIME::Core ${FCITX5_UTILS_LIB})

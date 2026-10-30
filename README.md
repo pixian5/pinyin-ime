@@ -14,25 +14,26 @@
 > 现有模糊音相关代码暂不删除，但 **全部处于死代码状态**，不维护、不测试、不保证可用。
 > 后续版本将逐步清理。
 
-## 开发环境状态（2026-10-30 更新）
+## 开发环境状态（2026-10-31 更新）
 
 ### 当前环境
 - OS/架构：openEuler 22.03 LTS, aarch64
-- 公网 IP：`123.60.102.75`（已置顶 `ip.txt`）
+- 公网 IP：`60.204.188.50`（已置顶 `ip.txt`）
 - 代理：127.0.0.1:7890（已就绪）
 - 构建工具链：conda-forge GCC 16.2.0（micromamba 2.9.0）
 - rclone v1.75.2（已安装，配置 CSTCloud S3）
 - S3 预构建产物：v0.9.139 已下载到 `./pinyin-ime-s3/`（48MB）
 - 便携运行时：v0.9.125 runtime（68MB，含 fcitx5-x11 库）
-- CLI 运行验证：✅ `nihao`→你好, `zhongguo`→中国, `woshizhongguoren`→我是中国人
-- 单元测试：331 passed, 5 failed（5 个失败均为云拼音缓存相关，离线环境正常）
+- **CLI 从源码编译成功**：v0.9.144（conda-forge GCC 16.2.0 + S3 预构建 libime 库）
+- CLI 运行验证：✅ `nihao`→你好, `zhongguo`→中国, `woshizhongguoren`→我是中国人, `jintiantianqihenhao`→今天天气很好
+- 单元测试：401 passed, 5 failed（5 个失败均为云拼音缓存相关，离线环境正常）
 
 ### 开发依赖（已安装）
 - boost-devel, cmake, ninja-build, pkg-config, gettext-devel, libuuid-devel
 - fmt-devel, zstd-devel, libuv-devel, extra-cmake-modules
 - conda-forge: gcc 16.2.0, gxx 16.2.0, boost-cpp, cmake, ninja
-- fcitx5 5.1.23 源码（已下载，待编译）
-- libime 1.1.17 源码（已下载，待编译）
+- fcitx5 5.1.23 源码（已下载，头文件用于编译）
+- libime 1.1.17 源码（已下载，头文件用于编译）
 
 ### 便捷运行
 ```bash
