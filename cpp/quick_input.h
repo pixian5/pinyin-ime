@@ -4569,4 +4569,212 @@ inline std::string special_char_panel_render() {
     return result;
 }
 
+// ── v0.9.149 云拼音多provider框架 ──────────────────────────────
+// Provider类型
+enum class CloudProviderType {
+    LOCAL,      // 本地词典
+    HTTP,       // HTTP API
+    GRPC,       // gRPC (框架)
+    OFFLINE     // 离线降级
+};
+
+// Provider配置
+struct CloudProviderConfig {
+    std::string name;
+    CloudProviderType type = CloudProviderType::LOCAL;
+    std::string endpoint;         // API地址
+    std::string api_key;
+    int timeout_ms = 3000;
+    int priority = 0;             // 优先级(数字越小优先级越高)
+    bool enabled = true;
+    int cache_ttl_seconds = 3600; // 缓存TTL
+};
+
+// 请求合并去重：相同pinyin的请求只发一次
+struct CloudRequestMerger {
+    std::unordered_map<std::string, std::vector<CloudCandidate>> pending_cache;
+    std::unordered_map<std::string, int64_t> cache_timestamps;
+
+    bool has_cached(const std::string& pinyin, int ttl_seconds) {
+        auto it = pending_cache.find(pinyin);
+        if (it == pending_cache.end()) return false;
+        auto ts_it = cache_timestamps.find(pinyin);
+        if (ts_it == cache_timestamps.end()) return false;
+        // 简单TTL检查（用time(nullptr)）
+        int64_t now = (int64_t)time(nullptr);
+        return (now - ts_it->second) < ttl_seconds;
+    }
+
+    std::vector<CloudCandidate> get_cached(const std::string& pinyin) {
+        auto it = pending_cache.find(pinyin);
+        if (it != pending_cache.end()) return it->second;
+        return {};
+    }
+
+    void set_cached(const std::string& pinyin, const std::vector<CloudCandidate>& cands) {
+        pending_cache[pinyin] = cands;
+        cache_timestamps[pinyin] = (int64_t)time(nullptr);
+    }
+
+    void clear_expired(int ttl_seconds) {
+        int64_t now = (int64_t)time(nullptr);
+        for (auto it = cache_timestamps.begin(); it != cache_timestamps.end();) {
+            if (now - it->second >= ttl_seconds) {
+                pending_cache.erase(it->first);
+                it = cache_timestamps.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    size_t cache_size() const { return pending_cache.size(); }
+};
+
+// 多provider云拼音管理器
+class CloudPinyinManager {
+public:
+    std::vector<CloudProviderConfig> providers;
+    CloudRequestMerger merger;
+    std::string cache_dir;
+
+    explicit CloudPinyinManager(const std::string& cache = "") : cache_dir(cache) {}
+
+    // 添加provider
+    void add_provider(const CloudProviderConfig& cfg) {
+        providers.push_back(cfg);
+        // 按优先级排序
+        std::sort(providers.begin(), providers.end(),
+                  [](const auto& a, const auto& b) { return a.priority < b.priority; });
+    }
+
+    // 查询：按优先级尝试各provider
+    std::vector<CloudCandidate> query(const std::string& pinyin) {
+        if (pinyin.empty()) return {};
+
+        for (const auto& provider : providers) {
+            if (!provider.enabled) continue;
+
+            // 检查请求合并缓存
+            if (merger.has_cached(pinyin, provider.cache_ttl_seconds)) {
+                auto cached = merger.get_cached(pinyin);
+                if (!cached.empty()) return cached;
+            }
+
+            std::vector<CloudCandidate> result;
+
+            switch (provider.type) {
+                case CloudProviderType::LOCAL:
+                    result = query_local(pinyin, provider);
+                    break;
+                case CloudProviderType::HTTP:
+                    result = query_http(pinyin, provider);
+                    break;
+                case CloudProviderType::GRPC:
+                    result = {};  // 框架
+                    break;
+                case CloudProviderType::OFFLINE:
+                    result = {};  // 离线降级返回空
+                    break;
+            }
+
+            if (!result.empty()) {
+                merger.set_cached(pinyin, result);
+                return result;
+            }
+        }
+
+        return {};  // 所有provider都失败
+    }
+
+    // 批量查询（请求合并）
+    std::unordered_map<std::string, std::vector<CloudCandidate>>
+    batch_query(const std::vector<std::string>& pinyins) {
+        std::unordered_map<std::string, std::vector<CloudCandidate>> results;
+        for (const auto& p : pinyins) {
+            if (results.count(p)) continue;  // 去重
+            results[p] = query(p);
+        }
+        return results;
+    }
+
+    // 获取缓存统计
+    std::string cache_stats() const {
+        return "缓存条目: " + std::to_string(merger.cache_size());
+    }
+
+    // 清理过期缓存
+    void cleanup_cache() {
+        for (const auto& p : providers) {
+            merger.clear_expired(p.cache_ttl_seconds);
+        }
+    }
+
+private:
+    // 本地词典provider
+    std::vector<CloudCandidate> query_local(const std::string& pinyin,
+                                            const CloudProviderConfig& cfg) {
+        // 从本地缓存文件加载
+        if (cache_dir.empty()) return {};
+
+        std::string cache_file = cache_dir + "/cloud_" + pinyin + ".dat";
+        FILE* fp = std::fopen(cache_file.c_str(), "r");
+        if (!fp) return {};
+
+        std::vector<CloudCandidate> result;
+        char line[512];
+        while (std::fgets(line, sizeof(line), fp)) {
+            std::string s(line);
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            if (s.empty()) continue;
+
+            CloudCandidate c;
+            size_t tab1 = s.find('\t');
+            if (tab1 == std::string::npos) continue;
+            c.chinese = s.substr(0, tab1);
+
+            size_t tab2 = s.find('\t', tab1 + 1);
+            if (tab2 == std::string::npos) {
+                c.confidence = std::atoi(s.substr(tab1 + 1).c_str());
+            } else {
+                c.confidence = std::atoi(s.substr(tab1 + 1, tab2 - tab1 - 1).c_str());
+                c.source = s.substr(tab2 + 1);
+            }
+            c.pinyin = pinyin;
+            result.push_back(c);
+        }
+        std::fclose(fp);
+        return result;
+    }
+
+    // HTTP API provider（框架——实际需libcurl）
+    std::vector<CloudCandidate> query_http(const std::string& pinyin,
+                                           const CloudProviderConfig& cfg) {
+        // 框架代码：实际部署时用libcurl发送HTTP请求
+        // POST cfg.endpoint
+        // Body: {"pinyin": "...", "api_key": "..."}
+        // Response: {"candidates": [{"chinese": "...", "confidence": 90}]}
+        //
+        // 离线环境下返回空，触发降级
+        return {};
+    }
+};
+
+// 便捷：创建默认多provider配置
+inline CloudPinyinManager create_default_cloud_manager(const std::string& cache_dir = "") {
+    CloudPinyinManager mgr(cache_dir);
+
+    // Provider 1: 本地缓存（最高优先级）
+    mgr.add_provider({"local", CloudProviderType::LOCAL, "", "", 1000, 0, true, 7200});
+
+    // Provider 2: HTTP API（中优先级）
+    mgr.add_provider({"http", CloudProviderType::HTTP,
+                      "https://pinyin-api.example.com/v1/query", "", 3000, 1, true, 3600});
+
+    // Provider 3: 离线降级（最低优先级）
+    mgr.add_provider({"offline", CloudProviderType::OFFLINE, "", "", 0, 2, true, 0});
+
+    return mgr;
+}
+
 } // namespace pinyin_ime

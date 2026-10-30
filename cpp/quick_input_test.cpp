@@ -1531,6 +1531,69 @@ int main() {
         check("v148 special panel has title", special_render.find("特殊字符面板") != std::string::npos);
         check("v148 special has math", special_render.find("数学符号") != std::string::npos);
     }
+
+    // ═══ v0.9.149 测试 ═══════════════════════════════════════════
+    {
+        // 多provider管理器
+        auto mgr = create_default_cloud_manager("/tmp/pinyin_cloud_cache");
+        check("v149 3 providers", mgr.providers.size() == 3);
+
+        // Provider按优先级排序
+        check("v149 provider 0 is local", mgr.providers[0].name == "local");
+        check("v149 provider 1 is http", mgr.providers[1].name == "http");
+        check("v149 provider 2 is offline", mgr.providers[2].name == "offline");
+
+        // 查询空pinyin
+        auto empty_result = mgr.query("");
+        check("v149 query empty returns empty", empty_result.empty());
+
+        // 批量查询去重
+        std::vector<std::string> pinyins = {"nihao", "nihao", "shijie"};
+        auto batch = mgr.batch_query(pinyins);
+        check("v149 batch dedup 2 entries", batch.size() == 2);
+
+        // 请求合并器
+        CloudRequestMerger merger;
+        check("v149 merger empty initially", merger.cache_size() == 0);
+
+        std::vector<CloudCandidate> cands = {{"你好", "nihao", 90, "local"}};
+        merger.set_cached("nihao", cands);
+        check("v149 merger cache 1 entry", merger.cache_size() == 1);
+        check("v149 merger has cached", merger.has_cached("nihao", 3600));
+        check("v149 merger no cached for unknown", !merger.has_cached("unknown", 3600));
+
+        auto cached = merger.get_cached("nihao");
+        check("v149 merger get cached 1 result", cached.size() == 1);
+        check("v149 merger cached chinese", cached[0].chinese == "你好");
+
+        // TTL过期检查（TTL=0应该过期）
+        check("v149 merger ttl 0 expired", !merger.has_cached("nihao", 0));
+
+        // 清理过期
+        merger.clear_expired(0);
+        check("v149 merger cleared", merger.cache_size() == 0);
+
+        // Provider配置
+        CloudProviderConfig cfg;
+        cfg.name = "test_provider";
+        cfg.type = CloudProviderType::HTTP;
+        cfg.endpoint = "https://api.example.com";
+        cfg.priority = 5;
+        cfg.cache_ttl_seconds = 1800;
+        check("v149 cfg type http", cfg.type == CloudProviderType::HTTP);
+        check("v149 cfg priority 5", cfg.priority == 5);
+        check("v149 cfg ttl 1800", cfg.cache_ttl_seconds == 1800);
+
+        // 缓存统计
+        auto stats = mgr.cache_stats();
+        check("v149 cache stats non-empty", !stats.empty());
+
+        // 手动添加provider
+        CloudPinyinManager mgr2;
+        mgr2.add_provider({"p1", CloudProviderType::LOCAL, "", "", 100, 2, true, 3600});
+        mgr2.add_provider({"p2", CloudProviderType::LOCAL, "", "", 100, 1, true, 3600});
+        check("v149 mgr2 sorted by priority", mgr2.providers[0].name == "p2");
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
