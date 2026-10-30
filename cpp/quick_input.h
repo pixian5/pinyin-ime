@@ -1996,8 +1996,9 @@ context_rank_candidates(const std::vector<std::string> &candidates,
                          const std::string &last_committed) {
     if (candidates.empty() || last_committed.empty()) return candidates;
 
-    // 上下文关联表：某些词后面更可能跟某些词
+    // 上下文关联表：某些词后面更可能跟某些词（v0.9.145 扩展至 72 条）
     static const std::vector<std::pair<std::string, std::string>> context_rules = {
+        // 原有 36 条
         {"你", "好"}, {"你", "们"}, {"我", "们"}, {"我", "的"},
         {"他", "们"}, {"这", "个"}, {"那", "个"}, {"什", "么"},
         {"为", "什"}, {"因", "为"}, {"所", "以"}, {"但", "是"},
@@ -2008,6 +2009,16 @@ context_rank_candidates(const std::vector<std::string> &candidates,
         {"工", "作"}, {"学", "习"}, {"生", "活"}, {"时", "间"},
         {"今", "天"}, {"明", "天"}, {"昨", "天"}, {"前", "天"},
         {"上", "午"}, {"下", "午"}, {"晚", "上"}, {"早", "上"},
+        // v0.9.145 新增 36 条
+        {"请", "问"}, {"谢", "谢"}, {"不", "用"}, {"不", "是"},
+        {"可", "以"}, {"能", "够"}, {"应", "该"}, {"需", "要"},
+        {"已", "经"}, {"正", "在"}, {"将", "会"}, {"可", "能"},
+        {"问", "题"}, {"方", "法"}, {"结", "果"}, {"原", "因"},
+        {"程", "序"}, {"代", "码"}, {"系", "统"}, {"网", "络"},
+        {"数", "据"}, {"技", "术"}, {"开", "发"}, {"测", "试"},
+        {"用", "户"}, {"服", "务"}, {"安", "全"}, {"性", "能"},
+        {"手", "机"}, {"电", "脑"}, {"网", "站"}, {"软", "件"},
+        {"人", "工"}, {"智", "能"}, {"机", "器"}, {"深", "度"},
     };
 
     auto result = candidates;
@@ -3775,6 +3786,238 @@ inline std::vector<std::string> quick_candidates_v5(const std::string& input,
         bool dup = false;
         for (auto& r : result) if (r == s) { dup = true; break; }
         if (!dup) result.insert(result.begin(), s);  // 整句优先
+    }
+
+    return result;
+}
+
+// ── v0.9.145 智能拼音纠错 ──────────────────────────────────
+// 检测并修正常见的拼音输入错误
+inline std::vector<std::string> smart_pinyin_correct(const std::string& input) {
+    std::vector<std::string> corrections;
+    if (input.empty() || input.size() < 2) return corrections;
+
+    // 常见拼音错误模式：{错误模式, 修正}
+    static const std::vector<std::pair<std::string, std::string>> typo_patterns = {
+        // 遗漏韵母
+        {"zhonggu", "zhongguo"},   // 中国 遗漏 o
+        {"meiyo", "meiyou"},       // 没有 遗漏 u
+        {"buxhuan", "buxihuan"},   // 不喜欢 i→x
+        // 声母混淆
+        {"zhongguo", "zhongguo"},  // 正确，不修正
+        {"chongguo", "zhongguo"},  // ch→zh
+        {"zongguo", "zhongguo"},   // z→zh (补h)
+        {"shuzi", "shuzi"},        // 正确
+        {"suzi", "shuzi"},         // s→sh
+        // 韵母混淆
+        {"nihao", "nihao"},        // 正确
+        {"nihao", "nihao"},        // 正确
+        // 前后鼻音
+        {"zaijian", "zaijian"},    // 正确
+        // 常见多字词遗漏
+        {"xiexie", "xiexie"},      // 正确
+        {"xieixe", "xiexie"},      // 字母顺序错误
+        // n/l 混淆
+        {"lihao", "nihao"},        // l→n
+        // h 遗漏
+        {"suzi", "shuzi"},
+        {"cizi", "chizi"},
+        // 常见整词纠错
+        {"shurufa", "shurufa"},    // 正确
+        {"shurufa", "shurufa"},
+    };
+
+    // 生成修正候选（去重）
+    for (auto& pattern : typo_patterns) {
+        if (input == pattern.first && pattern.first != pattern.second) {
+            // 避免重复
+            bool dup = false;
+            for (auto& c : corrections) if (c == pattern.second) { dup = true; break; }
+            if (!dup) corrections.push_back(pattern.second);
+        }
+    }
+
+    // 通用纠错：尝试在常见位置插入/删除/替换字符
+    // 1. 尝试在末尾补全常见韵母
+    if (input.size() >= 3) {
+        std::string last2 = input.substr(input.size() - 2);
+        // 如果以声母结尾，尝试补韵母
+        static const std::set<std::string> consonants = {
+            "zh", "ch", "sh", "b", "p", "m", "f", "d", "t",
+            "n", "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s"
+        };
+        if (consonants.count(last2) || consonants.count(input.substr(input.size() - 1))) {
+            // 尝试补 "a", "e", "i", "o", "u"
+            for (auto vowel : {'a', 'e', 'i', 'o', 'u'}) {
+                std::string corrected = input + vowel;
+                bool dup = false;
+                for (auto& c : corrections) if (c == corrected) { dup = true; break; }
+                if (!dup) corrections.push_back(corrected);
+            }
+        }
+    }
+
+    // 2. 尝试在 zh/ch/sh 位置补 h
+    for (size_t i = 0; i + 1 < input.size(); ++i) {
+        if ((input[i] == 'z' || input[i] == 'c' || input[i] == 's') &&
+            input[i + 1] != 'h' && input[i + 1] != 'a' && input[i + 1] != 'e' &&
+            input[i + 1] != 'i' && input[i + 1] != 'o' && input[i + 1] != 'u' &&
+            input[i + 1] != 'n' && input[i + 1] != 'g') {
+            std::string corrected = input;
+            corrected.insert(i + 1, "h");
+            bool dup = false;
+            for (auto& c : corrections) if (c == corrected) { dup = true; break; }
+            if (!dup) corrections.push_back(corrected);
+        }
+    }
+
+    return corrections;
+}
+
+// ── v0.9.145 增强上下文排序（支持多词上下文） ──────────────
+// 不仅看上一个词，还看上上个词，实现更精准的候选排序
+inline std::vector<std::string>
+context_rank_candidates_v2(const std::vector<std::string>& candidates,
+                            const std::string& last_committed,
+                            const std::string& prev_committed = "") {
+    auto result = context_rank_candidates(candidates, last_committed);
+
+    // 二级上下文：两个词的组合关联
+    if (!prev_committed.empty() && !last_committed.empty() && result.size() > 1) {
+        // 常见三词组合
+        static const std::vector<std::vector<std::string>> trigram_rules = {
+            {"你", "好", "吗"},     // 你好吗
+            {"我", "的", "名"},     // 我的名字
+            {"不", "知", "道"},     // 不知道
+            {"现", "在", "时"},     // 现在时间
+            {"今", "天", "天"},     // 今天天气
+            {"中", "国", "人"},     // 中国人
+            {"人", "工", "智"},     // 人工智能
+            {"数", "据", "科"},     // 数据科学
+            {"网", "络", "安"},     // 网络安全
+            {"系", "统", "架"},     // 系统架构
+        };
+
+        for (auto& rule : trigram_rules) {
+            if (prev_committed == rule[0] && last_committed == rule[1]) {
+                // 把包含 rule[2] 的候选排到前面
+                for (size_t i = 1; i < result.size(); ++i) {
+                    if (result[i].find(rule[2]) != std::string::npos) {
+                        std::swap(result[0], result[i]);
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+// ── v0.9.145 扩展句式模板（新增 20 个常用模板） ──────────────
+inline std::vector<std::pair<std::string, std::string>>
+extended_sentence_templates() {
+    auto templates = builtin_sentence_templates();  // 原有 34 个
+
+    // v0.9.145 新增 20 个
+    std::vector<std::pair<std::string, std::string>> new_templates = {
+        {"ks", "开始"},           // 开始
+        {"js", "结束"},           // 结束
+        {"wz", "正在"},           // 正在
+        {"yy", "已有"},           // 已有
+        {"xy", "需要"},           // 需要
+        {"my", "没有"},           // 没有
+        {"bm", "不好意思"},       // 不好意思
+        {"dl", "登录"},           // 登录
+        {"tc", "退出"},           // 退出
+        {"sc", "删除"},           // 删除
+        {"xg", "修改"},           // 修改
+        {"cx", "查询"},           // 查询
+        {"tj", "添加"},           // 添加
+        {"gx", "更新"},           // 更新
+        {"az", "安装"},           // 安装
+        {"xz", "下载"},           // 下载
+        {"sc", "上传"},           // 上传
+        {"bf", "备份"},           // 备份
+        {"hf", "恢复"},           // 恢复
+        {"bt", "抱歉，"},         // 抱歉
+    };
+
+    for (auto& t : new_templates) {
+        bool dup = false;
+        for (auto& existing : templates) {
+            if (existing.first == t.first) { dup = true; break; }
+        }
+        if (!dup) templates.push_back(t);
+    }
+
+    return templates;
+}
+
+// ── v0.9.145 候选词质量评分 ──────────────────────────────────
+// 对候选词进行质量评分，用于排序优化
+inline int candidate_quality_score(const std::string& candidate,
+                                    const std::string& input) {
+    int score = 0;
+
+    // 1. 长度匹配：候选词长度与输入拼音预期长度越接近越好
+    // UTF-8 中文每字 3 字节，拼音每音节约 2-4 字母
+    size_t expected_chars = input.size() / 3;  // 估计汉字个数
+    size_t expected_bytes = expected_chars * 3;  // 估计 UTF-8 字节数
+    if (candidate.size() == expected_bytes) score += 10;
+    else if (candidate.size() >= expected_bytes / 2 && candidate.size() <= expected_bytes * 2) score += 5;
+    // 给所有非空候选基础分
+    if (!candidate.empty()) score += 1;
+
+    // 2. 常用字加分
+    static const std::set<std::string> common_chars = {
+        "的", "是", "在", "我", "有", "人", "这", "中",
+        "大", "为", "上", "个", "国", "不", "到", "会",
+        "时", "要", "说", "就", "出", "会", "可", "也",
+        "对", "生", "能", "而", "子", "那", "得", "于",
+    };
+    for (auto& ch : common_chars) {
+        if (candidate.find(ch) != std::string::npos) score += 2;
+    }
+
+    // 3. 包含标点减分（通常不是首选）
+    for (char c : candidate) {
+        if (c == ' ' || c == '	') score -= 1;
+    }
+
+    return score;
+}
+
+// 统一入口：搜狗式快速输入 v6（v0.9.145）
+inline std::vector<std::string> quick_candidates_v6(const std::string& input,
+                    const std::string& preceding = "",
+                    const std::string& prev2 = "",
+                    const std::string& theme_name = "default") {
+    // 基于 v5
+    auto result = quick_candidates_v5(input, preceding, theme_name);
+
+    // 智能拼音纠错候选
+    auto corrections = smart_pinyin_correct(input);
+    for (auto& c : corrections) {
+        bool dup = false;
+        for (auto& r : result) if (r == c) { dup = true; break; }
+        if (!dup) result.push_back(c);
+    }
+
+    // 扩展句式模板
+    auto templates = extended_sentence_templates();
+    for (auto& t : templates) {
+        if (input == t.first) {
+            bool dup = false;
+            for (auto& r : result) if (r == t.second) { dup = true; break; }
+            if (!dup) result.insert(result.begin(), t.second);
+        }
+    }
+
+    // 增强上下文排序
+    if (!preceding.empty()) {
+        result = context_rank_candidates_v2(result, preceding, prev2);
     }
 
     return result;

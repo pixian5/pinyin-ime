@@ -1299,6 +1299,71 @@ int main() {
         auto v5 = quick_candidates_v5("nihao");
         check("quick_candidates_v5 non-empty", !v5.empty());
     }
+
+    // ═══ v0.9.145 测试 ═══════════════════════════════════════════
+    {
+        // smart_pinyin_correct basic
+        auto corrections = smart_pinyin_correct("zhonggu");
+        check("v145 spc zhonggu has corrections", !corrections.empty());
+        bool has_zhongguo = false;
+        for (auto& c : corrections) if (c == "zhongguo") has_zhongguo = true;
+        check("v145 spc zhonggu→zhongguo", has_zhongguo);
+
+        // smart_pinyin_correct empty
+        auto empty_corr = smart_pinyin_correct("");
+        check("v145 spc empty input", empty_corr.empty());
+
+        // smart_pinyin_correct h insertion
+        auto suzi_corr = smart_pinyin_correct("suzi");
+        check("v145 spc suzi has corrections", !suzi_corr.empty());
+
+        // context_rank_candidates_v2 basic
+        std::vector<std::string> cands = {"吗", "码", "马", "麻"};
+        auto ranked = context_rank_candidates_v2(cands, "好", "你");
+        check("v145 crv2 你好吗 first", ranked[0] == "吗");
+
+        // context_rank_candidates_v2 no context
+        std::vector<std::string> cands2 = {"a", "b", "c"};
+        auto ranked2 = context_rank_candidates_v2(cands2, "", "");
+        check("v145 crv2 no context preserves order", ranked2 == cands2);
+
+        // extended_sentence_templates
+        auto templates = extended_sentence_templates();
+        check("v145 templates > 34", templates.size() > 34);
+        bool has_ks = false;
+        for (auto& t : templates) {
+            if (t.first == "ks" && t.second == "开始") has_ks = true;
+        }
+        check("v145 templates has ks→开始", has_ks);
+
+        // candidate_quality_score
+        int score1 = candidate_quality_score("你好", "nihao");
+        check("v145 cqs 你好 positive", score1 > 0);
+        int score_de = candidate_quality_score("的", "de");
+        check("v145 cqs 的 positive", score_de > 0);
+
+        // quick_candidates_v6 basic
+        auto v6 = quick_candidates_v6("xw");
+        check("v146 v6 xw non-empty", !v6.empty());
+        bool has_template = false;
+        for (auto& r : v6) {
+            if (r.find("请问") != std::string::npos) has_template = true;
+        }
+        check("v145 v6 xw has 请问", has_template);
+
+        // quick_candidates_v6 extended templates
+        auto v6_ks = quick_candidates_v6("ks");
+        check("v145 v6 ks non-empty", !v6_ks.empty());
+        bool has_kaishi = false;
+        for (auto& r : v6_ks) {
+            if (r == "开始") has_kaishi = true;
+        }
+        check("v145 v6 ks has 开始", has_kaishi);
+
+        // quick_candidates_v6 with context
+        auto v6_ctx = quick_candidates_v6("hao", "你", "");
+        check("v145 v6 with context non-empty", !v6_ctx.empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
