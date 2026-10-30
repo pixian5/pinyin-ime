@@ -2517,6 +2517,9 @@ int main(int argc, char **argv) {
     bool englishMode = false;   // 中/英切换：Tab 切换；英文态原样透传
     bool emojiMode = false;    // 表情选择：Ctrl-E 进入；1-9 选表情、[,]/[.] 翻页、Esc 返回
     size_t emojiPage = 0;      // 表情当前页（每页 9 个）
+    int emojiCategory = 0;   // v0.9.155: 表情分类索引
+    bool emojiSearchMode = false;  // v0.9.155: 表情搜索模式
+    std::string emojiSearchBuf;    // v0.9.155: 搜索缓冲
     bool quoteOpen = false;    // 双引号智能配对：开“/闭”交替
     bool singleQuoteOpen = false;  // 单引号智能配对：开‘/闭’交替（空闲时；打拼音中仍是隔音符）
     std::string engBuf;         // 英文态累积缓冲（回车整行上屏）
@@ -2532,16 +2535,31 @@ int main(int argc, char **argv) {
             return;
         }
         if (emojiMode) {
-            const auto &list = emoji_list();
-            const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / kPageSize;
-            if (emojiPage > maxPage) emojiPage = maxPage;
-            std::cout << "表情[" << (emojiPage + 1) << "/" << (maxPage + 1) << "]: ";
-            for (size_t i = emojiPage * kPageSize;
-                 i < std::min<size_t>(list.size(), emojiPage * kPageSize + kPageSize); ++i) {
-                std::cout << (i - emojiPage * kPageSize + 1) << "." << list[i].glyph
-                          << list[i].label << " ";
+            // v0.9.155: 增强表情面板 — 分类浏览+搜索
+            if (emojiSearchMode) {
+                std::cout << "表情搜索[" << emojiSearchBuf << "]: ";
+                auto results = pinyin_ime::emoji_search(emojiSearchBuf);
+                for (size_t i = 0; i < std::min<size_t>(results.size(), 9); ++i) {
+                    std::cout << (i + 1) << "." << results[i].first << " ";
+                }
+                if (results.empty()) std::cout << "(无匹配)";
+                std::cout << "  [字母搜索 / Esc 返回]";
+                std::cout.flush();
+                return;
             }
-            std::cout << "  [1-9 选 / ,. 翻页 / Esc 返回]";
+            // 分类浏览
+            auto cats = pinyin_ime::emoji_panel_categories();
+            if (emojiCategory < 0) emojiCategory = 0;
+            if (emojiCategory >= (int)cats.size()) emojiCategory = (int)cats.size() - 1;
+            auto emojis = pinyin_ime::emoji_panel_by_category(cats[emojiCategory]);
+            const size_t maxPage = emojis.empty() ? 0 : (emojis.size() - 1) / kPageSize;
+            if (emojiPage > maxPage) emojiPage = maxPage;
+            std::cout << "表情[" << cats[emojiCategory] << "] " << (emojiCategory + 1) << "/" << cats.size() << " 页" << (emojiPage + 1) << "/" << (maxPage + 1) << ": ";
+            for (size_t i = emojiPage * kPageSize;
+                 i < std::min<size_t>(emojis.size(), emojiPage * kPageSize + kPageSize); ++i) {
+                std::cout << (i - emojiPage * kPageSize + 1) << "." << emojis[i] << " ";
+            }
+            std::cout << "  [1-9 选 / ,. 翻页 / ; 分类 / / 搜索 / Esc 返回]";
             std::cout.flush();
             return;
         }
@@ -2688,11 +2706,13 @@ int main(int argc, char **argv) {
             if (key == kKeyEsc || key == 0x05) {  // Esc / Ctrl-E：退回中文
                 emojiMode = false;
             } else if (ch == ',' || ch == '[') {  // 上一页
-                if (emojiPage > 0) --emojiPage;
+                if (emojiSearchMode) { if (!emojiSearchBuf.empty()) emojiSearchBuf.pop_back(); }
+                    else if (emojiPage > 0) --emojiPage;
             } else if (ch == '.' || ch == ']') {  // 下一页
                 const auto &l2 = emoji_list();
                 const size_t mp = l2.empty() ? 0 : (l2.size() - 1) / kPageSize;
-                if (emojiPage < mp) ++emojiPage;
+                if (emojiSearchMode) { /* no-op in search */ }
+                    else if (emojiPage < mp) ++emojiPage;
             } else if (ch >= '1' && ch <= '9') {  // 选当前页第 N 个表情
                 const auto &l3 = emoji_list();
                 size_t idx = emojiPage * kPageSize + static_cast<size_t>(ch - '1');
