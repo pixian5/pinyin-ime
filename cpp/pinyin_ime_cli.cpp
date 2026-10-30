@@ -2627,6 +2627,14 @@ int main(int argc, char **argv) {
         }
         std::cout << theme.preedit_color << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << theme.reset << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
+        // v0.9.159: 云拼音补充 — 当本地候选不足且--cloud启用时，查询cloudMgr
+        std::vector<std::string> cloudCands;
+        if (cloudEnabled && cands.size() < 5 && !preedit_compact(ctx).empty()) {
+            auto cloudResults = cloudMgr.query(preedit_compact(ctx));
+            for (const auto& cc : cloudResults) {
+                cloudCands.push_back(cc.chinese);
+            }
+        }
         // v0.9.156: 使用SogouCandidateWindow渲染（当--skin启用时）
         if (useSkin && !cands.empty()) {
             std::vector<std::string> candStrs;
@@ -2668,6 +2676,14 @@ int main(int argc, char **argv) {
         if (page > maxPage) page = maxPage;
         const size_t begin = page * kPageSize;
         const size_t end = std::min<size_t>(total, begin + kPageSize);
+        // v0.9.159: 显示云拼音补充候选
+        if (!cloudCands.empty() && total < 5) {
+            std::cout << theme.hint_color << "  ☁ ";
+            for (size_t ci = 0; ci < std::min<size_t>(cloudCands.size(), 3); ++ci) {
+                std::cout << cloudCands[ci] << " ";
+            }
+            std::cout << theme.reset;
+        }
         for (size_t i = begin; i < end; ++i) {
             size_t dispIdx = i;
             if (boostSwap > 0 && i < total) {
