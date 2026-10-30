@@ -2224,7 +2224,7 @@ int main(int argc, char **argv) {
                 }
                 // v0.9.127: 拼音分词提示（长拼音串 → 分词显示）
                 {
-                    auto segHint = pinyin_ime::pinyin_segment_hint(line);
+                    auto segHint = pinyin_ime::dp_pinyin_segment_hint(line); // v0.9.153: DP分词
                     if (!segHint.empty()) {
                         // 输出分词提示到 stderr，不干扰正常候选
                         std::cerr << "[分词] " << segHint << "\n";
