@@ -136,6 +136,8 @@ void usage(const char *prog) {
         << "  --dict-search K 搜索词条（关键词匹配拼音或中文）\n"
         << "  --stats-report  输入统计面板（高频词/准确率/使用量）\n"
         << "  --theme NAME   配色主题：default/dark/high/retro/matrix/ocean/solar\n"
+        << "  --skin NAME   皮肤系统(v0.9.154)：sogou/dark/high/retro/matrix/ocean/solar/vertical\n"
+        << "                 或指定皮肤文件路径加载自定义皮肤\n"
         << "  --cloud        启用云拼音候选词（需网络，离线自动降级）\n"
         << "  --fuzzy CFG    模糊音：z_zh,c_ch,s_sh,n_l,an_ang,en_eng,in_ing 或 all\n"
         << "  --clipboard    剪贴板历史（查看/搜索/粘贴最近复制的文本）\n"
@@ -802,6 +804,7 @@ int main(int argc, char **argv) {
     bool dictExport = false;      // --dict-export
     bool statsReport = false;     // --stats-report
     std::string themeName = "default";  // --theme
+    std::string skinName;  // --skin (v0.9.154)
     bool cloudEnabled = false;  // --cloud
     std::string fuzzyConfig;  // --fuzzy (模糊音配置)
     bool clipboardMode = false;  // --clipboard
@@ -867,6 +870,9 @@ int main(int argc, char **argv) {
         } else if (a == "--theme") {
             if (i + 1 >= argc) { std::cerr << "--theme 缺少参数\n"; return 1; }
             themeName = argv[++i];
+        } else if (a == "--skin") {
+            if (i + 1 >= argc) { std::cerr << "--skin 缺少参数\n"; return 1; }
+            skinName = argv[++i];
         } else if (a == "--cloud") {
             cloudEnabled = true;
         } else if (a == "--clipboard") {
@@ -1588,6 +1594,26 @@ int main(int argc, char **argv) {
     std::string userHistPath, userDictPath;
     pinyin_ime::RecentHistory recentHistory;  // v0.9.129: 最近输入记忆
     pinyin_ime::Theme theme = pinyin_ime::get_theme(themeName);  // v0.9.131: 主题
+    // v0.9.154: 皮肤系统（如果指定了--skin，用SkinConfig替代Theme）
+    pinyin_ime::SkinConfig skin;
+    bool useSkin = false;
+    if (!skinName.empty()) {
+        if (skinName.find('/') != std::string::npos || skinName.find('.') != std::string::npos) {
+            // 文件路径 → 加载自定义皮肤
+            skin = pinyin_ime::load_skin_from_file(skinName);
+        } else {
+            // 内置皮肤名
+            skin = pinyin_ime::get_skin(skinName);
+        }
+        useSkin = true;
+        // 同步到theme以兼容现有渲染代码
+        theme.preedit_color = skin.preedit_color;
+        theme.candidate_color = skin.candidate_color;
+        theme.focus_color = skin.focus_color;
+        theme.index_color = skin.index_color;
+        theme.hint_color = skin.hint_color;
+        theme.reset = skin.reset_color;
+    }
     pinyin_ime::UserFreqTable userFreqTable;  // v0.9.130: 用户词频学习
     const bool persist = !userDataDir.empty();
     if (persist) { recentHistory.load_from_file(userDataDir + "/recent_history.txt"); }
