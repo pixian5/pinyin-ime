@@ -109,6 +109,9 @@ public:
     // 双拼运行时开关（Ctrl+Shift+S 切换，初始值来自配置）
     bool shuangpinEnabled_ = false;
     size_t emojiPage_ = 0;
+    int emojiCategory_ = 0;      // v0.9.161: 表情分类
+    bool emojiSearchMode_ = false; // v0.9.161: 表情搜索
+    std::string emojiSearchBuf_;   // v0.9.161: 搜索缓冲
     // v 模式（搜狗式符号输入）：输入 v 后跟数字/字母进入符号选择。
     bool vMode_ = false;
     std::string vModeSub_;    // v 后的子输入（如 "1"）

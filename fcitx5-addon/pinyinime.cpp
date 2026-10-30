@@ -358,22 +358,36 @@ private:
 
 void PinyinIMEState::updateUI() {
 
-    // 表情选择态：预编辑显示页签，候选列出当前页表情（数字选字在 keyEvent 处理）。
+    // 表情选择态：v0.9.161 分类浏览+搜索
     if (emojiMode_) {
-        const auto &list = emoji_list();
         const size_t ps = pageSize();
-        const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / ps;
+        std::vector<std::string> emojis;
+        std::string preeditLabel;
+        if (emojiSearchMode_) {
+            auto results = pinyin_ime::emoji_search(emojiSearchBuf_);
+            for (const auto& r : results) emojis.push_back(r.first);
+            preeditLabel = "表情搜索[" + emojiSearchBuf_ + "]";
+        } else {
+            auto cats = pinyin_ime::emoji_panel_categories();
+            if (emojiCategory_ < 0) emojiCategory_ = 0;
+            if (emojiCategory_ >= (int)cats.size()) emojiCategory_ = (int)cats.size() - 1;
+            emojis = pinyin_ime::emoji_panel_by_category(cats[emojiCategory_]);
+            preeditLabel = "表情[" + cats[emojiCategory_] + "] " +
+                           std::to_string(emojiCategory_ + 1) + "/" +
+                           std::to_string(cats.size());
+        }
+        const size_t maxPage = emojis.empty() ? 0 : (emojis.size() - 1) / ps;
         if (emojiPage_ > maxPage) {
             emojiPage_ = maxPage;
         }
-        Text preeditText("表情[" + std::to_string(emojiPage_ + 1) + "/" +
-                         std::to_string(maxPage + 1) + "]");
+        Text preeditText(preeditLabel + " 页" + std::to_string(emojiPage_ + 1) + "/" +
+                         std::to_string(maxPage + 1));
         auto candidateList = std::make_unique<CommonCandidateList>();
         const size_t begin = emojiPage_ * ps;
-        const size_t end = std::min<size_t>(list.size(), begin + ps);
+        const size_t end = std::min<size_t>(emojis.size(), begin + ps);
         for (size_t i = begin; i < end; ++i) {
             candidateList->append<DisplayOnlyCandidateWord>(
-                Text(list[i].glyph + " " + list[i].label));
+                Text(emojis[i]));
         }
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
@@ -943,10 +957,39 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     // ---- 中文态 ----
     // 表情选择态：1-9 选表情、[,]/[.] 翻页、Esc 退出（Ctrl-E 已在上方守卫前处理）。
     if (state->emojiMode_) {
-        const auto &list = emoji_list();
         const size_t ps = state->pageSize();
         if (event.key().check(FcitxKey_Escape)) {
-            state->emojiMode_ = false;
+            if (state->emojiSearchMode_) {
+                state->emojiSearchMode_ = false;
+                state->emojiSearchBuf_.clear();
+            } else {
+                state->emojiMode_ = false;
+            }
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // v0.9.161: ; 切换分类
+        if (event.key().check(FcitxKey_semicolon)) {
+            auto cats = pinyin_ime::emoji_panel_categories();
+            state->emojiCategory_ = (state->emojiCategory_ + 1) % cats.size();
+            state->emojiPage_ = 0;
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // v0.9.161: / 进入搜索
+        if (event.key().check(FcitxKey_slash)) {
+            state->emojiSearchMode_ = true;
+            state->emojiSearchBuf_.clear();
+            state->refreshUI();
+            event.filterAndAccept();
+            return;
+        }
+        // 搜索模式：字母追加搜索词
+        if (state->emojiSearchMode_ && sym >= FcitxKey_a && sym <= FcitxKey_z) {
+            state->emojiSearchBuf_ += static_cast<char>(sym - FcitxKey_a + 'a');
+            state->emojiPage_ = 0;
             state->refreshUI();
             event.filterAndAccept();
             return;
@@ -962,7 +1005,16 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         }
         if (event.key().check(FcitxKey_period) ||
             event.key().check(FcitxKey_bracketright)) {
-            const size_t maxPage = list.empty() ? 0 : (list.size() - 1) / ps;
+            std::vector<std::string> emojis;
+            if (state->emojiSearchMode_) {
+                auto r = pinyin_ime::emoji_search(state->emojiSearchBuf_);
+                for (const auto& e : r) emojis.push_back(e.first);
+            } else {
+                auto cats = pinyin_ime::emoji_panel_categories();
+                if (state->emojiCategory_ >= 0 && state->emojiCategory_ < (int)cats.size())
+                    emojis = pinyin_ime::emoji_panel_by_category(cats[state->emojiCategory_]);
+            }
+            const size_t maxPage = emojis.empty() ? 0 : (emojis.size() - 1) / ps;
             if (state->emojiPage_ < maxPage) {
                 ++state->emojiPage_;
             }
@@ -971,11 +1023,21 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             return;
         }
         if (sym >= FcitxKey_1 && sym <= FcitxKey_9) {
+            std::vector<std::string> emojis;
+            if (state->emojiSearchMode_) {
+                auto r = pinyin_ime::emoji_search(state->emojiSearchBuf_);
+                for (const auto& e : r) emojis.push_back(e.first);
+            } else {
+                auto cats = pinyin_ime::emoji_panel_categories();
+                if (state->emojiCategory_ >= 0 && state->emojiCategory_ < (int)cats.size())
+                    emojis = pinyin_ime::emoji_panel_by_category(cats[state->emojiCategory_]);
+            }
             const size_t idx = state->emojiPage_ * ps +
                                static_cast<size_t>(sym - FcitxKey_1);
-            if (idx < list.size()) {
-                state->commitText(list[idx].glyph);
+            if (idx < emojis.size()) {
+                state->commitText(emojis[idx]);
                 state->emojiMode_ = false;
+                state->emojiSearchMode_ = false;
             }
             state->refreshUI();
             event.filterAndAccept();
