@@ -2603,6 +2603,21 @@ int main(int argc, char **argv) {
         }
         std::cout << theme.preedit_color << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << theme.reset << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
+        // v0.9.156: 使用SogouCandidateWindow渲染（当--skin启用时）
+        if (useSkin && !cands.empty()) {
+            std::vector<std::string> candStrs;
+            for (size_t ci = 0; ci < cands.size(); ++ci) candStrs.push_back(cands[ci].toString());
+            pinyin_ime::SogouCandidateWindow scw(skin);
+            scw.set_candidates(candStrs, preStr);
+            scw.state.page = page;
+            scw.state.selected_index = page * kPageSize + candFocus;
+            std::cout << "\n" << scw.render() << "\n";
+            if (cands.size() > kPageSize) {
+                std::cout << "  [," << (page > 0 ? "上一页" : "") << " ." << (page < (cands.size()-1)/kPageSize ? "下一页" : "") << "]";
+            }
+            std::cout.flush();
+            return;
+        }
         const size_t total = cands.size();
         // 简拼 boost：检查 preedit 是否匹配预设，若匹配则交换候选显示顺序
         boostSwap = 0;
