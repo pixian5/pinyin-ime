@@ -5059,4 +5059,209 @@ public:
     }
 };
 
+// ── v0.9.151 搜狗式候选窗GUI增强 ──────────────────────────────
+// 候选窗状态
+struct SogouCandidateWindowState {
+    std::vector<std::string> candidates;
+    std::string preedit;          // 拼音预编辑区
+    std::string preedit_raw;      // 原始输入
+    int selected_index = 0;       // 当前选中
+    int page = 0;                 // 当前页码
+    int total_pages = 1;
+    int page_size = 5;
+    std::string preceding_text;   // 上文
+    std::string following_text;   // 下文
+};
+
+// 搜狗式候选窗
+class SogouCandidateWindow {
+public:
+    SogouCandidateWindowState state;
+    SkinConfig skin;
+    bool show_pinyin = true;
+    bool show_page_info = true;
+    bool show_context = false;
+
+    explicit SogouCandidateWindow(const SkinConfig& sk = get_skin("sogou"))
+        : skin(sk) {
+        state.page_size = sk.max_candidates_per_page;
+    }
+
+    // 设置候选词
+    void set_candidates(const std::vector<std::string>& cands,
+                        const std::string& preedit = "",
+                        const std::string& raw = "") {
+        state.candidates = cands;
+        state.preedit = preedit;
+        state.preedit_raw = raw;
+        state.selected_index = 0;
+        state.page = 0;
+        state.total_pages = std::max(1, (int)((cands.size() + state.page_size - 1) / state.page_size));
+    }
+
+    // 翻页
+    bool next_page() {
+        if (state.page + 1 < state.total_pages) {
+            state.page++;
+            state.selected_index = state.page * state.page_size;
+            return true;
+        }
+        return false;
+    }
+
+    bool prev_page() {
+        if (state.page > 0) {
+            state.page--;
+            state.selected_index = state.page * state.page_size;
+            return true;
+        }
+        return false;
+    }
+
+    // 选择候选词
+    int select_by_index(int idx) {
+        int absolute = state.page * state.page_size + idx;
+        if (absolute < (int)state.candidates.size()) {
+            state.selected_index = absolute;
+            return absolute;
+        }
+        return -1;
+    }
+
+    // 获取当前页候选词
+    std::vector<std::string> current_page_candidates() const {
+        int start = state.page * state.page_size;
+        int end = std::min(start + state.page_size, (int)state.candidates.size());
+        std::vector<std::string> result;
+        for (int i = start; i < end; ++i) {
+            result.push_back(state.candidates[i]);
+        }
+        return result;
+    }
+
+    // 渲染候选窗
+    std::string render() const {
+        if (state.candidates.empty()) return "";
+
+        std::string result;
+        std::string bg = skin.background_color;
+        std::string rst = skin.reset_color;
+
+        // 顶部边框
+        if (skin.border_style == "unicode") {
+            if (!bg.empty()) result += bg;
+            result += "\xe2\x94\x8c";
+            for (int i = 0; i < 50; ++i) result += "\xe2\x94\x80";
+            result += "\xe2\x94\x90";
+            if (!bg.empty()) result += rst;
+            result += "\n";
+        } else if (skin.border_style == "ascii") {
+            result += "+";
+            for (int i = 0; i < 50; ++i) result += "-";
+            result += "+\n";
+        }
+
+        // 拼音预编辑区
+        if (show_pinyin && !state.preedit.empty()) {
+            if (!bg.empty()) result += bg;
+            if (skin.border_style == "unicode") result += "\xe2\x94\x82 ";
+            else if (skin.border_style == "ascii") result += "| ";
+            result += skin.preedit_color + state.preedit + rst;
+            if (!bg.empty()) result += rst;
+            result += "\n";
+        }
+
+        // 上文
+        if (show_context && !state.preceding_text.empty()) {
+            if (!bg.empty()) result += bg;
+            if (skin.border_style == "unicode") result += "\xe2\x94\x82 ";
+            else if (skin.border_style == "ascii") result += "| ";
+            result += skin.hint_color + "上文: " + state.preceding_text + rst;
+            if (!bg.empty()) result += rst;
+            result += "\n";
+        }
+
+        // 候选词
+        auto page_cands = current_page_candidates();
+        int start = state.page * state.page_size;
+
+        if (!bg.empty()) result += bg;
+        if (skin.border_style == "unicode") result += "\xe2\x94\x82 ";
+        else if (skin.border_style == "ascii") result += "| ";
+
+        for (size_t i = 0; i < page_cands.size(); ++i) {
+            // 序号
+            if (skin.show_index) {
+                result += skin.index_color + std::to_string(i + 1) + "." + rst;
+                for (int s = 0; s < skin.candidate_spacing; ++s) result += " ";
+            }
+
+            // 候选词（高亮选中项）
+            int abs_idx = start + i;
+            if (abs_idx == state.selected_index && skin.highlight_first) {
+                result += skin.focus_color + page_cands[i] + rst;
+            } else {
+                result += skin.candidate_color + page_cands[i] + rst;
+            }
+
+            if (skin.window_style == "vertical") {
+                result += "\n";
+                if (!bg.empty()) result += bg;
+                if (skin.border_style == "unicode") result += "\xe2\x94\x82 ";
+                else if (skin.border_style == "ascii") result += "| ";
+            } else {
+                for (int s = 0; s < skin.candidate_spacing + 2; ++s) result += " ";
+            }
+        }
+
+        // 页码信息
+        if (show_page_info && state.total_pages > 1) {
+            result += skin.hint_color + "[" + std::to_string(state.page + 1) +
+                      "/" + std::to_string(state.total_pages) + "]" + rst;
+        }
+
+        if (!bg.empty()) result += rst;
+        result += "\n";
+
+        // 底部边框
+        if (!bg.empty()) result += bg;
+        if (skin.border_style == "unicode") {
+            result += "\xe2\x94\x94";
+            for (int i = 0; i < 50; ++i) result += "\xe2\x94\x80";
+            result += "\xe2\x94\x98";
+        } else if (skin.border_style == "ascii") {
+            result += "+";
+            for (int i = 0; i < 50; ++i) result += "-";
+            result += "+";
+        }
+        if (!bg.empty()) result += rst;
+
+        return result;
+    }
+
+    // 获取选中词
+    std::string selected_candidate() const {
+        if (state.selected_index < (int)state.candidates.size()) {
+            return state.candidates[state.selected_index];
+        }
+        return "";
+    }
+
+    // 候选词总数
+    size_t size() const { return state.candidates.size(); }
+
+    // 是否为空
+    bool empty() const { return state.candidates.empty(); }
+};
+
+// 便捷：创建候选窗并渲染
+inline std::string render_candidate_window(
+        const std::vector<std::string>& candidates,
+        const std::string& preedit = "",
+        const std::string& skin_name = "sogou") {
+    SogouCandidateWindow cw(get_skin(skin_name));
+    cw.set_candidates(candidates, preedit);
+    return cw.render();
+}
+
 } // namespace pinyin_ime

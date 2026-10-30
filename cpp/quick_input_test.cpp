@@ -1597,6 +1597,8 @@ int main() {
 
     // ═══ v0.9.150 测试 ═══════════════════════════════════════════
     {
+        // 清理残留文件
+        std::remove("/tmp/test_user_dict.txt");
         // 用户词典CRUD
         UserDictManager dict("/tmp/test_user_dict.txt", "device1");
 
@@ -1675,6 +1677,89 @@ int main() {
         // 同步管理器
         UserDictSyncManager sync_mgr(sync_cfg);
         check("v150 sync mgr local dict", sync_mgr.local_dict.dict_file == "/tmp/test_user_dict.txt");
+    }
+
+    // ═══ v0.9.151 测试 ═══════════════════════════════════════════
+    {
+        // 候选窗基本
+        SogouCandidateWindow cw;
+        check("v151 cw empty initially", cw.empty());
+        check("v151 cw size 0", cw.size() == 0);
+
+        // 设置候选词
+        std::vector<std::string> cands = {"你好", "您好", "倪浩", "泥嚎", "尼号",
+                                          "拟好", "逆号", "腻好", "匿号", "霓浩"};
+        cw.set_candidates(cands, "nihao");
+        check("v151 cw 10 candidates", cw.size() == 10);
+        check("v151 cw 2 pages", cw.state.total_pages == 2);
+        check("v151 cw page 0", cw.state.page == 0);
+
+        // 当前页候选
+        auto page0 = cw.current_page_candidates();
+        check("v151 cw page0 5 items", page0.size() == 5);
+        check("v151 cw page0[0]", page0[0] == "你好");
+
+        // 翻页
+        bool next = cw.next_page();
+        check("v151 cw next page success", next);
+        check("v151 cw page 1", cw.state.page == 1);
+
+        auto page1 = cw.current_page_candidates();
+        check("v151 cw page1 5 items", page1.size() == 5);
+        check("v151 cw page1[0]", page1[0] == "拟好");
+
+        // 下一页失败
+        bool next_fail = cw.next_page();
+        check("v151 cw next page fail", !next_fail);
+
+        // 上一页
+        bool prev = cw.prev_page();
+        check("v151 cw prev page success", prev);
+        check("v151 cw page 0 again", cw.state.page == 0);
+
+        // 上一页失败
+        bool prev_fail = cw.prev_page();
+        check("v151 cw prev page fail", !prev_fail);
+
+        // 选择候选词
+        int sel = cw.select_by_index(2);
+        check("v151 cw select index 2", sel == 2);
+        check("v151 cw selected candidate", cw.selected_candidate() == "倪浩");
+
+        // 渲染
+        std::string rendered = cw.render();
+        check("v151 cw render non-empty", !rendered.empty());
+        check("v151 cw render has preedit", rendered.find("nihao") != std::string::npos);
+        check("v151 cw render has candidate", rendered.find("你好") != std::string::npos);
+
+        // 空候选渲染
+        SogouCandidateWindow cw_empty;
+        std::string empty_render = cw_empty.render();
+        check("v151 cw render empty", empty_render.empty());
+
+        // 不同皮肤
+        SogouCandidateWindow cw_dark(get_skin("dark"));
+        cw_dark.set_candidates({"测试", "实事", "世事"}, "ceshi");
+        std::string dark_render = cw_dark.render();
+        check("v151 cw dark render non-empty", !dark_render.empty());
+
+        // 竖排模式
+        SogouCandidateWindow cw_vert(get_skin("vertical"));
+        cw_vert.set_candidates({"第一", "第二", "第三", "第四", "第五",
+                                "第六", "第七", "第八", "第九"}, "di");
+        check("v151 cw vert 1 page", cw_vert.state.total_pages == 1);
+        std::string vert_render = cw_vert.render();
+        check("v151 cw vert render non-empty", !vert_render.empty());
+
+        // 便捷渲染函数
+        auto quick = render_candidate_window({"你好", "世界"}, "nihao", "sogou");
+        check("v151 quick render non-empty", !quick.empty());
+
+        // 单页候选
+        SogouCandidateWindow cw_single;
+        cw_single.set_candidates({"是"}, "shi");
+        check("v151 cw single 1 page", cw_single.state.total_pages == 1);
+        check("v151 cw single no next", !cw_single.next_page());
     }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
