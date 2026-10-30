@@ -4208,4 +4208,224 @@ inline std::vector<std::string> long_sentence_split_v2(const std::string& input)
     return groups;
 }
 
+// ── v0.9.147 增强皮肤系统 ──────────────────────────────────
+// 扩展皮肤属性：字体大小/候选窗样式/间距/边框等
+struct SkinConfig {
+    std::string name;
+    std::string description;
+    // 颜色（ANSI转义码）
+    std::string preedit_color;
+    std::string candidate_color;
+    std::string focus_color;
+    std::string index_color;
+    std::string hint_color;
+    std::string reset_color;
+    // 候选窗样式
+    int font_size = 14;
+    int candidate_spacing = 2;      // 候选词间距
+    int max_candidates_per_page = 5;
+    bool show_index = true;          // 显示序号
+    bool show_pinyin = true;         // 显示拼音
+    bool highlight_first = true;     // 高亮首选
+    std::string window_style = "horizontal";  // horizontal/vertical
+    std::string border_style = "none";        // none/ascii/unicode
+    std::string background_color = "";
+    // 动画
+    bool enable_animation = false;
+    int animation_speed_ms = 100;
+};
+
+// 内置皮肤列表
+inline SkinConfig get_skin(const std::string& name) {
+    if (name == "sogou" || name == "搜狗") {
+        return {"sogou", "搜狗经典皮肤",
+                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+                14, 3, 5, true, true, true, "horizontal", "unicode", "[44m", true, 80};
+    } else if (name == "dark" || name == "暗色") {
+        return {"dark", "暗色主题",
+                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+                14, 2, 5, true, true, true, "horizontal", "none", "", false, 0};
+    } else if (name == "high" || name == "高对比") {
+        return {"high", "高对比度主题",
+                "[1;37m", "[1;37m", "[1;31m", "[1;36m", "[1;35m", "[0m",
+                16, 3, 5, true, true, true, "horizontal", "ascii", "[40m", false, 0};
+    } else if (name == "retro" || name == "复古") {
+        return {"retro", "复古主题",
+                "[33m", "[32m", "[1;33m", "[35m", "[36m", "[0m",
+                12, 2, 5, true, false, true, "horizontal", "ascii", "", false, 0};
+    } else if (name == "matrix" || name == "黑客") {
+        return {"matrix", "黑客帝国主题",
+                "[32m", "[32m", "[1;32m", "[90m", "[32m", "[0m",
+                14, 2, 5, true, true, true, "horizontal", "none", "[40m", true, 50};
+    } else if (name == "ocean" || name == "海洋") {
+        return {"ocean", "海洋主题",
+                "[34m", "[36m", "[1;34m", "[90m", "[35m", "[0m",
+                14, 2, 5, true, true, true, "horizontal", "unicode", "[44;1m", false, 0};
+    } else if (name == "solar" || name == "日光") {
+        return {"solar", "日光主题",
+                "[33m", "[37m", "[1;31m", "[33m", "[35m", "[0m",
+                14, 2, 5, true, true, true, "horizontal", "none", "[43m", false, 0};
+    } else if (name == "vertical" || name == "竖排") {
+        return {"vertical", "竖排候选窗",
+                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+                14, 1, 9, true, true, true, "vertical", "unicode", "", false, 0};
+    }
+    // 默认皮肤
+    return {"default", "默认皮肤",
+            "", "", "", "", "", "",
+            14, 2, 5, true, true, true, "horizontal", "none", "", false, 0};
+}
+
+// 列出所有内置皮肤
+inline std::vector<std::pair<std::string, std::string>> list_skins() {
+    return {
+        {"default", "默认皮肤"},
+        {"sogou", "搜狗经典皮肤"},
+        {"dark", "暗色主题"},
+        {"high", "高对比度主题"},
+        {"retro", "复古主题"},
+        {"matrix", "黑客帝国主题"},
+        {"ocean", "海洋主题"},
+        {"solar", "日光主题"},
+        {"vertical", "竖排候选窗"},
+    };
+}
+
+// 从文件加载自定义皮肤
+// 格式：key=value 每行一个属性
+inline SkinConfig load_skin_from_file(const std::string& path) {
+    FILE* fp = std::fopen(path.c_str(), "r");
+    if (!fp) return get_skin("default");
+
+    SkinConfig skin = get_skin("default");
+    char line[512];
+    while (std::fgets(line, sizeof(line), fp)) {
+        std::string s(line);
+        while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+        if (s.empty() || s[0] == '#') continue;
+
+        size_t eq = s.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = s.substr(0, eq);
+        std::string val = s.substr(eq + 1);
+
+        if (key == "name") skin.name = val;
+        else if (key == "description") skin.description = val;
+        else if (key == "preedit_color") skin.preedit_color = val;
+        else if (key == "candidate_color") skin.candidate_color = val;
+        else if (key == "focus_color") skin.focus_color = val;
+        else if (key == "index_color") skin.index_color = val;
+        else if (key == "hint_color") skin.hint_color = val;
+        else if (key == "font_size") skin.font_size = std::stoi(val);
+        else if (key == "candidate_spacing") skin.candidate_spacing = std::stoi(val);
+        else if (key == "max_candidates_per_page") skin.max_candidates_per_page = std::stoi(val);
+        else if (key == "show_index") skin.show_index = (val == "true" || val == "1");
+        else if (key == "show_pinyin") skin.show_pinyin = (val == "true" || val == "1");
+        else if (key == "highlight_first") skin.highlight_first = (val == "true" || val == "1");
+        else if (key == "window_style") skin.window_style = val;
+        else if (key == "border_style") skin.border_style = val;
+        else if (key == "background_color") skin.background_color = val;
+        else if (key == "enable_animation") skin.enable_animation = (val == "true" || val == "1");
+        else if (key == "animation_speed_ms") skin.animation_speed_ms = std::stoi(val);
+    }
+    std::fclose(fp);
+    return skin;
+}
+
+// 保存皮肤到文件
+inline bool save_skin_to_file(const SkinConfig& skin, const std::string& path) {
+    FILE* fp = std::fopen(path.c_str(), "w");
+    if (!fp) return false;
+    std::fprintf(fp, "# pinyin-ime skin file\n");
+    std::fprintf(fp, "name=%s\n", skin.name.c_str());
+    std::fprintf(fp, "description=%s\n", skin.description.c_str());
+    std::fprintf(fp, "preedit_color=%s\n", skin.preedit_color.c_str());
+    std::fprintf(fp, "candidate_color=%s\n", skin.candidate_color.c_str());
+    std::fprintf(fp, "focus_color=%s\n", skin.focus_color.c_str());
+    std::fprintf(fp, "index_color=%s\n", skin.index_color.c_str());
+    std::fprintf(fp, "hint_color=%s\n", skin.hint_color.c_str());
+    std::fprintf(fp, "font_size=%d\n", skin.font_size);
+    std::fprintf(fp, "candidate_spacing=%d\n", skin.candidate_spacing);
+    std::fprintf(fp, "max_candidates_per_page=%d\n", skin.max_candidates_per_page);
+    std::fprintf(fp, "show_index=%s\n", skin.show_index ? "true" : "false");
+    std::fprintf(fp, "show_pinyin=%s\n", skin.show_pinyin ? "true" : "false");
+    std::fprintf(fp, "highlight_first=%s\n", skin.highlight_first ? "true" : "false");
+    std::fprintf(fp, "window_style=%s\n", skin.window_style.c_str());
+    std::fprintf(fp, "border_style=%s\n", skin.border_style.c_str());
+    std::fprintf(fp, "background_color=%s\n", skin.background_color.c_str());
+    std::fprintf(fp, "enable_animation=%s\n", skin.enable_animation ? "true" : "false");
+    std::fprintf(fp, "animation_speed_ms=%d\n", skin.animation_speed_ms);
+    std::fclose(fp);
+    return true;
+}
+
+// 用皮肤渲染候选窗
+inline std::string render_candidate_window_with_skin(
+        const std::vector<std::string>& candidates,
+        const std::string& preedit,
+        const SkinConfig& skin,
+        int page = 0) {
+    if (candidates.empty()) return "";
+
+    std::string result;
+    int per_page = skin.max_candidates_per_page;
+    int start = page * per_page;
+    int end = std::min(start + per_page, (int)candidates.size());
+
+    // 边框
+    if (skin.border_style == "unicode") {
+        result += "\xe2\x94\x8c";  // ┌
+        for (int i = 0; i < 40; ++i) result += "\xe2\x94\x80";  // ─
+        result += "\xe2\x94\x90\n";  // ┐
+    } else if (skin.border_style == "ascii") {
+        result += "+";
+        for (int i = 0; i < 40; ++i) result += "-";
+        result += "+\n";
+    }
+
+    // 拼音预编辑区
+    if (skin.show_pinyin && !preedit.empty()) {
+        if (!skin.background_color.empty()) result += skin.background_color;
+        result += skin.preedit_color + preedit + skin.reset_color;
+        if (!skin.background_color.empty()) result += skin.reset_color;
+        result += "\n";
+    }
+
+    // 候选词
+    for (int i = start; i < end; ++i) {
+        if (!skin.background_color.empty()) result += skin.background_color;
+        // 序号
+        if (skin.show_index) {
+            result += skin.index_color + std::to_string(i - start + 1) + "." + skin.reset_color;
+            for (int s = 0; s < skin.candidate_spacing; ++s) result += " ";
+        }
+        // 候选词
+        if (i == 0 && skin.highlight_first) {
+            result += skin.focus_color + candidates[i] + skin.reset_color;
+        } else {
+            result += skin.candidate_color + candidates[i] + skin.reset_color;
+        }
+        if (!skin.background_color.empty()) result += skin.reset_color;
+
+        if (skin.window_style == "vertical") {
+            result += "\n";
+        } else {
+            for (int s = 0; s < skin.candidate_spacing; ++s) result += " ";
+        }
+    }
+
+    // 底部边框
+    if (skin.border_style == "unicode") {
+        result += "\n\xe2\x94\x94";
+        for (int i = 0; i < 40; ++i) result += "\xe2\x94\x80";
+        result += "\xe2\x94\x98";
+    } else if (skin.border_style == "ascii") {
+        result += "\n+";
+        for (int i = 0; i < 40; ++i) result += "-";
+        result += "+";
+    }
+
+    return result;
+}
+
 } // namespace pinyin_ime

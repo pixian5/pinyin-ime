@@ -1413,6 +1413,73 @@ int main() {
         check("v146 syllables has zhong", syllables.count("zhong"));
         check("v146 syllables has guo", syllables.count("guo"));
     }
+
+    // ═══ v0.9.147 测试 ═══════════════════════════════════════════
+    {
+        // 内置皮肤获取
+        auto sogou = get_skin("sogou");
+        check("v147 sogou skin name", sogou.name == "sogou");
+        check("v147 sogou font_size 14", sogou.font_size == 14);
+        check("v147 sogou unicode border", sogou.border_style == "unicode");
+        check("v147 sogou highlight_first", sogou.highlight_first == true);
+
+        auto dark = get_skin("dark");
+        check("v147 dark skin name", dark.name == "dark");
+        check("v147 dark no border", dark.border_style == "none");
+
+        auto matrix = get_skin("matrix");
+        check("v147 matrix animation", matrix.enable_animation == true);
+        check("v147 matrix speed 50", matrix.animation_speed_ms == 50);
+
+        auto vertical = get_skin("vertical");
+        check("v147 vertical style", vertical.window_style == "vertical");
+        check("v147 vertical 9 per page", vertical.max_candidates_per_page == 9);
+
+        auto high = get_skin("high");
+        check("v147 high font_size 16", high.font_size == 16);
+
+        // 皮肤列表
+        auto skins = list_skins();
+        check("v147 9 skins total", skins.size() == 9);
+
+        // 默认皮肤
+        auto def = get_skin("unknown");
+        check("v147 default skin fallback", def.name == "default");
+
+        // 保存和加载皮肤
+        SkinConfig custom;
+        custom.name = "custom_test";
+        custom.description = "测试皮肤";
+        custom.font_size = 18;
+        custom.candidate_spacing = 4;
+        custom.max_candidates_per_page = 7;
+        custom.show_index = false;
+        custom.window_style = "vertical";
+        custom.border_style = "ascii";
+
+        bool saved = save_skin_to_file(custom, "/tmp/test_skin.ini");
+        check("v147 save skin file", saved);
+
+        auto loaded = load_skin_from_file("/tmp/test_skin.ini");
+        check("v147 load skin name", loaded.name == "custom_test");
+        check("v147 load skin font_size 18", loaded.font_size == 18);
+        check("v147 load skin spacing 4", loaded.candidate_spacing == 4);
+        check("v147 load skin max 7", loaded.max_candidates_per_page == 7);
+        check("v147 load skin no index", loaded.show_index == false);
+        check("v147 load skin vertical", loaded.window_style == "vertical");
+        check("v147 load skin ascii border", loaded.border_style == "ascii");
+
+        // 渲染候选窗
+        std::vector<std::string> cands = {"你好", "世界", "中国"};
+        auto rendered = render_candidate_window_with_skin(cands, "nihao", get_skin("sogou"));
+        check("v147 render non-empty", !rendered.empty());
+        check("v147 render has preedit", rendered.find("nihao") != std::string::npos);
+        check("v147 render has candidate", rendered.find("你好") != std::string::npos);
+
+        // 渲染空候选
+        auto empty_render = render_candidate_window_with_skin({}, "test", get_skin("default"));
+        check("v147 render empty candidates", empty_render.empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
