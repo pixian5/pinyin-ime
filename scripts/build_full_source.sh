@@ -69,3 +69,10 @@ fi
 
 echo "=== 编译完成 ==="
 echo "如完整编译成功，installed/目录包含替换S3预构建的库"
+
+# v0.9.158: 修复FCITXUTILS_DEPRECATED宏问题
+# 问题1: event.h:44 使用 FCITXUTILS_DEPRECATED 不带参数，但宏定义需要(msg)
+#   修复: sed -i 's/FCITXUTILS_DEPRECATED static/FCITXUTILS_DEPRECATED() static/' event.h
+# 问题2: export宏定义为空，配合-fvisibility=hidden导致所有符号被隐藏
+#   修复: export宏定义为 __attribute__((visibility("default")))
+# 结果: fcitx5 5.1.23 完整源码编译100%成功
