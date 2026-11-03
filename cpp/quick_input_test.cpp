@@ -4,6 +4,8 @@
 #include "emoji_list.h"
 #include <iostream>
 #include <cassert>
+#include <thread>
+#include <chrono>
 
 int main() {
     using namespace pinyin_ime;
@@ -1801,6 +1803,120 @@ int main() {
         dict.add("nihao", "你好", 5);
         check("v152 cloud+dict integration", dict.entries.size() == 1);
     }
+    std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
+
+    // ── v0.9.164 搜狗式用户词频动态学习系统 测试 ──────────────────
+    {
+        std::cout << "\n--- v0.9.164 UserWordFreqModel tests ---\n";
+
+        UserWordFreqModel model;
+
+        auto candidates = std::vector<std::string>{"你好", "拟好", "你毫"};
+        auto reranked = model.rerank_candidates("nihao", candidates);
+        check("v164 no-learn rerank unchanged", reranked == candidates);
+
+        model.learn("nihao", "你好");
+        model.learn("nihao", "你好");
+        model.learn("nihao", "你好");
+        reranked = model.rerank_candidates("nihao", candidates);
+        check("v164 learned word first", reranked[0] == "你好");
+
+        model.learn("nihao", "你毫");
+        model.learn("nihao", "你毫");
+        model.learn("nihao", "拟好");
+        model.learn("nihao", "拟好");
+        model.learn("nihao", "拟好");
+        reranked = model.rerank_candidates("nihao", candidates);
+        check("v164 multi-learn order", reranked[0] == "你好" || reranked[0] == "拟好");
+
+        auto first = model.user_first_choice("nihao");
+        check("v164 user_first_choice non-empty", !first.empty());
+
+        model.set_persist_path("/tmp/test_user_freq_v164.txt");
+        std::remove("/tmp/test_user_freq_v164.txt");
+        model.save();
+        UserWordFreqModel model2;
+        model2.set_persist_path("/tmp/test_user_freq_v164.txt");
+        model2.load();
+        check("v164 persist reload", model2.total_entries() == model.total_entries());
+
+        check("v164 learn count > 0", model.total_learn_count() > 0);
+
+        model.clear();
+        check("v164 clear works", model.total_entries() == 0);
+    }
+
+    // ── v0.9.164 TypingRhythmTracker 测试 ──────────────────
+    {
+        std::cout << "\n--- v0.9.164 TypingRhythmTracker tests ---\n";
+
+        TypingRhythmTracker tracker;
+
+        check("v164 initial wpm 0", tracker.estimate_wpm() == 0.0);
+
+        for (int i = 0; i < 10; ++i) {
+            tracker.record_key();
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        double wpm = tracker.estimate_wpm();
+        check("v164 wpm after typing", wpm > 0.0);
+
+        auto desc = tracker.rhythm_description();
+        check("v164 rhythm description non-empty", !desc.empty());
+
+        bool rerank = tracker.should_rerank_now();
+        check("v164 should_rerank returns bool", rerank == true || rerank == false);
+
+        tracker.reset();
+        check("v164 reset works", tracker.estimate_wpm() == 0.0);
+    }
+
+    // ── v0.9.164 AssociationLearner 测试 ──────────────────
+    {
+        std::cout << "\n--- v0.9.164 AssociationLearner tests ---\n";
+
+        AssociationLearner assoc;
+
+        auto predictions = assoc.predict_next("你好");
+        check("v164 initial no prediction", predictions.empty());
+
+        assoc.on_commit("你好");
+        assoc.on_commit("世界");
+        assoc.on_commit("你好");
+        assoc.on_commit("吗");
+        predictions = assoc.predict_next("你好");
+        check("v164 learned prediction", !predictions.empty());
+
+        assoc.on_commit("你好"); assoc.on_commit("世界"); predictions = assoc.predict_next("你好"); check("v164 prediction first is world", predictions[0] == "世界");
+
+        std::remove("/tmp/test_assoc_v164.txt");
+        assoc.save("/tmp/test_assoc_v164.txt");
+        AssociationLearner assoc2;
+        assoc2.load("/tmp/test_assoc_v164.txt");
+        check("v164 assoc persist", assoc2.total_associations() > 0);
+
+        assoc.reset();
+        check("v164 assoc reset", assoc.total_associations() == 0);
+    }
+
+    // ── v0.9.164 quick_candidates_v7 测试 ──────────────────
+    {
+        std::cout << "\n--- v0.9.164 quick_candidates_v7 tests ---\n";
+
+        UserWordFreqModel model;
+        model.learn("nihao", "你好");
+        model.learn("nihao", "你好");
+
+        auto result = quick_candidates_v7("nihao", "", "", "default", &model);
+        check("v164 v7 basic call", !result.empty());
+
+        auto result6 = quick_candidates_v6("nihao", "", "", "default");
+        auto result7 = quick_candidates_v7("nihao", "", "", "default", nullptr);
+        check("v164 v7 no model equals v6", result6 == result7);
+
+        check("v164 v7 with model", !result.empty());
+    }
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

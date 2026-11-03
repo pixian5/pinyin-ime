@@ -28,6 +28,10 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <fstream>
+#include <chrono>
+#include <unordered_map>
+#include <filesystem>
 #include <sys/stat.h>
 #include <cstdio>
 #include <sys/stat.h>
@@ -5262,6 +5266,306 @@ inline std::string render_candidate_window(
     SogouCandidateWindow cw(get_skin(skin_name));
     cw.set_candidates(candidates, preedit);
     return cw.render();
+}
+
+
+// ── v0.9.164 搜狗式用户词频动态学习系统 ──────────────────────
+// 核心体验：用户选词后自动提升该词权重，下次输入时优先出现在候选列表前面
+// 类似搜狗输入法的"自学习"功能，但更轻量——纯内存+文件持久化
+
+struct UserWordFreqEntry {
+    std::string word;      // 候选词
+    std::string pinyin;    // 对应拼音
+    int freq = 0;          // 用户选择次数
+    int64_t last_used = 0; // 最后使用时间戳（秒）
+};
+
+class UserWordFreqModel {
+private:
+    std::unordered_map<std::string, std::vector<UserWordFreqEntry>> table_; // key: pinyin
+    std::string persist_path_;
+    int max_entries_per_pinyin_ = 20;
+    int total_learn_count_ = 0;
+
+    static std::string normalize_pinyin(const std::string& pinyin) {
+        std::string result;
+        for (char c : pinyin) {
+            if (std::isalpha(static_cast<unsigned char>(c))) {
+                result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+        }
+        return result;
+    }
+
+public:
+    UserWordFreqModel() = default;
+
+    void set_persist_path(const std::string& path) {
+        persist_path_ = path;
+    }
+
+    // 从文件加载
+    void load() {
+        if (persist_path_.empty()) return;
+        std::ifstream ifs(persist_path_);
+        if (!ifs.is_open()) return;
+
+        std::string line;
+        while (std::getline(ifs, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            std::istringstream iss(line);
+            std::string py, word;
+            int freq;
+            int64_t ts;
+            if (iss >> py >> word >> freq >> ts) {
+                auto& vec = table_[py];
+                vec.push_back({word, py, freq, ts});
+            }
+        }
+        for (auto& [key, vec] : table_) {
+            std::sort(vec.begin(), vec.end(),
+                [](const auto& a, const auto& b) { return a.freq > b.freq; });
+            if ((int)vec.size() > max_entries_per_pinyin_) {
+                vec.resize(max_entries_per_pinyin_);
+            }
+        }
+    }
+
+    // 保存到文件
+    void save() const {
+        if (persist_path_.empty()) return;
+        auto dir = std::filesystem::path(persist_path_).parent_path();
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+
+        std::ofstream ofs(persist_path_);
+        if (!ofs.is_open()) return;
+        ofs << "# pinyin-ime user word frequency model v0.9.164\n";
+        ofs << "# format: pinyin\\tword\\tfreq\\tlast_used\n";
+        for (const auto& [py, vec] : table_) {
+            for (const auto& e : vec) {
+                ofs << py << '\t' << e.word << '\t' << e.freq << '\t' << e.last_used << '\n';
+            }
+        }
+    }
+
+    // 用户选择了某个词，提升其频率
+    void learn(const std::string& pinyin, const std::string& word) {
+        auto py = normalize_pinyin(pinyin);
+        if (py.empty() || word.empty()) return;
+
+        auto& vec = table_[py];
+        total_learn_count_++;
+
+        for (auto& e : vec) {
+            if (e.word == word) {
+                e.freq++;
+                e.last_used = std::time(nullptr);
+                std::sort(vec.begin(), vec.end(),
+                    [](const auto& a, const auto& b) { return a.freq > b.freq; });
+                return;
+            }
+        }
+
+        vec.push_back({word, py, 1, std::time(nullptr)});
+        std::sort(vec.begin(), vec.end(),
+            [](const auto& a, const auto& b) { return a.freq > b.freq; });
+
+        if ((int)vec.size() > max_entries_per_pinyin_) {
+            vec.resize(max_entries_per_pinyin_);
+        }
+    }
+
+    // 根据用户词频重排候选列表
+    std::vector<std::string> rerank_candidates(
+        const std::string& pinyin,
+        const std::vector<std::string>& candidates) const {
+
+        auto py = normalize_pinyin(pinyin);
+        if (py.empty()) return candidates;
+
+        auto it = table_.find(py);
+        if (it == table_.end() || it->second.empty()) return candidates;
+
+        auto result = candidates;
+
+        std::unordered_map<std::string, int> freq_map;
+        for (const auto& e : it->second) {
+            freq_map[e.word] = e.freq;
+        }
+
+        std::stable_sort(result.begin(), result.end(),
+            [&freq_map](const std::string& a, const std::string& b) {
+                int fa = 0, fb = 0;
+                auto ia = freq_map.find(a);
+                auto ib = freq_map.find(b);
+                if (ia != freq_map.end()) fa = ia->second;
+                if (ib != freq_map.end()) fb = ib->second;
+                if (fa > 0 && fb == 0) return true;
+                if (fa == 0 && fb > 0) return false;
+                if (fa != fb) return fa > fb;
+                return false;
+            });
+
+        return result;
+    }
+
+    std::string user_first_choice(const std::string& pinyin) const {
+        auto py = normalize_pinyin(pinyin);
+        auto it = table_.find(py);
+        if (it == table_.end() || it->second.empty()) return "";
+        return it->second[0].word;
+    }
+
+    int total_entries() const {
+        int count = 0;
+        for (const auto& [k, v] : table_) count += v.size();
+        return count;
+    }
+
+    int total_learn_count() const { return total_learn_count_; }
+
+    std::vector<UserWordFreqEntry> all_entries() const {
+        std::vector<UserWordFreqEntry> result;
+        for (const auto& [k, v] : table_) {
+            for (const auto& e : v) result.push_back(e);
+        }
+        return result;
+    }
+
+    void clear() {
+        table_.clear();
+        total_learn_count_ = 0;
+    }
+};
+
+// ── v0.9.164 搜狗式输入节奏自适应 ──────────────────────────────
+struct TypingRhythmTracker {
+    std::vector<int64_t> key_timestamps;
+    static constexpr size_t MAX_SAMPLES = 30;
+    static constexpr double FAST_WPM = 80.0;
+    static constexpr double SLOW_WPM = 30.0;
+
+    void record_key() {
+        auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        key_timestamps.push_back(now);
+        if (key_timestamps.size() > MAX_SAMPLES) {
+            key_timestamps.erase(key_timestamps.begin());
+        }
+    }
+
+    double estimate_wpm() const {
+        if (key_timestamps.size() < 5) return 0.0;
+        auto span = key_timestamps.back() - key_timestamps.front();
+        if (span == 0) return 0.0;
+        double seconds = span / 1000.0;
+        double keys = key_timestamps.size();
+        return (keys / 5.0) / (seconds / 60.0);
+    }
+
+    bool should_rerank_now() const {
+        double wpm = estimate_wpm();
+        return wpm < FAST_WPM;
+    }
+
+    std::string rhythm_description() const {
+        double wpm = estimate_wpm();
+        if (wpm == 0.0) return "未知";
+        if (wpm < SLOW_WPM) return "慢速";
+        if (wpm < FAST_WPM) return "正常";
+        return "快速";
+    }
+
+    void reset() { key_timestamps.clear(); }
+};
+
+// ── v0.9.164 搜狗式候选词联想增强 ──────────────────────────────
+class AssociationLearner {
+private:
+    std::unordered_map<std::string, std::unordered_map<std::string, int>> bigram_;
+    std::string last_committed_;
+    static constexpr int MAX_ASSOCIATIONS = 10;
+
+public:
+    void on_commit(const std::string& word) {
+        if (!last_committed_.empty() && !word.empty()) {
+            bigram_[last_committed_][word]++;
+        }
+        last_committed_ = word;
+    }
+
+    std::vector<std::string> predict_next(const std::string& last_word) const {
+        auto it = bigram_.find(last_word);
+        if (it == bigram_.end() || it->second.empty()) return {};
+
+        std::vector<std::pair<std::string, int>> sorted;
+        for (const auto& [w, c] : it->second) {
+            sorted.push_back({w, c});
+        }
+        std::sort(sorted.begin(), sorted.end(),
+            [](const auto& a, const auto& b) { return a.second > b.second; });
+
+        std::vector<std::string> result;
+        for (int i = 0; i < std::min((int)sorted.size(), MAX_ASSOCIATIONS); ++i) {
+            result.push_back(sorted[i].first);
+        }
+        return result;
+    }
+
+    void save(const std::string& path) const {
+        std::ofstream ofs(path);
+        if (!ofs.is_open()) return;
+        ofs << "# pinyin-ime association model v0.9.164\n";
+        for (const auto& [prev, nexts] : bigram_) {
+            for (const auto& [word, count] : nexts) {
+                ofs << prev << '\t' << word << '\t' << count << '\n';
+            }
+        }
+    }
+
+    void load(const std::string& path) {
+        std::ifstream ifs(path);
+        if (!ifs.is_open()) return;
+        std::string line;
+        while (std::getline(ifs, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            std::istringstream iss(line);
+            std::string prev, word;
+            int count;
+            if (iss >> prev >> word >> count) {
+                bigram_[prev][word] = count;
+            }
+        }
+    }
+
+    void reset() {
+        bigram_.clear();
+        last_committed_.clear();
+    }
+
+    int total_associations() const {
+        int count = 0;
+        for (const auto& [k, v] : bigram_) count += v.size();
+        return count;
+    }
+};
+
+// ── v0.9.164 统一入口 v7：搜狗式智能输入 ──────────────────────
+inline std::vector<std::string> quick_candidates_v7(
+    const std::string& input,
+    const std::string& preceding = "",
+    const std::string& prev2 = "",
+    const std::string& theme_name = "default",
+    const UserWordFreqModel* freq_model = nullptr) {
+
+    auto result = quick_candidates_v6(input, preceding, prev2, theme_name);
+
+    if (freq_model && !result.empty()) {
+        result = freq_model->rerank_candidates(input, result);
+    }
+
+    return result;
 }
 
 } // namespace pinyin_ime

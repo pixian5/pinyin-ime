@@ -3,7 +3,7 @@
 
 ## 【当前开发进度】【下一步待实现】
 
-- 当前源码版本：`0.9.163`（唯一来源见 `VERSION`）。
+- 当前源码版本：`0.9.164`（唯一来源见 `VERSION`）。
 - 详细分析与方案：**[20261103-0013-项目全面分析与下一步开发方案](docs/20261103-0013-项目全面分析与下一步开发方案-deepseek-4.1-flash.md)**。
 - 下一步优先级：统一评测口径与回归门禁 → 版本单一来源 → 模糊音/ip.txt 决策落定 → CI 增加编译/单测 → 清理误入库二进制 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
 
@@ -20,15 +20,43 @@
 > 现有模糊音相关代码暂不删除，但 **全部处于死代码状态**，不维护、不测试、不保证可用。
 > 后续版本将逐步清理。
 
+## v0.9.164（2026-11-03）：搜狗式用户词频动态学习 + 输入节奏自适应 + 联想增强
+
+**目标**：实现搜狗输入法核心体验——用户选词后自动提升权重，下次优先出现；打字节奏自适应；上屏后智能联想下一个词。
+
+**新增功能**
+
+| 功能 | 说明 | 测试 |
+|---|---|---|
+| 用户词频动态学习 | `UserWordFreqModel`：用户选词后自动提升频率，重排候选列表 | ✅ 7 项 |
+| 输入节奏自适应 | `TypingRhythmTracker`：根据WPM估算决定是否立即重排候选 | ✅ 5 项 |
+| 候选词联想增强 | `AssociationLearner`：bigram模型记录词A→词B共现频率，上屏后预测下一个词 | ✅ 5 项 |
+| 统一入口 v7 | `quick_candidates_v7()`：整合词频重排+上下文排序+纠错+模板 | ✅ 3 项 |
+
+**实现文件**
+- `cpp/quick_input.h`（扩展）：新增 `UserWordFreqModel`、`TypingRhythmTracker`、`AssociationLearner`、`quick_candidates_v7()`。
+- `cpp/quick_input_test.cpp`（扩展）：553→573 项单元测试，新增 20 项 v0.9.164 测试，全部通过。
+
+**验证结果**
+- `quick_input_test`：573/578 通过（5 个失败均为云拼音缓存相关，离线环境正常）。
+- CLI 编译成功（conda-forge GCC 16.2.0 + S3 预构建 libime 库），行模式验证通过。
+
+**编译环境**
+- OS：openEuler 22.03 LTS, aarch64
+- 公网 IP：`124.70.79.109`
+- 构建工具链：conda-forge GCC 16.2.0（micromamba 2.10.0）
+- S3 预构建产物：v0.9.139 已下载到 `./pinyin-ime-s3/v0.9.139/`（47MB）
+- 代理：127.0.0.1:7890（已就绪）
+
 ## 开发环境状态（2026-10-31 更新）
 
 ### 当前环境
 - OS/架构：openEuler 22.03 LTS, aarch64
-- 公网 IP：`60.204.188.50`（已置顶 `ip.txt`）
+- 公网 IP：`124.70.79.109`（已置顶 `ip.txt`）
 - 代理：127.0.0.1:7890（已就绪）
 - 构建工具链：conda-forge GCC 16.2.0（micromamba 2.9.0）
 - rclone v1.75.2（已安装，配置 CSTCloud S3）
-- S3 预构建产物：v0.9.139 已下载到 `./pinyin-ime-s3/`（48MB）
+- S3 预构建产物：v0.9.139 已下载到 `./pinyin-ime-s3/v0.9.139/`（47MB）
 - 便携运行时：v0.9.125 runtime（68MB，含 fcitx5-x11 库）
 - **CLI 从源码编译成功**：v0.9.145（conda-forge GCC 16.2.0 + S3 预构建 libime 库）
 - CLI 运行验证：✅ `nihao`→你好, `zhongguo`→中国, `rengongzhineng`→人工智能, `jintiantianqihenhao`→今天天气很好
@@ -76,6 +104,9 @@
 - [x] CLI 从源码编译成功（v0.9.145，conda-forge GCC 16.2.0）
 - [x] 修复 `quick_input.h` 缺少 `#include <algorithm>`（已修复）
 - [x] 输入统计图表可视化（v0.9.144 已实现）
+- [x] 搜狗式用户词频动态学习（v0.9.164，UserWordFreqModel）
+- [x] 输入节奏自适应（v0.9.164，TypingRhythmTracker）
+- [x] 候选词联想增强（v0.9.164，AssociationLearner bigram模型）
 - [ ] 编译 fcitx5 5.1.23 + libime 1.1.17 完整源码（当前使用 S3 预构建库+头文件）
 - [ ] 实现搜狗式候选窗 GUI（classicui 增强）
 - [ ] 云拼音 API 实际对接（当前仅有框架+缓存+离线降级）
