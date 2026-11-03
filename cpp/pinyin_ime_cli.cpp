@@ -1662,9 +1662,14 @@ int main(int argc, char **argv) {
         theme.reset = skin.reset_color;
     }
     pinyin_ime::UserFreqTable userFreqTable;  // v0.9.130: 用户词频学习
+    pinyin_ime::UserWordFreqModel userWordFreqModel;  // v0.9.164: 搜狗式词频动态学习
+    pinyin_ime::AssociationLearner assocLearner;        // v0.9.164: bigram联想
+    pinyin_ime::TypingRhythmTracker rhythmTracker;       // v0.9.164: 输入节奏自适应
     const bool persist = !userDataDir.empty();
     if (persist) { recentHistory.load_from_file(userDataDir + "/recent_history.txt"); }
     if (persist) { userFreqTable.load_from_file(userDataDir + "/user_freq.txt"); }
+    if (persist) { userWordFreqModel.set_persist_path(userDataDir + "/user_word_freq_v164.txt"); userWordFreqModel.load(); }
+    if (persist) { assocLearner.load(userDataDir + "/assoc_v164.txt"); }
     if (persist) {
         std::error_code ec;
         std::filesystem::create_directories(userDataDir, ec);
@@ -1986,6 +1991,8 @@ int main(int argc, char **argv) {
                 if (cands[i] == target) {
                     if (select_and_commit(ctx, i)) {
                         ++learned;
+                        userWordFreqModel.learn(pinyin, target);
+                        assocLearner.on_commit(target);
                     }
                     break;
                 }
@@ -1993,6 +2000,8 @@ int main(int argc, char **argv) {
             ++total;
         }
         save_user_data();
+        userWordFreqModel.save();
+        assocLearner.save(userDataDir + "/assoc_v164.txt");
         std::cout.clear();
         std::cerr << "pinyin_ime_cli: 批量学习完成 " << learned << "/" << total
                   << " 句已学习（用户数据已保存到 " << userDataDir << "）\n";
@@ -2041,7 +2050,11 @@ int main(int argc, char **argv) {
             save_user_data();
             // v0.9.124: 联想词 — 上屏后自动显示关联词候选
             lastCommitted = preText;
-            assocCands = pinyin_ime::association_lookup(preText);
+            // v0.9.164: 搜狗式词频学习 + bigram联想
+            userWordFreqModel.learn(prePinyin, preText);
+            assocLearner.on_commit(preText);
+            auto assocPred = assocLearner.predict_next(preText);
+            assocCands = assocPred.empty() ? pinyin_ime::association_lookup(preText) : assocPred;
             assocMode = !assocCands.empty();
             // v0.9.129: 最近输入记忆
             recentHistory.add(preText);
@@ -2650,6 +2663,30 @@ int main(int argc, char **argv) {
         }
         std::cout << theme.preedit_color << (preStr.empty() ? "拼音: _" : "拼音: " + preStr) << theme.reset << "  |  ";
         const auto &cands = ctx.candidatesToCursor();
+        // v0.9.164: 搜狗式词频重排 — 根据用户历史提升常用词
+        std::vector<size_t> dispOrder;
+        if (!cands.empty() && rhythmTracker.should_rerank_now()) {
+            std::vector<std::string> candStrs;
+            for (size_t ci = 0; ci < cands.size(); ++ci) candStrs.push_back(cands[ci].toString());
+            auto reranked = userWordFreqModel.rerank_candidates(preedit_compact(ctx), candStrs);
+            // Build index mapping from reranked strings to original indices
+            std::vector<bool> used(cands.size(), false);
+            for (const auto& s : reranked) {
+                for (size_t ci = 0; ci < cands.size(); ++ci) {
+                    if (!used[ci] && cands[ci].toString() == s) {
+                        dispOrder.push_back(ci);
+                        used[ci] = true;
+                        break;
+                    }
+                }
+            }
+            // Add any remaining candidates not in reranked
+            for (size_t ci = 0; ci < cands.size(); ++ci) {
+                if (!used[ci]) dispOrder.push_back(ci);
+            }
+        } else {
+            for (size_t ci = 0; ci < cands.size(); ++ci) dispOrder.push_back(ci);
+        }
         // v0.9.159: 云拼音补充 — 当本地候选不足且--cloud启用时，查询cloudMgr
         std::vector<std::string> cloudCands;
         if (cloudEnabled && cands.size() < 5 && !preedit_compact(ctx).empty()) {
@@ -2662,6 +2699,9 @@ int main(int argc, char **argv) {
         if (useSkin && !cands.empty()) {
             std::vector<std::string> candStrs;
             for (size_t ci = 0; ci < cands.size(); ++ci) candStrs.push_back(cands[ci].toString());
+            // v0.9.164: 词频重排
+            if (rhythmTracker.should_rerank_now())
+                candStrs = userWordFreqModel.rerank_candidates(preedit_compact(ctx), candStrs);
             pinyin_ime::SogouCandidateWindow scw(skin);
             scw.set_candidates(candStrs, preStr);
             scw.state.page = page;
@@ -2708,10 +2748,11 @@ int main(int argc, char **argv) {
             std::cout << theme.reset;
         }
         for (size_t i = begin; i < end; ++i) {
-            size_t dispIdx = i;
+            // v0.9.164: 先经过词频重排索引，再经过简拼boost交换
+            size_t dispIdx = (i < dispOrder.size()) ? dispOrder[i] : i;
             if (boostSwap > 0 && i < total) {
-                if (i == 0) dispIdx = boostSwap;
-                else if (i == boostSwap) dispIdx = 0;
+                if (i == 0) dispIdx = (boostSwap < dispOrder.size()) ? dispOrder[boostSwap] : boostSwap;
+                else if (i == boostSwap) dispIdx = dispOrder[0];
             }
             if (i - begin == candFocus) {
                 // 焦点候选：* 前缀标记 + 拼音标注（v0.9.90）
@@ -2737,6 +2778,7 @@ int main(int argc, char **argv) {
 
     int key;
     while ((key = read_key()) != kKeyEof) {
+        rhythmTracker.record_key();  // v0.9.164: 记录按键时间戳
         if (key == 0x03) {  // Ctrl-C
             std::cout << "\n";
             break;
@@ -3178,7 +3220,10 @@ int main(int argc, char **argv) {
                     if (ai < assocCands.size()) {
                         output_line(assocCands[ai]);
                         lastCommitted += assocCands[ai];
-                        assocCands = pinyin_ime::association_lookup(lastCommitted);
+                        // v0.9.164: bigram联想
+                        assocLearner.on_commit(assocCands[ai]);
+                        auto ap = assocLearner.predict_next(assocCands[ai]);
+                        assocCands = ap.empty() ? pinyin_ime::association_lookup(lastCommitted) : ap;
                         assocMode = !assocCands.empty();
                     }
                 } else {
@@ -3235,6 +3280,8 @@ int main(int argc, char **argv) {
     std::cout << "\n";
     if (persist) { recentHistory.save_to_file(userDataDir + "/recent_history.txt"); }
     if (persist) { userFreqTable.save_to_file(userDataDir + "/user_freq.txt"); }
+    if (persist) { userWordFreqModel.save(); }
+    if (persist) { assocLearner.save(userDataDir + "/assoc_v164.txt"); }
     save_user_data();
     return 0;
 }
