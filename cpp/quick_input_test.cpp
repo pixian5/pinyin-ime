@@ -1917,6 +1917,146 @@ int main() {
         check("v164 v7 with model", !result.empty());
     }
 
+    // v0.9.166 tests
+    {
+        std::cout << "\n--- v0.9.166 年份/数字智能识别 tests ---\n";
+
+        // 年份识别
+        auto year1 = try_year_recognition("erlingerliunian");
+        check("v166 year 2026", year1 == "二零二六年");
+
+        auto year2 = try_year_recognition("yijiulinglingnian");
+        check("v166 year 1900", year2 == "一九零零年");
+
+        auto year3 = try_year_recognition("yijiuwulingnian");
+        check("v166 year 1950", year3 == "一九五零年");
+
+        auto year4 = try_year_recognition("erlingerwunian");
+        check("v166 year 2025", year4 == "二零二五年");
+
+        // 非年份不误识别
+        auto year5 = try_year_recognition("nihao");
+        check("v166 non-year not recognized", year5.empty());
+
+        // 数字识别
+        auto num1 = try_number_recognition("yiersan");
+        check("v166 number 123", num1 == "一二三");
+
+        auto num2 = try_number_recognition("lingyijiu");
+        check("v166 number 019", num2 == "零一九");
+
+        auto num3 = try_number_recognition("sibaliujiu");
+        check("v166 number 4869", num3 == "四八六九");
+
+        // digit_to_chinese
+        check("v166 digit 0", digit_to_chinese('0') == "零");
+        check("v166 digit 5", digit_to_chinese('5') == "五");
+        check("v166 digit 9", digit_to_chinese('9') == "九");
+    }
+
+    {
+        std::cout << "\n--- v0.9.166 增强上下文关联 tests ---\n";
+
+        auto &rules = extended_associations_v166();
+        check("v166 extended associations not empty", !rules.empty());
+
+        // 查找会议关联
+        bool foundMeeting = false;
+        for (const auto &r : rules) {
+            if (r.trigger == "会议") {
+                foundMeeting = true;
+                check("v166 会议 has 室", std::find(r.associates.begin(), r.associates.end(), "室") != r.associates.end());
+                break;
+            }
+        }
+        check("v166 found 会议 rule", foundMeeting);
+
+        // 查找开心关联
+        bool foundHappy = false;
+        for (const auto &r : rules) {
+            if (r.trigger == "开心") {
+                foundHappy = true;
+                break;
+            }
+        }
+        check("v166 found 开心 rule", foundHappy);
+    }
+
+    {
+        std::cout << "\n--- v0.9.166 增强拼音纠错 tests ---\n";
+
+        auto corrections = enhanced_correct_v166("nihao");
+        check("v166 correct nihao not empty", !corrections.empty());
+
+        // z/zh 混淆
+        auto corr2 = enhanced_correct_v166("zongguo");
+        bool hasZhongguo = false;
+        for (const auto &c : corr2) {
+            if (c.first == "zhongguo") hasZhongguo = true;
+        }
+        check("v166 z→zh correction", hasZhongguo);
+
+        // an/ang 混淆
+        auto corr3 = enhanced_correct_v166("shan");
+        bool hasShang = false;
+        for (const auto &c : corr3) {
+            if (c.first == "shang") hasShang = true;
+        }
+        check("v166 an→ang correction", hasShang);
+    }
+
+    {
+        std::cout << "\n--- v0.9.166 扩展句式模板 tests ---\n";
+
+        auto &templates = extended_templates_v166();
+        check("v166 templates not empty", !templates.empty());
+
+        // 查找 ht 模板
+        bool foundHt = false;
+        for (const auto &t : templates) {
+            if (t.first == "ht") {
+                foundHt = true;
+                check("v166 ht template", t.second == "您好，");
+                break;
+            }
+        }
+        check("v166 found ht template", foundHt);
+
+        // 查找 bug 模板
+        bool foundBug = false;
+        for (const auto &t : templates) {
+            if (t.first == "bug") {
+                foundBug = true;
+                break;
+            }
+        }
+        check("v166 found bug template", foundBug);
+    }
+
+    {
+        std::cout << "\n--- v0.9.166 quick_candidates_v8 tests ---\n";
+
+        // 年份识别通过 v8
+        auto result1 = quick_candidates_v8("erlingerliunian");
+        check("v166 v8 year recognition", !result1.empty() && result1[0] == "二零二六年");
+
+        // 数字识别通过 v8
+        auto result2 = quick_candidates_v8("yiersan");
+        check("v166 v8 number recognition", !result2.empty() && result2[0] == "一二三");
+
+        // 模板识别通过 v8
+        auto result3 = quick_candidates_v8("ht");
+        bool hasTemplate = false;
+        for (const auto &r : result3) {
+            if (r == "您好，") hasTemplate = true;
+        }
+        check("v166 v8 template", hasTemplate);
+
+        // 基础功能不受影响
+        auto result4 = quick_candidates_v8("nihao");
+        check("v166 v8 basic not empty", !result4.empty());
+    }
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

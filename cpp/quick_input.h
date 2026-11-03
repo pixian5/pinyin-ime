@@ -5568,4 +5568,320 @@ inline std::vector<std::string> quick_candidates_v7(
     return result;
 }
 
+
+
+// ── v0.9.166 搜狗式年份/数字智能识别 ──────────────────────
+// 搜狗输入法特色：输入 "erlingeryiliunian" 自动识别为 "二零二六年"
+// 支持 1900-2099 年份范围，以及常见数字组合
+
+inline std::string digit_to_chinese(char d) {
+    switch (d) {
+        case '0': return "零";
+        case '1': return "一";
+        case '2': return "二";
+        case '3': return "三";
+        case '4': return "四";
+        case '5': return "五";
+        case '6': return "六";
+        case '7': return "七";
+        case '8': return "八";
+        case '9': return "九";
+        default: return "";
+    }
+}
+
+// 拼音数字 → 阿拉伯数字映射
+inline const std::unordered_map<std::string, char>& pinyin_digit_map() {
+    static const std::unordered_map<std::string, char> m = {
+        {"ling", '0'}, {"yi", '1'}, {"er", '2'}, {"san", '3'}, {"si", '4'},
+        {"wu", '5'}, {"liu", '6'}, {"qi", '7'}, {"ba", '8'}, {"jiu", '9'},
+        {"yao", '1'}, // 电话号码中1常读yao
+    };
+    return m;
+}
+
+// 尝试将拼音串解析为数字序列
+// 例如 "erlingeryiliu" → "2026"
+inline std::string try_parse_pinyin_to_digits(const std::string& pinyin) {
+    if (pinyin.empty() || pinyin.size() < 3) return "";
+
+    auto &digitMap = pinyin_digit_map();
+    std::string result;
+    size_t i = 0;
+
+    while (i < pinyin.size()) {
+        bool matched = false;
+        // 尝试匹配 2-4 字符的拼音数字
+        for (int len = 4; len >= 2; --len) {
+            if (i + len <= pinyin.size()) {
+                std::string sub = pinyin.substr(i, len);
+                auto it = digitMap.find(sub);
+                if (it != digitMap.end()) {
+                    result += it->second;
+                    i += len;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (!matched) return "";
+    }
+
+    // 至少需要 2 位数字才有意义
+    if (result.size() < 2) return "";
+    return result;
+}
+
+// 年份智能识别：检测 "erlingeryiliunian" 等模式
+// 返回识别到的中文年份，如 "二零二六年"
+inline std::string try_year_recognition(const std::string& pinyin) {
+    // 检查是否以 "nian" 结尾
+    std::string lower = pinyin;
+    for (auto &c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    std::string yearPart;
+    bool hasNian = false;
+
+    if (lower.size() > 4 && lower.substr(lower.size() - 4) == "nian") {
+        yearPart = lower.substr(0, lower.size() - 4);
+        hasNian = true;
+    } else if (lower.size() > 3 && lower.substr(lower.size() - 3) == "nan") {
+        // 简拼：nian → nan
+        yearPart = lower.substr(0, lower.size() - 3);
+        hasNian = true;
+    }
+
+    if (!hasNian) return "";
+
+    // 尝试解析为数字
+    std::string digits = try_parse_pinyin_to_digits(yearPart);
+    if (digits.empty()) return "";
+
+    // 验证年份范围 (1900-2099)
+    if (digits.size() != 4) return "";
+    int year = 0;
+    for (char d : digits) {
+        year = year * 10 + (d - '0');
+    }
+    if (year < 1900 || year > 2099) return "";
+
+    // 转换为中文数字
+    std::string chineseYear;
+    for (char d : digits) {
+        chineseYear += digit_to_chinese(d);
+    }
+    return chineseYear + "年";
+}
+
+// 数字串智能识别：检测 "yiersan" 等模式 → "一二三"
+inline std::string try_number_recognition(const std::string& pinyin) {
+    std::string lower = pinyin;
+    for (auto &c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    // 尝试解析为数字
+    std::string digits = try_parse_pinyin_to_digits(lower);
+    if (digits.empty() || digits.size() < 2) return "";
+
+    // 转换为逐位中文数字
+    std::string chinese;
+    for (char d : digits) {
+        chinese += digit_to_chinese(d);
+    }
+    return chinese;
+}
+
+// ── v0.9.166 增强上下文关联规则 ──────────────────────
+// 搜狗式：更多常用词搭配，提升整句准确率
+
+inline const std::vector<AssociationRule>& extended_associations_v166() {
+    static const std::vector<AssociationRule> rules = {
+        // 工作场景
+        {"会议", {"室", "时间", "记录", "纪要", "通知", "参加", "开始", "结束", "推迟", "取消"}},
+        {"项目", {"的", "进度", "计划", "报告", "管理", "负责", "完成", "启动", "延期", "成果"}},
+        {"代码", {"的", "审查", "提交", "合并", "分支", "仓库", "调试", "优化", "重构", "测试"}},
+        {"测试", {"的", "用例", "结果", "报告", "覆盖", "通过", "失败", "环境", "数据", "计划"}},
+        {"文档", {"的", "内容", "格式", "模板", "编辑", "查看", "下载", "分享", "版本", "更新"}},
+        {"系统", {"的", "配置", "状态", "日志", "监控", "更新", "重启", "备份", "恢复", "安全"}},
+        {"数据", {"的", "分析", "处理", "存储", "备份", "恢复", "导入", "导出", "同步", "安全"}},
+        // 学习场景
+        {"学习", {"的", "计划", "方法", "内容", "进度", "目标", "资料", "笔记", "复习", "总结"}},
+        {"课程", {"的", "内容", "时间", "安排", "表", "报名", "选修", "必修", "退课", "成绩"}},
+        {"考试", {"的", "时间", "地点", "成绩", "题目", "范围", "准备", "复习", "通过", "不及格"}},
+        // 生活场景
+        {"天气", {"的", "预报", "情况", "怎么样", "好", "不好", "晴", "阴", "雨", "雪"}},
+        {"手机", {"的", "号码", "话费", "充值", "欠费", "信号", "屏幕", "电池", "充电", "关机"}},
+        {"电脑", {"的", "配置", "性能", "屏幕", "键盘", "鼠标", "硬盘", "内存", "系统", "开机"}},
+        {"网络", {"的", "连接", "速度", "信号", "设置", "密码", "安全", "断开", "重连", "问题"}},
+        {"快递", {"的", "单号", "查询", "送达", "签收", "退回", "寄出", "到货", "取件", "派送"}},
+        // 社交场景
+        {"朋友", {"的", "们", "圈", "请", "约", "见", "聊", "聚", "帮忙", "联系"}},
+        {"家人", {"的", "们", "好", "健康", "平安", "幸福", "团聚", "关心", "照顾", "陪伴"}},
+        {"同事", {"的", "们", "好", "关系", "合作", "帮忙", "聚餐", "开会", "讨论", "交流"}},
+        // 时间表达
+        {"上午", {"的", "好", "忙", "开", "结束", "安排", "会议", "工作", "学习", "时间"}},
+        {"下午", {"的", "好", "忙", "开", "结束", "安排", "会议", "工作", "学习", "时间"}},
+        {"晚上", {"的", "好", "忙", "开", "结束", "安排", "吃饭", "休息", "睡觉", "加班"}},
+        {"周末", {"的", "好", "快乐", "愉快", "休息", "出去玩", "加班", "在家", "逛街", "聚会"}},
+        {"假期", {"的", "好", "快乐", "愉快", "安排", "旅游", "休息", "回家", "出国", "计划"}},
+        // 情感表达
+        {"开心", {"的", "很", "极了", "，", "！", "呀", "呢", "吧", "，真好", "，太好了"}},
+        {"难过", {"的", "很", "极了", "，", "。", "呀", "呢", "吧", "，别担心", "，会好的"}},
+        {"辛苦", {"了", "了，谢谢", "了，加油", "了，休息", "了，注意", "了，保重", "了，慢慢来", "了，别累着", "了，辛苦了", "了，好的"}},
+        {"加油", {"！", "，你可以", "，努力", "，坚持", "，别放弃", "，慢慢来", "，相信自己", "，一定行", "，好的"}},
+    };
+    return rules;
+}
+
+// ── v0.9.166 增强拼音纠错 ──────────────────────
+// 搜狗式：更多常见打错模式
+
+struct EnhancedTypoPattern {
+    std::string wrong;    // 错误拼音片段
+    std::string correct;  // 正确拼音片段
+    std::string desc;     // 描述
+};
+
+inline const std::vector<EnhancedTypoPattern>& enhanced_typo_patterns_v166() {
+    static const std::vector<EnhancedTypoPattern> patterns = {
+        // 声母混淆
+        {"zh", "z", "翘舌→平舌"},
+        {"ch", "c", "翘舌→平舌"},
+        {"sh", "s", "翘舌→平舌"},
+        {"z", "zh", "平舌→翘舌"},
+        {"c", "ch", "平舌→翘舌"},
+        {"s", "sh", "平舌→翘舌"},
+        // 韵母混淆
+        {"an", "ang", "前鼻音→后鼻音"},
+        {"en", "eng", "前鼻音→后鼻音"},
+        {"in", "ing", "前鼻音→后鼻音"},
+        {"ang", "an", "后鼻音→前鼻音"},
+        {"eng", "en", "后鼻音→前鼻音"},
+        {"ing", "in", "后鼻音→前鼻音"},
+        // n/l 混淆
+        {"n", "l", "n→l"},
+        {"l", "n", "l→n"},
+        // h 遗漏
+        {"chu", "chuang", "遗漏ng"},
+        {"shu", "shuang", "遗漏ng"},
+        // 常见打字错误
+        {"ng", "n", "多余g"},
+        {"iu", "ou", "iu→ou"},
+        {"ui", "ei", "ui→ei"},
+        // 键盘相邻误按
+        {"a", "s", "a→s键盘相邻"},
+        {"e", "r", "e→r键盘相邻"},
+        {"i", "o", "i→o键盘相邻"},
+        {"u", "i", "u→i键盘相邻"},
+    };
+    return patterns;
+}
+
+// 增强纠错：对输入拼音生成纠错候选
+inline std::vector<std::pair<std::string, std::string>> enhanced_correct_v166(const std::string& pinyin) {
+    std::vector<std::pair<std::string, std::string>> results;
+    auto &patterns = enhanced_typo_patterns_v166();
+
+    // 对每个位置尝试替换
+    for (const auto &pat : patterns) {
+        size_t pos = pinyin.find(pat.wrong);
+        while (pos != std::string::npos) {
+            std::string corrected = pinyin;
+            corrected.replace(pos, pat.wrong.size(), pat.correct);
+            if (corrected != pinyin) {
+                results.push_back({corrected, pat.desc});
+            }
+            pos = pinyin.find(pat.wrong, pos + 1);
+        }
+    }
+
+    // 去重
+    std::sort(results.begin(), results.end());
+    results.erase(std::unique(results.begin(), results.end()), results.end());
+    return results;
+}
+
+// ── v0.9.166 更多句式模板 ──────────────────────
+// 搜狗式：常用办公/社交快捷输入
+
+inline const std::vector<std::pair<std::string, std::string>>& extended_templates_v166() {
+    static const std::vector<std::pair<std::string, std::string>> templates = {
+        // 办公模板
+        {"ht", "您好，"},                    // ht → 您好，
+        {"hts", "您好，谢谢联系。"},         // hts → 您好，谢谢联系。
+        {"qj", "请问您方便吗？"},            // qj → 请问您方便吗？
+        {"qjh", "请问您几号方便？"},         // qjh → 请问您几号方便？
+        {"qm", "请问您明天有空吗？"},        // qm → 请问您明天有空吗？
+        {"qx", "请问需要什么帮助？"},        // qx → 请问需要什么帮助？
+        {"fa", "附件请查收，谢谢！"},        // fa → 附件请查收，谢谢！
+        {"fy", "烦请查收，谢谢！"},          // fy → 烦请查收，谢谢！
+        {"shou", "收到，谢谢！"},            // shou → 收到，谢谢！
+        {"wc", "我已经完成了。"},            // wc → 我已经完成了。
+        {"wz", "我在处理中。"},              // wz → 我在处理中。
+        {"wt", "我稍后处理。"},              // wt → 我稍后处理。
+        // 社交模板
+        {"zm", "早上好！"},                  // zm → 早上好！
+        {"wa", "晚上好！"},                  // wa → 晚上好！
+        {"zz", "在的在的"},                  // zz → 在的在的
+        {"mm", "没问题"},                    // mm → 没问题
+        {"ok", "好的，没问题"},              // ok → 好的，没问题
+        {"dd", "等一下"},                    // dd → 等一下
+        {"ll", "来了来了"},                  // ll → 来了来了
+        // 邮件模板
+        {"yj", "您好，\n\n\n\n此致\n敬礼"},  // yj → 邮件格式
+        {"hf", "您好，\n\n收到，我会尽快处理。\n\n谢谢！"},  // hf → 回复模板
+        // 会议模板
+        {"hy", "【会议通知】"},
+        {"hys", "【会议纪要】"},
+        {"hyt", "【会议提醒】请准时参加。"},
+        // 代码/技术
+        {"bug", "问题描述：\n复现步骤：\n预期结果：\n实际结果："},
+        {"log", "请查看日志："},
+        {"fix", "已修复，请验证。"},
+    };
+    return templates;
+}
+
+// ── v0.9.166 统一入口 v8：搜狗式智能输入增强 ──────────────────────
+inline std::vector<std::string> quick_candidates_v8(
+    const std::string& input,
+    const std::string& preceding = "",
+    const std::string& prev2 = "",
+    const std::string& theme_name = "default",
+    const UserWordFreqModel* freq_model = nullptr) {
+
+    std::vector<std::string> result;
+
+    // 1. 年份智能识别（最高优先级）
+    std::string yearResult = try_year_recognition(input);
+    if (!yearResult.empty()) {
+        result.push_back(yearResult);
+    }
+
+    // 2. 数字识别
+    std::string numResult = try_number_recognition(input);
+    if (!numResult.empty() && numResult != yearResult) {
+        result.push_back(numResult);
+    }
+
+    // 3. 扩展句式模板
+    auto &templates = extended_templates_v166();
+    for (const auto &tpl : templates) {
+        if (input == tpl.first) {
+            result.push_back(tpl.second);
+        }
+    }
+
+    // 4. 调用 v7 获取基础候选
+    auto v7Result = quick_candidates_v7(input, preceding, prev2, theme_name, freq_model);
+
+    // 合并去重
+    for (const auto &c : v7Result) {
+        if (std::find(result.begin(), result.end(), c) == result.end()) {
+            result.push_back(c);
+        }
+    }
+
+    return result;
+}
+
 } // namespace pinyin_ime

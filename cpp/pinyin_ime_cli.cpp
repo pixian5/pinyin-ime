@@ -2376,6 +2376,24 @@ int main(int argc, char **argv) {
                     continue;
                 }
             }
+                // v0.9.166: 年份智能识别（erlingerliunian → 二零二六年）
+                {
+                    std::string yearResult = pinyin_ime::try_year_recognition(line);
+                    if (!yearResult.empty()) {
+                        output_line(yearResult);
+                        continue;
+                    }
+                }
+                // v0.9.166: 扩展句式模板（ht→您好，, bug→问题描述...）
+                {
+                    auto &extTemplates = pinyin_ime::extended_templates_v166();
+                    for (const auto &tpl : extTemplates) {
+                        if (line == tpl.first) {
+                            output_line(tpl.second);
+                            continue;
+                        }
+                    }
+                }
             if (correctPinyin && pinyin_corrector::should_correct(line)) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
