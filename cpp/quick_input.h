@@ -1165,10 +1165,13 @@ inline std::vector<std::string> mixed_input_lookup(const std::string &input) {
         if (c < 'a' || c > 'z') return {};
     }
     std::vector<std::string> result;
+    // 1. 精确匹配（任何长度都允许）
     for (const auto &w : common_english_words()) {
         if (w == input) { result.push_back(w); break; }
     }
-    if (result.empty()) {
+    // 2. 前缀匹配：仅对 4+ 字符输入且非有效拼音时才做
+    //    避免短拼音(wo/ta/ma/ya等)被误匹配为英文前缀
+    if (result.empty() && input.size() >= 4) {
         for (const auto &w : common_english_words()) {
             if (w.size() > input.size() && w.substr(0, input.size()) == input) {
                 result.push_back(w);
@@ -1195,7 +1198,6 @@ inline const std::vector<TypoCorrection>& common_typos() {
         {"nihoa",  "nihao"},
         {"zhonggu",  "zhongguo"},
         {"shuruf",   "shurufa"},
-        {"nihaoa",   "nihao"},
         {"shurufaa", "shurufa"},
         {"wihao",    "nihao"},
         {"bihao",    "nihao"},
@@ -5989,7 +5991,6 @@ inline const std::vector<std::pair<std::string, std::string>>& sogou_sentence_pr
         {"fagejia", "发个价格给我看看"},
         {"woyaoxiadan", "我要下单，请问有货吗？"},
         {"keyikaipiao", "可以开发票吗？"},
-        {"zenmeyang", "怎么样了？有结果了吗？"},
         {"woyaojieshao", "我要介绍一下产品"},
         {"youhuiduo", "优惠力度大不大？"},
         {"keyishidian", "可以试一下吗？"},

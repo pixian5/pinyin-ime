@@ -2187,7 +2187,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 // Tab英文补全（至少3字符，且首选不等于输入本身）
-                if (pinyin_ime::is_english_input(line) && line.size() >= 3) {
+                if (pinyin_ime::is_english_input(line) && line.size() >= 5) {
                     auto words = pinyin_ime::tab_complete(line);
                     if (!words.empty() && words[0] != line) {
                         for (size_t ci = 0; ci < words.size(); ++ci) {
