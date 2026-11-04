@@ -34,6 +34,7 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <cstdio>
+#include <unordered_set>
 #include <sys/stat.h>
 #include <cstdio>
 #include <sys/stat.h>
@@ -1169,13 +1170,62 @@ inline std::vector<std::string> mixed_input_lookup(const std::string &input) {
     for (const auto &w : common_english_words()) {
         if (w == input) { result.push_back(w); break; }
     }
-    // 2. 前缀匹配：仅对 4+ 字符输入且非有效拼音时才做
-    //    避免短拼音(wo/ta/ma/ya等)被误匹配为英文前缀
-    if (result.empty() && input.size() >= 4) {
-        for (const auto &w : common_english_words()) {
-            if (w.size() > input.size() && w.substr(0, input.size()) == input) {
-                result.push_back(w);
-                if (result.size() >= 5) break;
+    // 2. 前缀匹配：跳过有效拼音（避免 wo→world, ta→target）
+    //    非拼音输入(如 py, deb)仍可匹配英文前缀
+    if (result.empty()) {
+        bool is_pinyin = false;
+        // 检查是否是有效拼音音节（简化判断：查预设表）
+        static const std::unordered_set<std::string> valid_pinyin = {
+            "wo","ta","ma","ya","rou","ji","zhu","ba","pa","fa","da","na","la","ga","ka","ha","za","ca","sa","ra",
+            "bo","po","mo","fo","do","to","no","lo","go","ko","ho","zo","co","so","ro",
+            "bi","pi","mi","di","ti","ni","li","qi","xi","yi","ri","zi","ci","si",
+            "bu","pu","mu","fu","du","tu","nu","lu","gu","ku","hu","zu","cu","su","ru","yu","wu","ju","qu","xu",
+            "ai","ei","ao","ou","an","en","ang","eng","er",
+            "zhi","chi","shi","rii","zhu","chu","shu","ruo","zha","cha","sha","zhe","che","she","re",
+            "zhi","chi","shi","zho","cho","sho","zhu","chu","shu","zhai","chai","shai","zhou","chou","shou",
+            "zhan","chan","shan","zhen","chen","shen","rhen","zhang","chang","shang","zheng","cheng","sheng","reng",
+            "zhong","chong","shong","rung","zhuo","chuo","shuo","ruo","zhua","chua","shua","rua",
+            "zhuai","chuai","shuai","zhuang","chuang","shuang","zhueng","chueng","shueng",
+            "zhui","chui","shui","zhun","chun","shun","zhuan","chuan","shuan","zhuan","chuan","shuan",
+            "gou","mao","yu","dan","nai","yang","zhou","rou","ji","ya","zhu",
+            "fayu","deyu","haoma","xingma","qibaji","shibai",
+            "bana","pama","fada","tana","nala","laga","kaha","zaca","sara","raza",
+            "beipe","meife","deite","nele","lege","kehe","zece","sese","rez",
+            "bipi","mimi","diti","nili","liqi","qixi","xiyi","riri","zici","sisi",
+            "bupu","mufu","dutu","nulu","lugu","kuhu","zucu","susu","ruyu","wuju","quxu",
+            "bai","pai","mai","dai","tai","nai","lai","gai","kai","hai","zai","cai","sai","rai",
+            "bei","pei","mei","fei","dei","tei","nei","lei","gei","kei","hei","zei","cei","sei","rei",
+            "bao","pao","mao","dao","tao","nao","lao","gao","kao","hao","zao","cao","sao","rao",
+            "ban","pan","man","fan","dan","tan","nan","lan","gan","kan","han","zan","can","san","ran",
+            "ben","pen","men","fen","den","ten","nen","len","gen","ken","hen","zen","cen","sen","ren",
+            "bang","pang","mang","fang","dang","tang","nang","lang","gang","kang","hang","zang","cang","sang","rang",
+            "beng","peng","meng","feng","deng","teng","neng","leng","geng","keng","heng","zeng","ceng","seng","reng",
+            "biao","piao","miao","diao","tiao","niao","liao","jiao","qiao","xiao","yiao",
+            "bian","pian","mian","dian","tian","nian","lian","jian","qian","xian","yian",
+            "bin","pin","min","din","tin","nin","lin","jin","qin","xin","yin",
+            "bing","ping","ming","ding","ting","ning","ling","jing","qing","xing","ying",
+            "duan","tuan","nuan","luan","guan","kuan","huan","zhuan","chuan","shuan","ruan","zuan","cuan","suan",
+            "dui","tui","gui","kui","hui","zhui","chui","shui","rui","zui","cui","sui",
+            "dun","tun","gun","kun","hun","zhun","chun","shun","run","zun","cun","sun",
+            "dong","tong","nong","long","gong","kong","hong","zhong","chong","shong","rong","zong","cong","song",
+            "guang","kuang","huang","zhuang","chuang","shuang","ruang","zuang","cuang","suang",
+            "guo","kuo","huo","zhuo","chuo","shuo","ruo","zuo","cuo","suo",
+            "nve","lve","jue","que","xue","yue","nue","lue",
+            "nv","lv","nu","lu","ju","qu","xu","yu",
+            "jiao","qiao","xiao","jiong","qiong","xiong","yong",
+            "jiang","qiang","xiang","yang","wang","liang","niang",
+            "jvan","qvan","xvan","yvan","juan","quan","xuan","yuan",
+            "jvn","qvn","xvn","yvn","jun","qun","xun","yun",
+            "jve","qve","xve","yve","jue","que","xue","yue"
+        };
+        is_pinyin = (valid_pinyin.count(input) > 0);
+        
+        if (!is_pinyin) {
+            for (const auto &w : common_english_words()) {
+                if (w.size() > input.size() && w.substr(0, input.size()) == input) {
+                    result.push_back(w);
+                    if (result.size() >= 5) break;
+                }
             }
         }
     }
