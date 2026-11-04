@@ -2338,6 +2338,11 @@ public:
                     const std::vector<CloudCandidate> &cands) const {
         std::string path = cache_path(pinyin);
         if (path.empty()) return false;
+        // 确保缓存目录存在
+        if (!config.cache_dir.empty()) {
+            std::string cmd = "mkdir -p " + config.cache_dir;
+            std::system(cmd.c_str());
+        }
         FILE *fp = std::fopen(path.c_str(), "w");
         if (!fp) return false;
         for (auto &c : cands) {

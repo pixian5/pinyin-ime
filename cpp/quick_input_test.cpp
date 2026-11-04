@@ -1118,7 +1118,7 @@ int main() {
         check("cloud provider[0] is local", providers[0].name == "local");
         check("cloud provider[1] is google", providers[1].name == "google");
 
-        CloudPinyinClientV2 client("/tmp/test_cloud_cache");
+        CloudPinyinClientV2 client("/tmp/test_cloud_cache_v2");
         check("cloud v2 default providers", client.providers.size() == 3);
         check("cloud v2 disabled by default", client.enabled == false);
 
