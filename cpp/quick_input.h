@@ -1176,7 +1176,7 @@ inline std::vector<std::string> mixed_input_lookup(const std::string &input) {
         bool is_pinyin = false;
         // 检查是否是有效拼音音节（简化判断：查预设表）
         static const std::unordered_set<std::string> valid_pinyin = {
-            "wo","ta","ma","ya","rou","ji","zhu","ba","pa","fa","da","na","la","ga","ka","ha","za","ca","sa","ra",
+            "wo","ta","ma","ya","rou","ji","zhu","ba","pa","fa","da","na","la","ga","ka","ha","za","ca","sa","ra","de","he","le","ge","qu","du","dui","kan","shuo","xiang","neng","hui","xiao","hao","bu","ren","shang","xia","li","wai","duo","shao","lai","zuo","zhong","zai","you","shi","ni",
             "bo","po","mo","fo","do","to","no","lo","go","ko","ho","zo","co","so","ro",
             "bi","pi","mi","di","ti","ni","li","qi","xi","yi","ri","zi","ci","si",
             "bu","pu","mu","fu","du","tu","nu","lu","gu","ku","hu","zu","cu","su","ru","yu","wu","ju","qu","xu",
@@ -5979,8 +5979,34 @@ inline const std::vector<std::pair<std::string, std::string>>& sogou_abbreviatio
         {"kdl", "磕到了"}, {"szd", "是真的"}, {"bhs", "不会吧"},
         {"jrm", "家人们"}, {"xzx", "小仙女"}, {"nmsl", "你没事吧"},
         {"awsl", "啊我死了"}, {"kksk", "磕死磕死"}, {"rnb", "人民币"},
-        {"zqsg", "真情实感"}, {"blx", "玻璃心"}, {"yxh", "营销号"},
-        {"shui", "谁"}, {"wzry", "王者荣耀"}, {"hpjy", "和平精英"},
+        {"zqsg", "真情实感"},
+        // v0.9.170: 四字成语缩写补充
+        {"sjmy", "十全十美"},
+        {"wmrl", "完美无缺"},
+        {"tydiz", "天下第一"},
+        {"hylt", "海阔天空"},
+        {"qzxh", "千军万马"},
+        {"wdyz", "万无一失"},
+        {"ybyf", "一败涂地"},
+        {"bsyf", "百战百胜"},
+        {"yjsy", "一举两得"},
+        {"ljsj", "两全其美"},
+        {"sjqi", "三思而行"},
+        {"swsl", "说一不二"},
+        {"yymy", "一言为定"},
+        {"yym", "一鸣惊人"},
+        {"hyl", "后来居上"},
+        {"qyl", "青出于蓝"},
+        {"sjl", "水到渠成"},
+        {"yjl", "迎刃而解"},
+        {"yyqx", "一往情深"},
+        {"nbcs", "内部测试"},
+        {"pljj", "漂亮姐姐"},
+        {"pldd", "漂亮弟弟"},
+        {"plgg", "漂亮哥哥"},
+        {"plaa", "漂亮阿姨"},
+        {"plbb", "漂亮伯伯"}, {"blx", "玻璃心"}, {"yxh", "营销号"},
+        {"wzry", "王者荣耀"}, {"hpjy", "和平精英"},
         // v0.9.169: 扩展日常用语
         {"cf", "吃饭"}, {"sj", "睡觉"}, {"xj", "洗脚"}, {"ys", "有时"},
         {"qm", "前面"}, {"hm", "后面"}, {"zl", "整理"}, {"fx", "分享"},
@@ -6014,7 +6040,6 @@ inline const std::vector<std::pair<std::string, std::string>>& sogou_sentence_pr
         {"dajiahao", "大家好，很高兴见到你们"},
         // 常用结束语
         {"xiexiepz", "谢谢配合，祝您生活愉快"},
-        {"zaijian", "再见，祝您一切顺利"},
         // 常用询问
         {"qingwenny", "请问您需要什么帮助？"},
         {"qingwensm", "请问什么时候方便？"},
