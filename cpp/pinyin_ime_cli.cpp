@@ -719,6 +719,56 @@ std::vector<std::string> fallback_segment(
     
     std::vector<std::string> best_cands;
     
+    // 策略0: DP分词 → 逐段解码拼接（v0.9.171）
+
+    {
+        auto dpSegs = pinyin_ime::dp_pinyin_segment(input);
+        if (!dpSegs.empty()) {
+            // 检查所有段是否都是有效音节
+            const auto& validSyl = pinyin_ime::valid_pinyin_syllables();
+            bool allValid = true;
+            for (auto& seg : dpSegs) {
+                if (!validSyl.count(seg)) { allValid = false; break; }
+            }
+            if (allValid && dpSegs.size() >= 2) {
+                // 逐段解码拼接
+                std::string joined;
+                bool ok = true;
+                for (auto& seg : dpSegs) {
+                    ctx.clear();
+                    for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    auto sc = collect_candidates(ctx, nbest);
+                    boost_abbreviation(seg, sc);
+                    boost_v9(seg, sc);
+                    if (!sc.empty() && !has_latin(sc[0])) {
+                        joined += sc[0];
+                    } else {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok && !joined.empty()) {
+                    best_cands.push_back(joined);
+                }
+                
+                // 也尝试用空格分隔送入LM整句解码
+                if (best_cands.empty()) {
+                    std::string spaced;
+                    for (size_t si = 0; si < dpSegs.size(); ++si) {
+                        if (si) spaced += " ";
+                        spaced += dpSegs[si];
+                    }
+                    ctx.clear();
+                    for (char ch : spaced) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    auto sc = collect_candidates(ctx, nbest);
+                    if (!sc.empty() && !has_latin(sc[0])) {
+                        best_cands = sc;
+                    }
+                }
+            }
+        }
+    }
+    
     // 完整拼音音节表（用于双字符替换）
     static const std::vector<std::string> syllables = {
         "a","ai","an","ang","ao","ba","bai","ban","bang","bao","bei","ben","beng","bi","bian","biao","bie","bin","bing","bo","bu",
@@ -794,6 +844,63 @@ std::vector<std::string> fallback_segment(
 }
 
 }  // namespace
+
+// v0.9.171: 嵌入式数字处理 — 拼音串中嵌入的数字+量词自动转换
+// 如 "woyao2tian" → "我要" + "两天" → "我要两天"
+//     "woyou3gepingguo" → "我有" + "三个" + "苹果" → "我有三个苹果"
+struct MixedSegment {
+    std::string text;      // 原始文本
+    bool is_number_unit;   // 是否为数字+量词段
+    std::string converted; // 转换后的中文（仅 is_number_unit=true 时有效）
+};
+
+std::vector<MixedSegment> split_mixed_number_input(const std::string &input) {
+    std::vector<MixedSegment> segments;
+    size_t i = 0;
+    while (i < input.size()) {
+        if (isdigit((unsigned char)input[i])) {
+            // 提取数字部分
+            size_t numStart = i;
+            while (i < input.size() && isdigit((unsigned char)input[i])) i++;
+            std::string numPart = input.substr(numStart, i - numStart);
+            
+            // 尝试提取后续量词拼音（最多6字符）
+            size_t unitStart = i;
+            size_t unitEnd = i;
+            // 逐字符扩展，尝试匹配已知量词
+            for (size_t len = 1; len <= 6 && i + len <= input.size(); ++len) {
+                std::string candidate = input.substr(i, len);
+                // 检查是否全为拼音字符
+                bool allPinyin = true;
+                for (char c : candidate) {
+                    if (c < 'a' || c > 'z') { allPinyin = false; break; }
+                }
+                if (!allPinyin) break;
+                // 尝试 smart_number_with_unit
+                std::string testUnit = numPart + candidate;
+                std::string converted = pinyin_ime::smart_number_with_unit(testUnit);
+                if (!converted.empty()) {
+                    unitEnd = i + len;
+                    segments.push_back({testUnit, true, converted});
+                }
+            }
+            if (unitEnd > unitStart) {
+                i = unitEnd;
+            } else {
+                // 没有匹配到量词，数字单独作为一段
+                segments.push_back({numPart, true, numPart});
+            }
+        } else {
+            // 提取拼音部分
+            size_t pinyinStart = i;
+            while (i < input.size() && !isdigit((unsigned char)input[i])) i++;
+            std::string pinyinPart = input.substr(pinyinStart, i - pinyinStart);
+            segments.push_back({pinyinPart, false, ""});
+        }
+    }
+    return segments;
+}
+
 
 int main(int argc, char **argv) {
     // 解析参数：支持 -h/--help、-f/--fuzzy、--user-data DIR；位置参数为 [lm][dict][nbest]。
@@ -1855,8 +1962,20 @@ int main(int argc, char **argv) {
                         const auto &w = pinyin_ime::lookup_pinyin_boost(compact);
                         return !w.empty() && w != compact;
                     }();
+                // v0.9.171: 用DP分词作为后备检查，避免贪心匹配误判
+                bool isValidPinyin = is_valid_pinyin(compact);
+                if (!isValidPinyin) {
+                    auto dpSegs = pinyin_ime::dp_pinyin_segment(compact);
+                    if (!dpSegs.empty()) {
+                        const auto& validSyl = pinyin_ime::valid_pinyin_syllables();
+                        isValidPinyin = true;
+                        for (auto& seg : dpSegs) {
+                            if (!validSyl.count(seg)) { isValidPinyin = false; break; }
+                        }
+                    }
+                }
                 const bool englishLineDoubled =
-                    !compact.empty() && !knownAbbr && !is_valid_pinyin(compact) &&
+                    !compact.empty() && !knownAbbr && !isValidPinyin &&
                     (compact.find("aa") != std::string::npos ||
                      compact.find("bb") != std::string::npos ||
                      compact.find("cc") != std::string::npos ||
@@ -2133,6 +2252,7 @@ int main(int argc, char **argv) {
             {
                 std::vector<std::string> v9Cands;
                 pinyin_ime::boost_v9(line, v9Cands);
+
                 if (!v9Cands.empty()) {
                     for (size_t ci = 0; ci < v9Cands.size() && ci < static_cast<size_t>(nbest); ++ci) {
                         if (ci > 0) std::cout << '\t';
@@ -2374,8 +2494,20 @@ int main(int argc, char **argv) {
                         const auto &w = pinyin_ime::lookup_pinyin_boost(compact);
                         return !w.empty() && w != compact;
                     }();
+                // v0.9.171: 用DP分词作为后备检查，避免贪心匹配误判
+                bool isValidPinyin = is_valid_pinyin(compact);
+                if (!isValidPinyin) {
+                    auto dpSegs = pinyin_ime::dp_pinyin_segment(compact);
+                    if (!dpSegs.empty()) {
+                        const auto& validSyl = pinyin_ime::valid_pinyin_syllables();
+                        isValidPinyin = true;
+                        for (auto& seg : dpSegs) {
+                            if (!validSyl.count(seg)) { isValidPinyin = false; break; }
+                        }
+                    }
+                }
                 const bool englishLineDoubled =
-                    !compact.empty() && !knownAbbr && !is_valid_pinyin(compact) &&
+                    !compact.empty() && !knownAbbr && !isValidPinyin &&
                     (compact.find("aa") != std::string::npos ||
                      compact.find("bb") != std::string::npos ||
                      compact.find("cc") != std::string::npos ||
@@ -2567,15 +2699,61 @@ int main(int argc, char **argv) {
                     }
                 }
             } else {
-                for (char ch : line) {
-                    if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
-                }
-                cands = collect_candidates(ctx, static_cast<size_t>(nbest));
-                boost_abbreviation(line, cands);
+                // v0.9.171: 嵌入式数字处理
+                bool hasDigit = false;
+                for (char c : line) if (c >= '0' && c <= '9') { hasDigit = true; break; }
+                
+                if (hasDigit) {
+                    // 分割为拼音段和数字+量词段
+                    auto mixedSegs = split_mixed_number_input(line);
+                    bool hasNumberUnit = false;
+                    for (auto &ms : mixedSegs) {
+                        if (ms.is_number_unit && ms.converted != ms.text) {
+                            hasNumberUnit = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasNumberUnit) {
+                        // 拼接各段结果
+                        std::string joined;
+                        for (auto &ms : mixedSegs) {
+                            if (ms.is_number_unit) {
+                                joined += ms.converted;
+                            } else {
+                                // 拼音段用 LM 解码
+                                ctx.clear();
+                                for (char ch : ms.text) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                                auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
+                                boost_abbreviation(ms.text, sc);
+                                boost_v9(ms.text, sc);
+                                if (!sc.empty()) joined += sc[0];
+                                else joined += ms.text;
+                            }
+                        }
+                        cands.clear();
+                        cands.push_back(joined);
+                    } else {
+                        // 有数字但无量词匹配，跳过数字只处理拼音
+                        for (char ch : line) {
+                            if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                        }
+                        cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+                        boost_abbreviation(line, cands);
+                        boost_v9(line, cands);
+                    }
+                } else {
+                    for (char ch : line) {
+                        if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    }
+                    cands = collect_candidates(ctx, static_cast<size_t>(nbest));
+                    boost_abbreviation(line, cands);
 
-                boost_v9(line, cands);
+                    boost_v9(line, cands);
+                }
             }
             // P1: 长句兜底分词 — 候选含拉丁字母时尝试元音补全
+
             if (!cands.empty() && has_latin(cands[0]) && !correctPinyin) {
                 auto fbCands = fallback_segment(ctx, line, static_cast<size_t>(nbest));
                 if (!fbCands.empty()) {

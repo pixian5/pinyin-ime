@@ -6134,7 +6134,7 @@ inline std::string smart_number_with_unit(const std::string& input) {
         {"ben", "本"}, {"zhang", "张"}, {"tiao", "条"}, {"jian", "件"},
         {"tai", "台"}, {"liang", "辆"}, {"suo", "所"}, {"jia", "家"},
         {"ming", "名"}, {"wei", "位"}, {"zu", "组"}, {"pi", "批"},
-        {"du", "度"}, {"li", "里"}, {"mi", "米"}, {"km", "公里"},
+        {"du", "度"}, {"li", "里"}, {"mi", "米"}, {"km", "公里"}, {"bei", "倍"}, {"sheng", "升"}, {"ping", "瓶"}, {"he", "盒"}, {"dun", "吨"}, {"ke", "克"}, {"jin", "斤"}, {"bang", "磅"},
     };
 
     auto it = units.find(unitPinyin);

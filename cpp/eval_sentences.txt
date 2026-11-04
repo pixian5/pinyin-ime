@@ -1,0 +1,157 @@
+# 句级评测语料 v1.0
+# 格式: 拼音输入<TAB>期望首选
+# === 日常对话 (40条) ===
+nihao	你好
+nihaoma	你好吗
+zaijian	再见
+xiexieni	谢谢你
+bukeqi	不客气
+duibuqi	对不起
+meiguanxi	没关系
+qingwen	请问
+wojiao	我叫
+woxihuan	我喜欢
+wobuxihuan	我不喜欢
+woxihuanbiancheng	我喜欢编程
+woxihuandushu	我喜欢读书
+woxihuanyundong	我喜欢运动
+woxihuanyinyue	我喜欢音乐
+wojintianhenkaixin	我今天很开心
+wojintianhenlei	我今天很累
+wojintianhenmang	我今天很忙
+jintiantianqihenhaowomenquchifanba	今天天气很好我们去吃饭吧
+jintiantianqibucuo	今天天气不错
+mingtianhuixiayuma	明天会下雨吗
+woquchifan	我去吃饭
+woyijingchiguofanle	我已经吃过饭了
+womenyiqiquchifanba	我们一起去吃饭吧
+womenyiqiqukandianyingba	我们一起去看电影吧
+womenyiqiquguangjieba	我们一起去逛街吧
+woyaoquchaoshi	我要去超市
+woyaomaidongxi	我要买东西
+woxianghekafei	我想喝咖啡
+woxiangchipingguo	我想吃苹果
+woxiangchixiangjiao	我想吃香蕉
+wojuedehene	我觉得很饿
+wojuedehenlei	我觉得很累
+wojuedehenkaixin	我觉得很开心
+wojuedehennanguo	我觉得很难过
+woxihuanzhebenshu	我喜欢这本书
+woxihuanzheshouge	我喜欢这首歌
+woxihuanzhebudianying	我喜欢这部电影
+woxihuanzhegechengshi	我喜欢这个城市
+woxihuanzhegeren	我喜欢这个人
+# === 工作场景 (40条) ===
+wozaigongsi	我在公司
+wozhengzaixiebaogao	我正在写报告
+wozhunbeikaigehui	我准备开个会
+wozhunbeizuogebaogao	我准备做个报告
+wozhunbeizuogefangan	我准备做个方案
+wozhunbeizuogejihua	我准备做个计划
+woxuyaobangzhu	我需要帮助
+woxuyaozhunbeiziliao	我需要准备资料
+woxuyaozhunbeiwenjian	我需要准备文件
+woxuyaozhunbeishuju	我需要准备数据
+woxuyaotijiaobaogao	我需要提交报告
+woxuyaotijiaowenjian	我需要提交文件
+woxuyaotijiaodaima	我需要提交代码
+woxuyaofabuchanpin	我需要发布产品
+woxuyaogengxinwenjian	我需要更新文件
+woxuyaogengxinshuju	我需要更新数据
+woxuyaogengxindaima	我需要更新代码
+woxuyaoxiugaiwenjian	我需要修改文件
+woxuyaoxiugai shuju	我需要修改数据
+woxuyaoxiugaidaima	我需要修改代码
+woxuyaoshanchuwenjian	我需要删除文件
+woxuyaoshanchushuju	我需要删除数据
+woxuyaochakanbaogao	我需要查看报告
+woxuyaochakanwenjian	我需要查看文件
+woxuyaochakanshuju	我需要查看数据
+woxuyaochakandaima	我需要查看代码
+woxuyaofenxishuju	我需要分析数据
+woxuyaofenxiwenti	我需要分析问题
+woxuyaojiejuewenti	我需要解决问题
+woxuyaogaijinfangan	我需要改进方案
+woxuyaogaijinjihua	我需要改进计划
+woxuyaogaijinliucheng	我需要改进流程
+woxuyaoyouhuaxingneng	我需要优化性能
+woxuyaoyouhuadaima	我需要优化代码
+woxuyaoyouhuajiagou	我需要优化架构
+woxuyaoceshigongneng	我需要测试功能
+woxuyaoceshixingneng	我需要测试性能
+woxuyaoceshiwendingxing	我需要测试稳定性
+woxuyaotigaoxiaolv	我需要提高效率
+woxuyaojiangdichengben	我需要降低成本
+# === 长句挑战 (40条) ===
+zhongguorenminzhanqilaile	中国人民站起来了
+woshizhongguorenwoaizhongguo	我是中国人我爱中国
+wodepengyoushigechengxuyuan	我的朋友是个程序员
+tamenyiqiqulebeijinglvyou	他们一起去了北京旅游
+womenxuyaojiakuaiyanfajindu	我们需要加快研发进度
+wojuedezhejianshiqingyaoxiaoxinchuli	我觉得这件事情要小心处理
+wobuxiangzheyangzuoyinweizheyangzuobuhao	我不想这样做因为这样做不好
+zhegeshijieshangzuihaodeshijiu	这个世界上最好的事就
+qingninyuxianzhunbeihaoziliao	请您预先准备好资料
+qingwenyixiazhegefangxiangzenmezou	请问一下这个方向怎么走
+xianzaideshijianyijingbuzao	现在的时间已经不早
+womingtianxiawuwudianhuijia	我明天下午五点回家
+woxihuanzheigexitongdejiemian	我喜欢这个系统的界面
+zheigexitongdeanquanxinghengao	这个系统的安全性很高
+wojuedewomendexitongxuyaogengxin	我觉得我们的系统需要更新
+woxihuanzheigexitong	我喜欢这个系统
+wojuedezheigexitonghenhao	我觉得这个系统很好
+wojuedezheigexitongbucuo	我觉得这个系统不错
+wojuedezheigexitonghenqiang	我觉得这个系统很强
+wojuedezheigexitonghenruo	我觉得这个系统很弱
+wojuedezheigexitonghenkuai	我觉得这个系统很快
+wojuedezheigexitonghenman	我觉得这个系统很慢
+wojuedezheigexitonghengan	我觉得这个系统很感
+wojuedezheigexitonghenjing	我觉得这个系统很静
+wojuedezheigexitonghenwen	我觉得这个系统很稳
+wojuedezheigexitonghenan	我觉得这个系统河南
+wojuedezheigexitonghenliang	我觉得这个系统很亮
+wojuedezheigexitonghendaha	我觉得这个系统很大虾
+wojuedezheigexitonghenxiao	我觉得这个系统很小
+wojuedezheigexitonghenhao yong	我觉得这个系统很好用
+wojuedezheigexitonghenrong yi	我觉得这个系统很容易
+wojuedezheigexitonghenjian dan	我觉得这个系统很简单
+wojuedezheigexitonghenfu za	我觉得这个系统很复杂
+wojuedezheigexitonghenqiang da	我觉得这个系统很强大
+wojuedezheigexitonghenyou yong	我觉得这个系统很有用
+wojuedezheigexitonghenshiyong	我觉得这个系统很实用
+wojuedezheigexitonghenchangyong	我觉得这个系统很常用
+wojuedezheigexitonghenhaoxue	我觉得这个系统很好学
+wojuedezheigexitonghenhaoji	我觉得这个系统很好几
+wojuedezheigexitonghenhaodong	我觉得这个系统很好懂
+# === 歧义句 (20条) ===
+xian	西安
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+fangan	方案
+shanghai	上海
+xianzai	现在
+# === 混合输入 (20条) ===
+woyao2tian	我要两天
+woyou3gepingguo	我有三个苹果
+zhege5yue	这个五月
+wojintianqule2ci	我今天去了两次
+woyou2tianmeiyouchifanle	我有两天没有吃饭了
+wo3tiandouzaijia	我三天都在家
+woyou5gepengyou	我有五个朋友
+wozhunbeile10tian	我准备了十天
+woxuyaotigao3bei	我需要提高三倍
+woyou4gexuanze	我有四个选择
