@@ -1803,6 +1803,74 @@ int main() {
         dict.add("nihao", "你好", 5);
         check("v152 cloud+dict integration", dict.entries.size() == 1);
     }
+    // v0.9.167 tests
+    {
+        std::cout << "\n--- v0.9.167 搜狗式缩写扩展 tests ---\n";
+        auto &abbrs = sogou_abbreviations_v167();
+        check("v167 abbreviations not empty", !abbrs.empty());
+
+        // 测试具体缩写
+        bool hasSrkl = false, hasXrkl = false, hasYyds = false;
+        for (const auto &a : abbrs) {
+            if (a.first == "srkl" && a.second == "生日快乐") hasSrkl = true;
+            if (a.first == "xrkl" && a.second == "新年快乐") hasXrkl = true;
+            if (a.first == "yyds" && a.second == "永远的神") hasYyds = true;
+        }
+        check("v167 srkl -> 生日快乐", hasSrkl);
+        check("v167 xrkl -> 新年快乐", hasXrkl);
+        check("v167 yyds -> 永远的神", hasYyds);
+
+        std::cout << "\n--- v0.9.167 长句预测 tests ---\n";
+        auto &preds = sogou_sentence_predictions_v167();
+        check("v167 predictions not empty", !preds.empty());
+
+        bool hasNinhao = false;
+        for (const auto &p : preds) {
+            if (p.first == "ninhao" && p.second.find("您好") != std::string::npos) hasNinhao = true;
+        }
+        check("v167 ninhao prediction", hasNinhao);
+
+        std::cout << "\n--- v0.9.167 标点配对 tests ---\n";
+        check("v167 paren pair", smart_punctuation_pair("(") == "()");
+        check("v167 bracket pair", smart_punctuation_pair("[") == "[]");
+        check("v167 curly pair", smart_punctuation_pair("{") == "{}");
+        check("v167 chinese paren", smart_punctuation_pair("（") == "（）");
+        check("v167 no pair for letter", smart_punctuation_pair("a").empty());
+
+        std::cout << "\n--- v0.9.167 数字量词 tests ---\n";
+        check("v167 3ge -> 三个", smart_number_with_unit("3ge") == "三个");
+        check("v167 2tian -> 两天", smart_number_with_unit("2tian") == "两天");
+        check("v167 10ge -> 十个", smart_number_with_unit("10ge") == "十个");
+        check("v167 100ge -> 一百个", smart_number_with_unit("100ge") == "一百个");
+        check("v167 no unit", smart_number_with_unit("3xyz").empty());
+
+        std::cout << "\n--- v0.9.167 英文检测 tests ---\n";
+        check("v167 has english", has_english_word("hello"));
+        check("v167 no english in digits", !has_english_word("123"));
+        check("v167 mixed has english", has_english_word("nihello"));
+
+        std::cout << "\n--- v0.9.167 quick_candidates_v9 tests ---\n";
+        auto r1 = quick_candidates_v9("srkl");
+        check("v167 v9 abbreviation", !r1.empty() && r1[0] == "生日快乐");
+
+        auto r2 = quick_candidates_v9("ninhao");
+        bool hasPred = false;
+        for (const auto &r : r2) {
+            if (r.find("您好") != std::string::npos && r.find("帮") != std::string::npos) hasPred = true;
+        }
+        check("v167 v9 sentence prediction", hasPred);
+
+        auto r3 = quick_candidates_v9("3ge");
+        check("v167 v9 number+unit", !r3.empty() && r3[0] == "三个");
+
+        auto r4 = quick_candidates_v9("(");
+        check("v167 v9 punct pair", !r4.empty() && r4[0] == "()");
+
+        // 基础功能不受影响
+        auto r5 = quick_candidates_v9("nihao");
+        check("v167 v9 basic not empty", !r5.empty());
+    }
+
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
 
     // ── v0.9.164 搜狗式用户词频动态学习系统 测试 ──────────────────

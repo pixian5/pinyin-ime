@@ -5884,4 +5884,222 @@ inline std::vector<std::string> quick_candidates_v8(
     return result;
 }
 
+
+// ── v0.9.167 搜狗式智能缩写扩展 + 中英混输 + 标点配对 + 长句预测 ──
+
+// 搜狗式常用缩写：输入简短拼音首字母组合，展开为常用短语
+inline const std::vector<std::pair<std::string, std::string>>& sogou_abbreviations_v167() {
+    static const std::vector<std::pair<std::string, std::string>> abbrs = {
+        // 日常问候
+        {"zr", "早日"}, {"zrh", "早日康复"}, {"srkl", "生日快乐"},
+        {"xrkl", "新年快乐"}, {"drkl", "圣诞快乐"}, {"jqkl", "节日快乐"},
+        {"wy", "无缘"}, {"wya", "无缘啊"},
+        // 工作办公
+        {"gz", "工作"}, {"gw", "公文"}, {"hy", "会议"}, {"ht", "话题"},
+        {"jd", "进度"}, {"jhr", "计划任务"}, {"rw", "任务"},
+        {"xm", "项目"}, {"xx", "信息"}, {"xq", "需求"},
+        {"fa", "方案"}, {"wt", "问题"}, {"yj", "意见"},
+        {"yf", "月份"}, {"nf", "年份"}, {"bb", "版本"},
+        // 社交聊天
+        {"lh", "聊天"}, {"pk", "拼课"}, {"pl", "评论"},
+        {"zf", "转发"}, {"dz", "点赞"}, {"sc", "收藏"},
+        {"gzr", "关注"}, {"fs", "发送"}, {"hd", "回复"},
+        // 情感表达
+        {"ka", "开心"}, {"nn", "难过"}, {"sh", "生气"},
+        {"gx", "感谢"}, {"dl", "道理"}, {"yx", "优秀"},
+        // 常用语气
+        {"dm", "当然"}, {"kd", "肯定"}, {"yxz", "也许"},
+        {"br", "比如"}, {"lh", "例如"}, {"zj", "总结"},
+        // 时间日期
+        {"jt", "今天"}, {"zt", "昨天"}, {"mt", "明天"},
+        {"zst", "上周同"}, {"xzt", "下周同"},
+        // 常用长句
+        {"wwh", "我希望"}, {"wrd", "我认为"}, {"wjd", "我觉得"},
+        {"wsa", "我随便"}, {"wha", "还好啊"},
+        {"bky", "不可以"}, {"kyz", "可以啊"},
+        {"myy", "没有用"}, {"hys", "还有事"},
+        // 网络用语
+        {"xswl", "笑死我了"}, {"awsl", "啊我死了"},
+        {"yyds", "永远的神"}, {"nsdd", "你说得对"},
+        {"u1s1", "有一说一"}, {"xj", "下头"},
+    };
+    return abbrs;
+}
+
+// 搜狗式长句预测：根据输入前缀预测完整句子
+inline const std::vector<std::pair<std::string, std::string>>& sogou_sentence_predictions_v167() {
+    static const std::vector<std::pair<std::string, std::string>> preds = {
+        // 常用开场白
+        {"ninhao", "您好，请问有什么可以帮您的？"},
+        {"dajiahao", "大家好，很高兴见到你们"},
+        // 常用结束语
+        {"xiexiepz", "谢谢配合，祝您生活愉快"},
+        {"zaijian", "再见，祝您一切顺利"},
+        // 常用询问
+        {"qingwenny", "请问您需要什么帮助？"},
+        {"qingwensm", "请问什么时候方便？"},
+        // 常用确认
+        {"querenyt", "确认无误，请通知我"},
+        {"yijingok", "已经处理好了，请查收"},
+        // 常用客套
+        {"mafan", "麻烦您了，非常感谢"},
+        {"buhaoys", "不好意思，让您久等了"},
+        // 工作常用
+        {"wancheng", "已完成，请确认"},
+        {"gengxin", "已更新，请刷新查看"},
+        {"shouddao", "收到了，马上处理"},
+    };
+    return preds;
+}
+
+// 标点智能配对：输入单个标点，自动配对
+inline std::string smart_punctuation_pair(const std::string& input) {
+    static const std::unordered_map<std::string, std::string> pairs = {
+        {"(", "()" }, {"[", "[]" }, {"{", "{}" },
+        {"（", "（）"}, {"【", "【】"}, {"《", "《》"},
+        {"\"", "\"\""}, {"'", "''"}, {"`", "``"},
+        {"「", "「」"}, {"『", "『』"},
+    };
+    auto it = pairs.find(input);
+    if (it != pairs.end()) return it->second;
+    return "";
+}
+
+// 中英文智能混输检测：判断输入是否包含英文单词
+inline bool has_english_word(const std::string& input) {
+    // 检测连续的英文字母（长度>=2）可能是英文单词
+    int consecutive = 0;
+    for (char c : input) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+            consecutive++;
+            if (consecutive >= 2) return true;
+        } else {
+            consecutive = 0;
+        }
+    }
+    return false;
+}
+
+// 搜狗式数字+量词智能组合
+inline std::string smart_number_with_unit(const std::string& input) {
+    // 检测 "数字+量词拼音" 模式，如 "3ge" → "三个", "2tian" → "两天"
+    if (input.empty() || !isdigit(input[0])) return "";
+
+    // 提取数字部分
+    size_t i = 0;
+    std::string numPart;
+    while (i < input.size() && isdigit(input[i])) {
+        numPart += input[i];
+        i++;
+    }
+    if (i >= input.size()) return "";
+
+    // 提取量词拼音部分
+    std::string unitPinyin = input.substr(i);
+    if (unitPinyin.empty()) return "";
+
+    static const std::unordered_map<std::string, std::string> units = {
+        {"ge", "个"}, {"ren", "人"}, {"tian", "天"}, {"nian", "年"},
+        {"yue", "月"}, {"ri", "日"}, {"shi", "时"}, {"fen", "分"},
+        {"miao", "秒"}, {"ci", "次"}, {"zhong", "种"}, {"bu", "部"},
+        {"ben", "本"}, {"zhang", "张"}, {"tiao", "条"}, {"jian", "件"},
+        {"tai", "台"}, {"liang", "辆"}, {"suo", "所"}, {"jia", "家"},
+        {"ming", "名"}, {"wei", "位"}, {"zu", "组"}, {"pi", "批"},
+        {"du", "度"}, {"li", "里"}, {"mi", "米"}, {"km", "公里"},
+    };
+
+    auto it = units.find(unitPinyin);
+    if (it == units.end()) return "";
+
+    // 数字转中文
+    long long num = std::stoll(numPart);
+    if (num < 0 || num > 99999) return "";
+
+    std::string chineseNum;
+    if (num == 0) {
+        chineseNum = "零";
+    } else {
+        // 简单数字转中文（不支持大写）
+        static const char* digits[] = {"零","一","二","三","四","五","六","七","八","九"};
+        if (num < 10) {
+            // 2 + 量词 → "两" (中文习惯：两个人、两天、两年)
+            if (num == 2) {
+                chineseNum = "两";
+            } else {
+                chineseNum = digits[num];
+            }
+        } else if (num < 100) {
+            int tens = num / 10, ones = num % 10;
+            chineseNum = (tens > 1 ? std::string(digits[tens]) : "") + "十";
+            if (ones > 0) chineseNum += digits[ones];
+        } else if (num < 1000) {
+            int hundreds = num / 100;
+            int rest = num % 100;
+            chineseNum = std::string(digits[hundreds]) + "百";
+            if (rest > 0) {
+                if (rest < 10) chineseNum += std::string("零") + digits[rest];
+                else {
+                    int tens = rest / 10, ones = rest % 10;
+                    chineseNum += (tens > 1 ? std::string(digits[tens]) : "") + "十";
+                    if (ones > 0) chineseNum += digits[ones];
+                }
+            }
+        } else {
+            // 大数字直接用阿拉伯数字
+            chineseNum = numPart;
+        }
+    }
+
+    return chineseNum + it->second;
+}
+
+// v0.9.167 统一入口：搜狗式智能缩写 + 长句预测 + 标点配对 + 数字量词 + v8
+inline std::vector<std::string> quick_candidates_v9(
+    const std::string& input,
+    const std::string& preceding = "",
+    const std::string& prev2 = "",
+    const std::string& theme_name = "default",
+    const UserWordFreqModel* freq_model = nullptr) {
+
+    std::vector<std::string> result;
+
+    // 1. 搜狗式长句预测（最高优先级）
+    for (const auto &pred : sogou_sentence_predictions_v167()) {
+        if (input == pred.first) {
+            result.push_back(pred.second);
+        }
+    }
+
+    // 2. 搜狗式缩写扩展
+    for (const auto &abbr : sogou_abbreviations_v167()) {
+        if (input == abbr.first) {
+            result.push_back(abbr.second);
+        }
+    }
+
+    // 3. 数字+量词智能组合
+    std::string numUnit = smart_number_with_unit(input);
+    if (!numUnit.empty()) {
+        result.push_back(numUnit);
+    }
+
+    // 4. 标点智能配对
+    std::string punctPair = smart_punctuation_pair(input);
+    if (!punctPair.empty()) {
+        result.push_back(punctPair);
+    }
+
+    // 5. 调用 v8 获取基础候选
+    auto v8Result = quick_candidates_v8(input, preceding, prev2, theme_name, freq_model);
+
+    // 合并去重
+    for (const auto &c : v8Result) {
+        if (std::find(result.begin(), result.end(), c) == result.end()) {
+            result.push_back(c);
+        }
+    }
+
+    return result;
+}
+
 } // namespace pinyin_ime
