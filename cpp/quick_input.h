@@ -5920,7 +5920,7 @@ inline const std::vector<std::pair<std::string, std::string>>& sogou_abbreviatio
         {"myy", "没有用"}, {"hys", "还有事"},
         // 网络用语
         {"xswl", "笑死我了"}, {"awsl", "啊我死了"},
-        {"yyds", "永远的神"}, {"nsdd", "你说得对"},
+        {"yyds", "永远的神"}, {"nsdd", "你说得对"}, {"plmm", "漂亮妹妹"}, {"xjj", "小姐姐"}, {"xjm", "小姐妹"},
         {"u1s1", "有一说一"}, {"xj", "下头"},
     };
     return abbrs;
@@ -6101,5 +6101,69 @@ inline std::vector<std::string> quick_candidates_v9(
 
     return result;
 }
+
+
+
+    // v0.9.168: boost_v9 — 将 v9 智能功能集成到 CLI 候选流程
+    // 在 boost_abbreviation 之后调用，将缩写/预测/标点/量词结果前置到候选列表
+    inline void boost_v9(const std::string &input, std::vector<std::string> &cands) {
+        if (input.empty()) return;
+
+        // 1. 搜狗式缩写扩展
+        auto &abbrs = sogou_abbreviations_v167();
+        for (const auto &kv : abbrs) {
+            if (kv.first == input) {
+                const std::string &abbrResult = kv.second;
+                for (size_t i = 1; i < cands.size(); ++i) {
+                    if (cands[i] == abbrResult) {
+                        cands.erase(cands.begin() + i);
+                        cands.insert(cands.begin(), abbrResult);
+                        return;
+                    }
+                }
+                cands.insert(cands.begin(), abbrResult);
+                return;
+            }
+        }
+
+        // 2. 长句智能预测
+        auto &preds = sogou_sentence_predictions_v167();
+        for (const auto &kv : preds) {
+            if (kv.first == input) {
+                const std::string &predResult = kv.second;
+                for (size_t i = 1; i < cands.size(); ++i) {
+                    if (cands[i] == predResult) {
+                        cands.erase(cands.begin() + i);
+                        cands.insert(cands.begin(), predResult);
+                        return;
+                    }
+                }
+                cands.insert(cands.begin(), predResult);
+                return;
+            }
+        }
+
+        // 3. 标点智能配对
+        std::string punctPair = smart_punctuation_pair(input);
+        if (!punctPair.empty()) {
+            cands.clear();
+            cands.push_back(punctPair);
+            return;
+        }
+
+        // 4. 数字+量词组合
+        std::string numUnit = smart_number_with_unit(input);
+        if (!numUnit.empty()) {
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == numUnit) {
+                    cands.erase(cands.begin() + i);
+                    cands.insert(cands.begin(), numUnit);
+                    return;
+                }
+            }
+            cands.insert(cands.begin(), numUnit);
+            return;
+        }
+    }
 
 } // namespace pinyin_ime

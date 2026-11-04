@@ -1832,6 +1832,18 @@ int main(int argc, char **argv) {
             }
             // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
             // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
+            // v0.9.168: v9 缩写/预测/标点/量词优先检查，避免被 englishLineDoubled 拦截
+            {
+                std::vector<std::string> v9Cands;
+                pinyin_ime::boost_v9(line, v9Cands);
+                if (!v9Cands.empty()) {
+                    std::cout << v9Cands[0];
+                    for (size_t i = 1; i < v9Cands.size() && i < static_cast<size_t>(nbest); ++i)
+                        std::cout << '\t' << v9Cands[i];
+                    std::cout << '\n';
+                    continue;
+                }
+            }
             // v0.9.113: 若命中 boost 预设（已知中文简拼，如 yyds=永远的神），
             // 不判为英文（yy 双写在 yyds/yy 中是合法简拼，不是英文双写）。
             {
@@ -1902,6 +1914,8 @@ int main(int argc, char **argv) {
                     for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                     auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
                     boost_abbreviation(seg, sc);
+
+                    boost_v9(seg, sc);
                     segCands.push_back(sc);
                     if (!sc.empty()) joined += sc[0];
                 }
@@ -1920,6 +1934,8 @@ int main(int argc, char **argv) {
                 }
                 cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                 boost_abbreviation(line, cands);
+
+                boost_v9(line, cands);
             }
             if (top1Only) {
                 if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
@@ -2090,6 +2106,8 @@ int main(int argc, char **argv) {
                 for (char ch : q) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                 auto cands = collect_candidates(ctx, 1);
                 boost_abbreviation(queries[i], cands);
+
+                boost_v9(queries[i], cands);
                 std::string result = cands.empty() ? "" : cands[0];
                 if (result == expected[i]) ++correct;
             }
@@ -2111,6 +2129,19 @@ int main(int argc, char **argv) {
         std::string line;
         while (std::getline(std::cin, line)) {
             ctx.clear();
+            // v0.9.168: v9 缩写/预测/标点/量词最高优先级（在所有其他检查之前）
+            {
+                std::vector<std::string> v9Cands;
+                pinyin_ime::boost_v9(line, v9Cands);
+                if (!v9Cands.empty()) {
+                    for (size_t ci = 0; ci < v9Cands.size() && ci < static_cast<size_t>(nbest); ++ci) {
+                        if (ci > 0) std::cout << '\t';
+                        std::cout << v9Cands[ci];
+                    }
+                    std::cout << '\n';
+                    continue;
+                }
+            }
             // 搜狗式快捷输入：v模式/u模式/Tab补全/日期/时间/计算器/数字转中文
             {
                 std::string compactRaw;
@@ -2483,6 +2514,8 @@ int main(int argc, char **argv) {
                         for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                         auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
                         boost_abbreviation(seg, sc);
+
+                        boost_v9(seg, sc);
                         segCands.push_back(sc);
                         if (!sc.empty()) joined += sc[0];
                         prevWasEnglish = false;
@@ -2512,6 +2545,8 @@ int main(int argc, char **argv) {
                             for (char ch : seg) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                             auto sc = collect_candidates(ctx, static_cast<size_t>(nbest));
                             boost_abbreviation(seg, sc);
+
+                            boost_v9(seg, sc);
                             if (!sc.empty()) joinedMixed += sc[0];
                             prevEng = false;
                         }
@@ -2527,6 +2562,8 @@ int main(int argc, char **argv) {
                         for (char ch : nospaces) if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
                         cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                         boost_abbreviation(nospaces, cands);
+
+                        boost_v9(nospaces, cands);
                     }
                 }
             } else {
@@ -2535,6 +2572,8 @@ int main(int argc, char **argv) {
                 }
                 cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                 boost_abbreviation(line, cands);
+
+                boost_v9(line, cands);
             }
             // P1: 长句兜底分词 — 候选含拉丁字母时尝试元音补全
             if (!cands.empty() && has_latin(cands[0]) && !correctPinyin) {
@@ -2542,6 +2581,8 @@ int main(int argc, char **argv) {
                 if (!fbCands.empty()) {
                     cands = fbCands;
                     boost_abbreviation(line, cands);
+
+                    boost_v9(line, cands);
                 }
             }
             if (top1Only) {

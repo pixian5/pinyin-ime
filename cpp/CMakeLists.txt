@@ -4,6 +4,10 @@ project(libime_bench CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# GCC 10 compatibility: provide <source_location> stub
+set(CXX20_STUBS "${CMAKE_CURRENT_SOURCE_DIR}/stubs/cxx20")
+add_compile_options(-isystem${CXX20_STUBS})
+
 find_package(LibIMEPinyin REQUIRED)
 
 # Fcitx5Utils library (from S3 prebuilt v0.9.139 lib dir)
