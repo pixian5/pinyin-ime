@@ -1,8 +1,8 @@
 # Stub config for LibIMEPinyin
 set(LibIMEPinyin_FOUND TRUE)
-set(LIBIME_INCLUDE_DIR "/root/workspace/libime/src")
-set(LIBIME_LIBRARY_DIR "/root/workspace/pinyin-ime/pinyin-ime-s3/v0.9.139/lib")
-set(FCITX5_INCLUDE_DIR "/root/workspace/fcitx5/src/lib")
+set(LIBIME_INCLUDE_DIR "/root/workspace/libime-src/src")
+set(LIBIME_LIBRARY_DIR "/root/workspace/pinyin-ime/pinyin-ime-s3/v0.9.171/lib")
+set(FCITX5_INCLUDE_DIR "/root/workspace/fcitx5-src/src/lib")
 
 if(NOT TARGET LibIME::Pinyin)
     add_library(LibIME::Pinyin SHARED IMPORTED)

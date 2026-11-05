@@ -1871,9 +1871,6 @@ int main() {
         check("v167 v9 basic not empty", !r5.empty());
     }
 
-    std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
-
-    // ── v0.9.164 搜狗式用户词频动态学习系统 测试 ──────────────────
     {
         std::cout << "\n--- v0.9.164 UserWordFreqModel tests ---\n";
 
@@ -2123,6 +2120,103 @@ int main() {
         // 基础功能不受影响
         auto result4 = quick_candidates_v8("nihao");
         check("v166 v8 basic not empty", !result4.empty());
+    }
+
+
+    {
+        std::cout << "\n--- v0.9.172 搜狗式增强 tests ---\n";
+
+        // v172 缩写扩展
+        auto& abbrs = sogou_abbreviations_v172();
+        check("v172 abbrs not empty", !abbrs.empty());
+        check("v172 abbrs count > 50", abbrs.size() > 50);
+
+        bool foundGm = false, foundKs = false, foundHc = false, foundCd = false;
+        for (const auto& a : abbrs) {
+            if (a.first == "gm" && a.second == "购买") foundGm = true;
+            if (a.first == "ks" && a.second == "考试") foundKs = true;
+            if (a.first == "hc" && a.second == "火车") foundHc = true;
+            if (a.first == "cd" && a.second == "菜单") foundCd = true;
+        }
+        check("v172 gm->购买", foundGm);
+        check("v172 ks->考试", foundKs);
+        check("v172 hc->火车", foundHc);
+        check("v172 cd->菜单", foundCd);
+
+        // v172 长句预测
+        auto& preds = sogou_sentence_predictions_v172();
+        check("v172 preds not empty", !preds.empty());
+        check("v172 preds count > 20", preds.size() > 20);
+
+        bool foundPred1 = false, foundPred2 = false;
+        for (const auto& p : preds) {
+            if (p.first == "shouddaox" && p.second == "收到了，我马上处理一下") foundPred1 = true;
+            if (p.first == "nihaochi" && p.second == "你好，吃了吗？") foundPred2 = true;
+        }
+        check("v172 pred shouddaox", foundPred1);
+        check("v172 pred nihaochi", foundPred2);
+
+        // v172 皮肤预设
+        auto& skins = sogou_skin_presets_v172();
+        check("v172 skins count >= 4", skins.size() >= 4);
+        check("v172 skin sogou_classic", skins[0].name == "sogou_classic");
+        check("v172 skin sogou_dark", skins[1].name == "sogou_dark");
+
+        auto skin = get_sogou_skin_v172("sogou_classic");
+        check("v172 get_skin classic", skin.name == "sogou_classic");
+        auto skinDefault = get_sogou_skin_v172("nonexistent");
+        check("v172 get_skin default fallback", skinDefault.name == "sogou_classic");
+
+        // v172 智能联想
+        auto assoc1 = smart_association_v172("你好");
+        check("v172 assoc 你好 not empty", !assoc1.empty());
+        check("v172 assoc 你好[0]=世界", assoc1[0] == "世界");
+
+        auto assoc2 = smart_association_v172("谢谢");
+        check("v172 assoc 谢谢 not empty", !assoc2.empty());
+
+        auto assoc3 = smart_association_v172("不存在的词");
+        check("v172 assoc unknown empty", assoc3.empty());
+
+        // v172 中英文混排检测
+        auto mixed1 = detect_mixed_input_v172("abc123");
+        check("v172 mixed abc123 has_mixed", mixed1.has_mixed);
+        check("v172 mixed abc123 chinese=abc", mixed1.chinese_part == "abc");
+        check("v172 mixed abc123 english=123", mixed1.english_part == "123");
+
+        auto mixed2 = detect_mixed_input_v172("nihao");
+        check("v172 mixed nihao not mixed", !mixed2.has_mixed);
+
+        auto mixed3 = detect_mixed_input_v172("");
+        check("v172 mixed empty not mixed", !mixed3.has_mixed);
+
+        // v172 候选词排序
+        std::vector<std::string> cands = {"中国", "购买", "中过", "种果"};
+        auto ranked = sogou_rank_candidates_v172(cands, "gm");
+        check("v172 rank gm first=购买", !ranked.empty() && ranked[0] == "购买");
+
+        std::vector<std::string> cands2 = {"的", "想", "是", "在"};
+        auto ranked2 = sogou_rank_candidates_v172(cands2, "x", "我");
+        check("v172 rank context 我 first=想", !ranked2.empty() && ranked2[0] == "想");
+
+        // v172 quick_candidates_v10
+        auto v10result = quick_candidates_v10("gm");
+        check("v172 v10 gm not empty", !v10result.empty());
+        check("v172 v10 gm first=购买", !v10result.empty() && v10result[0] == "购买");
+
+        auto v10pred = quick_candidates_v10("shouddaox");
+        check("v172 v10 pred not empty", !v10pred.empty());
+        check("v172 v10 pred has 收到了", !v10pred.empty() &&
+              v10pred[0].find("收到了") != std::string::npos);
+
+        // v172 boost_v10
+        std::vector<std::string> boostCands = {"中国", "购买", "中过"};
+        boost_v10("gm", boostCands);
+        check("v172 boost_v10 gm first=购买", !boostCands.empty() && boostCands[0] == "购买");
+
+        // v172 基础功能不受影响
+        auto v10basic = quick_candidates_v10("nihao");
+        check("v172 v10 basic not empty", !v10basic.empty());
     }
 
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";

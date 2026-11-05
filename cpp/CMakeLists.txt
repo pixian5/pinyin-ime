@@ -10,8 +10,8 @@ add_compile_options(-isystem${CXX20_STUBS})
 
 find_package(LibIMEPinyin REQUIRED)
 
-# Fcitx5Utils library (from S3 prebuilt v0.9.139 lib dir)
-set(FCITX5_UTILS_LIB "/root/workspace/pinyin-ime/pinyin-ime-s3/v0.9.139/lib/libFcitx5Utils.so.2")
+# Fcitx5Utils library (from S3 prebuilt v0.9.171 lib dir)
+set(FCITX5_UTILS_LIB "/root/workspace/pinyin-ime/pinyin-ime-s3/v0.9.171/lib/libFcitx5Utils.so.5.1.23")
 
 # Link with --allow-shlib-undefined to handle versioned symbol dependencies
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-shlib-undefined")

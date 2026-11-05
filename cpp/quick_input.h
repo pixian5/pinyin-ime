@@ -6295,4 +6295,332 @@ inline std::vector<std::string> quick_candidates_v9(
         }
     }
 
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v0.9.172: 搜狗式增强 — 热门缩写扩展 + 长句预测增强 + 皮肤预设 + 智能联想
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// v0.9.172: 搜狗热门缩写扩展（覆盖更多日常/工作/学习/购物/出行场景）
+inline const std::vector<std::pair<std::string, std::string>>& sogou_abbreviations_v172() {
+    static const std::vector<std::pair<std::string, std::string>> abbrs = {
+        // 购物消费
+        {"gm", "购买"}, {"xd", "下单"}, {"fh", "发货"}, {"sh", "收货"},
+        {"th", "退货"}, {"hx", "好评"}, {"cx", "差评"}, {"zp", "正品"},
+        {"yh", "优惠"}, {"qh", "优惠券"}, {"mj", "满减"}, {"zk", "折扣"},
+        {"pj", "评价"}, {"pl", "评论"}, {"sc", "收藏"}, {"jg", "价格"},
+        // 学习教育
+        {"ks", "考试"}, {"kc", "课程"}, {"sj", "试卷"}, {"dt", "答题"},
+        {"zy", "作业"}, {"bk", "本科"}, {"ss", "硕士"}, {"bs", "博士"},
+        {"jl", "简历"}, {"zs", "证书"}, {"px", "培训"}, {"fx", "复习"},
+        // 出行交通
+        {"hc", "火车"}, {"fj", "飞机"}, {"dc", "打车"}, {"dt", "地铁"},
+        {"gj", "公交"}, {"zy", "自驾"}, {"jd", "酒店"}, {"mp", "门票"},
+        {"xc", "行程"}, {"yy", "预约"}, {"qx", "取消"}, {"gb", "改签"},
+        // 餐饮美食
+        {"cd", "菜单"}, {"dp", "点评"}, {"wm", "外卖"}, {"yd", "预订"},
+        {"mt", "美团"}, {"elm", "饿了么"}, {"ps", "配送"}, {"qg", "团购"},
+        // 医疗健康
+        {"yy", "医院"}, {"ys", "医生"}, {"yz", "药"}, {"jk", "健康"},
+        {"ty", "体检"}, {"zz", "症状"}, {"zf", "处方"},
+        // 社交网络
+        {"pyq", "朋友圈"}, {"wxx", "微信"}, {"wb", "微博"},
+        {"dy", "抖音"}, {"xhs", "小红书"}, {"bili", "B站"}, {"zh", "知乎"},
+        // 编程开发
+        {"api", "API"}, {"bug", "Bug"}, {"pr", "Pull Request"},
+        {"mr", "Merge Request"}, {"cr", "Code Review"},
+        {"db", "数据库"}, {"sv", "服务"}, {"lg", "日志"},
+        // 聊天常用
+        {"hm", "好吗"}, {"xk", "辛苦"}, {"kl", "快乐"}, {"bm", "帮忙"},
+        {"xy", "需要"}, {"ky", "可以"}, {"my", "没有"}, {"hy", "还有"},
+        {"zy", "只有"}, {"sy", "所有"}, {"jy", "建议"},
+        // 常用动词
+        {"kan", "看"}, {"xie", "写"}, {"shuo", "说"}, {"ting", "听"},
+        {"xiang", "想"}, {"zuo", "做"}, {"chi", "吃"}, {"he", "喝"},
+        {"mai", "买"}, {"gei", "给"}, {"na", "拿"},
+    };
+    return abbrs;
+}
+
+// v0.9.172: 搜狗长句预测增强（覆盖更多工作/生活/社交场景）
+inline const std::vector<std::pair<std::string, std::string>>& sogou_sentence_predictions_v172() {
+    static const std::vector<std::pair<std::string, std::string>> preds = {
+        // 工作沟通
+        {"shouddaox", "收到了，我马上处理一下"},
+        {"yijingshancheng", "已经完成了，请查收一下"},
+        {"wozhengzaimang", "我正在忙，稍后回复你"},
+        {"xianzaifangbian", "现在方便通话吗？"},
+        {"womashanglai", "我马上过来，稍等一下"},
+        {"qingwenshijian", "请问什么时候有时间？"},
+        {"woyaoqingjia", "我要请假，麻烦帮我处理一下"},
+        {"jintiankaihui", "今天开会，讨论一下方案"},
+        {"xiawuhuiyi", "下午有会议，记得参加"},
+        // 日常生活
+        {"woyaodingcan", "我要订餐，请问有什么推荐？"},
+        {"bangwojiaowai", "帮我叫个外卖，谢谢"},
+        {"womennali", "我们在哪里集合？"},
+        {"jidianchufa", "几点出发？我提前准备"},
+        {"woyaodache", "我要打车，去机场"},
+        // 社交聊天
+        {"nihaochi", "你好，吃了吗？"},
+        {"wozhunbeichuqu", "我准备出去，你呢？"},
+        {"yiqiwanba", "一起玩吧，叫上大家"},
+        {"mingtianyoukong", "明天有空吗？出来聚聚"},
+        {"zhuyishenti", "注意身体，别太累了"},
+        {"zhuyianquan", "注意安全，路上小心"},
+        {"xiexiebangzhu", "谢谢你的帮助"},
+        {"buhaoysdq", "不好意思，打扰一下"},
+        // 购物消费
+        {"youyouhuima", "有优惠吗？能便宜点吗？"},
+        {"keyibaoyouma", "可以包邮吗？"},
+        {"woyaokanxia", "我要看一下商品详情"},
+        // 学习考试
+        {"woyaofuxi", "我要复习，准备考试"},
+        {"bangwojiangjie", "帮我讲解一下这道题"},
+        {"woyoubudong", "我有不懂的地方，能教我吗？"},
+        {"zuoyewancheng", "作业完成了，请查收"},
+        {"woyaobaoming", "我要报名，请问怎么操作？"},
+    };
+    return preds;
+}
+
+// v0.9.172: 搜狗皮肤预设 — 模拟搜狗输入法经典皮肤
+struct SogouSkinPreset {
+    std::string name;
+    std::string description;
+    SkinConfig skin;
+};
+
+inline const std::vector<SogouSkinPreset>& sogou_skin_presets_v172() {
+    static const std::vector<SogouSkinPreset> presets = {
+        {"sogou_classic", "搜狗经典皮肤（蓝底白字）",
+         SkinConfig{"sogou_classic", "搜狗经典", "\033[32m", "\033[37m", "\033[1;33m", "\033[36m", "", "\033[0m",
+                    14, 2, 5, true, true, true, "horizontal", "unicode", "\033[44m", false, 100}},
+        {"sogou_dark", "搜狗深色皮肤（黑底绿字）",
+         SkinConfig{"sogou_dark", "深色", "\033[36m", "\033[32m", "\033[1;37m", "\033[33m", "", "\033[0m",
+                    14, 2, 5, true, true, true, "horizontal", "unicode", "\033[40m", false, 100}},
+        {"sogou_minimal", "搜狗简约皮肤（无边框）",
+         SkinConfig{"sogou_minimal", "简约", "\033[90m", "\033[0m", "\033[1;4m", "\033[90m", "", "\033[0m",
+                    14, 3, 5, true, true, true, "horizontal", "none", "", false, 100}},
+        {"sogou_vertical", "搜狗竖排皮肤",
+         SkinConfig{"sogou_vertical", "竖排", "\033[36m", "\033[0m", "\033[1;31m", "\033[90m", "", "\033[0m",
+                    14, 0, 9, true, true, true, "vertical", "unicode", "", false, 100}},
+    };
+    return presets;
+}
+
+// v0.9.172: 根据名称获取搜狗皮肤预设
+inline SkinConfig get_sogou_skin_v172(const std::string& name) {
+    for (const auto& preset : sogou_skin_presets_v172()) {
+        if (preset.name == name) return preset.skin;
+    }
+    return sogou_skin_presets_v172()[0].skin;
+}
+
+// v0.9.172: 智能联想 — 根据上屏词预测下一个词
+inline std::vector<std::string> smart_association_v172(const std::string& committed) {
+    static const std::unordered_map<std::string, std::vector<std::string>> assoc = {
+        {"你好", {"世界", "吗", "啊", "呀"}},
+        {"谢谢", {"你", "大家", "老师", "老板"}},
+        {"我", {"的", "是", "想", "要", "们"}},
+        {"你", {"的", "是", "好", "呢", "们"}},
+        {"他", {"的", "是", "们", "说"}},
+        {"今天", {"天气", "早上", "下午", "晚上", "工作"}},
+        {"明天", {"见", "早上", "下午", "晚上"}},
+        {"工作", {"中", "日", "上", "量"}},
+        {"吃饭", {"了", "去", "吗", "没"}},
+        {"睡觉", {"了", "去", "吧", "了没"}},
+        {"开会", {"了", "中", "时间", "地点"}},
+        {"收到", {"了", "请", "回复"}},
+        {"请问", {"您", "一下", "怎么", "什么"}},
+        {"不好意思", {"打扰", "麻烦", "让"}},
+        {"非常", {"感谢", "好", "抱歉"}},
+        {"马上", {"处理", "回复", "过来", "到"}},
+        {"已经", {"完成", "收到", "处理", "发送"}},
+        {"麻烦", {"您", "帮", "一下"}},
+        {"希望", {"能", "可以", "大家"}},
+        {"觉得", {"可以", "不行", "好", "不好"}},
+    };
+    auto it = assoc.find(committed);
+    if (it != assoc.end()) return it->second;
+    return {};
+}
+
+// v0.9.172: 智能中英文混排检测
+struct MixedInputResult {
+    std::string chinese_part;
+    std::string english_part;
+    bool has_mixed;
+};
+
+inline MixedInputResult detect_mixed_input_v172(const std::string& input) {
+    MixedInputResult result;
+    result.has_mixed = false;
+    if (input.empty()) return result;
+
+    bool has_digit = false;
+    bool has_alpha = false;
+    for (char c : input) {
+        if (std::isdigit(static_cast<unsigned char>(c))) has_digit = true;
+        if (std::isalpha(static_cast<unsigned char>(c))) has_alpha = true;
+    }
+
+    if (has_digit && has_alpha) {
+        for (char c : input) {
+            if (std::isdigit(static_cast<unsigned char>(c))) {
+                result.english_part += c;
+            } else {
+                result.chinese_part += c;
+            }
+        }
+        result.has_mixed = true;
+    } else if (has_alpha) {
+        result.chinese_part = input;
+    } else {
+        result.english_part = input;
+    }
+    return result;
+}
+
+// v0.9.172: 搜狗式候选词排序 — 根据词频和上下文重排候选
+inline std::vector<std::string> sogou_rank_candidates_v172(
+    const std::vector<std::string>& candidates,
+    const std::string& input,
+    const std::string& preceding = "") {
+
+    if (candidates.empty()) return candidates;
+    std::vector<std::string> result = candidates;
+
+    // 1. 检查缩写匹配，优先排列
+    auto& abbrs = sogou_abbreviations_v172();
+    for (const auto& abbr : abbrs) {
+        if (abbr.first == input) {
+            auto it = std::find(result.begin(), result.end(), abbr.second);
+            if (it != result.end() && it != result.begin()) {
+                std::string val = *it;
+                result.erase(it);
+                result.insert(result.begin(), val);
+            }
+            break;
+        }
+    }
+
+    // 2. 检查长句预测
+    auto& preds = sogou_sentence_predictions_v172();
+    for (const auto& pred : preds) {
+        if (pred.first == input) {
+            auto it = std::find(result.begin(), result.end(), pred.second);
+            if (it != result.end() && it != result.begin()) {
+                std::string val = *it;
+                result.erase(it);
+                result.insert(result.begin(), val);
+            }
+            break;
+        }
+    }
+
+    // 3. 基于上下文排序：前一个词是"我"时，优先排列动词
+    if (preceding == "我") {
+        static const std::vector<std::string> verbs = {
+            "想", "要", "是", "在", "有", "去", "来", "做", "看", "说",
+            "吃", "喝", "买", "给", "能", "会", "可以", "需要", "觉得"
+        };
+        for (const auto& verb : verbs) {
+            auto it = std::find(result.begin(), result.end(), verb);
+            if (it != result.end() && it != result.begin()) {
+                std::string val = *it;
+                result.erase(it);
+                result.insert(result.begin(), val);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+// v0.9.172: 统一快速输入入口 v10 — 整合 v9 + 搜狗式增强
+inline std::vector<std::string> quick_candidates_v10(
+    const std::string& input,
+    const std::string& preceding = "",
+    const std::string& prev2 = "",
+    const std::string& theme_name = "default",
+    const UserWordFreqModel* freq_model = nullptr) {
+
+    std::vector<std::string> result;
+
+    // 1. v172 新增长句预测
+    for (const auto& pred : sogou_sentence_predictions_v172()) {
+        if (input == pred.first) {
+            result.push_back(pred.second);
+        }
+    }
+
+    // 2. v172 新增缩写扩展
+    for (const auto& abbr : sogou_abbreviations_v172()) {
+        if (input == abbr.first) {
+            if (std::find(result.begin(), result.end(), abbr.second) == result.end()) {
+                result.push_back(abbr.second);
+            }
+        }
+    }
+
+    // 3. 调用 v9 获取基础候选
+    auto v9Result = quick_candidates_v9(input, preceding, prev2, theme_name, freq_model);
+
+    // 合并去重
+    for (const auto& c : v9Result) {
+        if (std::find(result.begin(), result.end(), c) == result.end()) {
+            result.push_back(c);
+        }
+    }
+
+    return result;
+}
+
+// v0.9.172: boost_v10 — 将 v10 智能功能集成到 CLI 候选流程
+inline void boost_v10(const std::string& input, std::vector<std::string>& cands,
+                       const std::string& preceding = "") {
+    if (input.empty()) return;
+
+    // 1. v172 缩写扩展
+    auto& abbrs = sogou_abbreviations_v172();
+    for (const auto& kv : abbrs) {
+        if (kv.first == input) {
+            const std::string& abbrResult = kv.second;
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == abbrResult) {
+                    cands.erase(cands.begin() + i);
+                    cands.insert(cands.begin(), abbrResult);
+                    return;
+                }
+            }
+            cands.insert(cands.begin(), abbrResult);
+            return;
+        }
+    }
+
+    // 2. v172 长句预测
+    auto& preds = sogou_sentence_predictions_v172();
+    for (const auto& kv : preds) {
+        if (kv.first == input) {
+            const std::string& predResult = kv.second;
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == predResult) {
+                    cands.erase(cands.begin() + i);
+                    cands.insert(cands.begin(), predResult);
+                    return;
+                }
+            }
+            cands.insert(cands.begin(), predResult);
+            return;
+        }
+    }
+
+    // 3. 上下文排序
+    if (!preceding.empty()) {
+        cands = sogou_rank_candidates_v172(cands, input, preceding);
+    }
+}
+
 } // namespace pinyin_ime
