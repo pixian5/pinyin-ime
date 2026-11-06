@@ -6623,4 +6623,369 @@ inline void boost_v10(const std::string& input, std::vector<std::string>& cands,
     }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v0.9.173: 搜狗式智能增强 — 日期时间/计算器/热词/快捷回复/更多缩写/更多长句
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// v0.9.173: 日期时间智能输入 — 搜狗式 date/time/week/now 快捷输入
+inline std::vector<std::string> smart_datetime_v173(const std::string& input) {
+    std::vector<std::string> result;
+    if (input.empty()) return result;
+    if (input == "date" || input == "rq" || input == "riqi") {
+        time_t now = time(nullptr);
+        struct tm* t = localtime(&now);
+        char buf[64];
+        strftime(buf, sizeof(buf), "%Y年%m月%d日", t);
+        result.push_back(buf);
+        strftime(buf, sizeof(buf), "%Y-%m-%d", t);
+        result.push_back(buf);
+        strftime(buf, sizeof(buf), "%Y/%m/%d", t);
+        result.push_back(buf);
+        return result;
+    }
+    if (input == "time" || input == "sj" || input == "shijian") {
+        time_t now = time(nullptr);
+        struct tm* t = localtime(&now);
+        char buf[64];
+        strftime(buf, sizeof(buf), "%H:%M:%S", t);
+        result.push_back(buf);
+        strftime(buf, sizeof(buf), "%H点%M分", t);
+        result.push_back(buf);
+        return result;
+    }
+    if (input == "week" || input == "xq" || input == "xingqi") {
+        time_t now = time(nullptr);
+        struct tm* t = localtime(&now);
+        const char* weeks[] = {"星期日","星期一","星期二","星期三","星期四","星期五","星期六"};
+        result.push_back(weeks[t->tm_wday]);
+        const char* ws[] = {"周日","周一","周二","周三","周四","周五","周六"};
+        result.push_back(ws[t->tm_wday]);
+        return result;
+    }
+    if (input == "now" || input == "xz" || input == "xianzai") {
+        time_t now = time(nullptr);
+        struct tm* t = localtime(&now);
+        char buf[128];
+        strftime(buf, sizeof(buf), "%Y年%m月%d日 %H:%M", t);
+        result.push_back(buf);
+        const char* weeks[] = {"日","一","二","三","四","五","六"};
+        snprintf(buf, sizeof(buf), "%d年%d月%d日 星期%s %02d:%02d",
+                 t->tm_year+1900, t->tm_mon+1, t->tm_mday, weeks[t->tm_wday], t->tm_hour, t->tm_min);
+        result.push_back(buf);
+        return result;
+    }
+    return result;
+}
+
+// v0.9.173: 计算器模式 — 搜狗式直接输入算式得到结果
+inline std::vector<std::string> smart_calculator_v173(const std::string& input) {
+    std::vector<std::string> result;
+    if (input.empty() || input.size() < 3) return result;
+    bool has_digit = false, has_op = false;
+    for (char c : input) {
+        if (c >= '0' && c <= '9') has_digit = true;
+        else if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '(' || c == ')') has_op = true;
+        else if (c == 'x' || c == 'X') has_op = true;
+        else return result;
+    }
+    if (!has_digit || !has_op) return result;
+    std::string expr = input;
+    for (auto& c : expr) { if (c == 'x' || c == 'X') c = '*'; }
+    size_t pos = 0;
+    std::function<double()> parse_expr, parse_term, parse_factor;
+    parse_factor = [&]() -> double {
+        if (pos >= expr.size()) return 0;
+        if (expr[pos] == '(') { pos++; double v = parse_expr(); if (pos < expr.size() && expr[pos] == ')') pos++; return v; }
+        size_t start = pos;
+        while (pos < expr.size() && ((expr[pos] >= '0' && expr[pos] <= '9') || expr[pos] == '.')) pos++;
+        if (pos == start) { pos++; return 0; }
+        return std::stod(expr.substr(start, pos - start));
+    };
+    parse_term = [&]() -> double {
+        double v = parse_factor();
+        while (pos < expr.size() && (expr[pos] == '*' || expr[pos] == '/' || expr[pos] == '%')) {
+            char op = expr[pos++]; double r = parse_factor();
+            if (op == '*') v *= r; else if (op == '/') { if (r != 0) v /= r; else v = 0; } else if (op == '%') { if (r != 0) v = (int)v % (int)r; else v = 0; }
+        }
+        return v;
+    };
+    parse_expr = [&]() -> double {
+        double v = parse_term();
+        while (pos < expr.size() && (expr[pos] == '+' || expr[pos] == '-')) {
+            char op = expr[pos++]; double r = parse_term();
+            if (op == '+') v += r; else v -= r;
+        }
+        return v;
+    };
+    try {
+        pos = 0; double val = parse_expr();
+        if (pos == expr.size()) {
+            if (val == (long long)val) { result.push_back(std::to_string((long long)val)); }
+            else {
+                std::ostringstream oss; oss << std::fixed << std::setprecision(6) << val;
+                std::string s = oss.str();
+                while (!s.empty() && s.back() == '0') s.pop_back();
+                if (!s.empty() && s.back() == '.') s.pop_back();
+                result.push_back(s);
+            }
+        }
+    } catch (...) {}
+    return result;
+}
+
+// v0.9.173: 网络热词缩写
+inline const std::vector<std::pair<std::string, std::string>>& net_hotwords_v173() {
+    static const std::vector<std::pair<std::string, std::string>> hw = {
+        {"xswl", "笑死我了"}, {"awsl", "啊我死了"}, {"kksk", "磕死磕死"},
+        {"zqsg", "真情实感"}, {"xjm", "小姐妹"}, {"plmm", "漂亮妹妹"},
+        {"pljj", "漂亮姐姐"}, {"xjj", "小姐姐"}, {"nsdd", "你说得对"},
+        {"u1s1", "有一说一"}, {"yyds", "永远的神"}, {"bdjw", "不懂就问"},
+        {"yygq", "阴阳怪气"}, {"kdl", "磕到了"}, {"jrm", "家人们"},
+        {"szd", "是真的"}, {"bhys", "不好意思"}, {"ssfd", "瑟瑟发抖"},
+        {"yysy", "有一说一"}, {"xs", "笑死"}, {"dd", "懂的都懂"},
+        {"wsl", "我死了"}, {"py", "朋友"}, {"jm", "姐妹"},
+        {"gz", "关注"}, {"dianzan", "点赞"}, {"shoucang", "收藏"},
+        {"zhuanfa", "转发"}, {"pinglun", "评论"}, {"tcl", "太惨了"},
+        {"bhs", "不会吧"}, {"amsl", "啊美死了"}, {"xhx", "小可爱"},
+    };
+    return hw;
+}
+
+// v0.9.173: 快捷回复模板
+inline const std::vector<std::pair<std::string, std::string>>& quick_replies_v173() {
+    static const std::vector<std::pair<std::string, std::string>> rp = {
+        {"hao", "好的"}, {"hdy", "好的呀"}, {"msh", "没问题"},
+        {"keyi", "可以"}, {"xk", "行"}, {"deng", "等一下"},
+        {"ms", "马上"}, {"lj", "立刻"},
+        {"bh", "不好"}, {"bkeyi", "不可以"}, {"bx", "不行"},
+        {"my", "没有"}, {"bs", "不是"}, {"bd", "不对"},
+        {"xx", "谢谢"}, {"xxy", "谢谢你"}, {"xxd", "谢谢大家"},
+        {"bhy", "不好意思"}, {"by", "不用谢"}, {"mxy", "没关系"},
+        {"dq", "对不起"}, {"nh", "你好"}, {"nhy", "你好呀"},
+        {"zao", "早"}, {"zaoa", "早啊"}, {"zsh", "早上好"},
+        {"wsh", "晚上好"}, {"xw", "下午好"}, {"hm", "好吗"},
+        {"hmb", "好吧"}, {"sdl", "收到了"}, {"sdlr", "收到了，我看看"},
+        {"wzh", "我知道了"}, {"wmh", "我会的"}, {"wml", "我来了"},
+        {"wwc", "完成了"}, {"wwcr", "完成了，请查收"}, {"mx", "没事"},
+        {"mxd", "没事的"}, {"fm", "放心"}, {"zlh", "注意身体"},
+        {"zla", "注意安全"}, {"bzl", "别着急"},
+    };
+    return rp;
+}
+
+// v0.9.173: 扩展缩写 — 更多日常/工作/学习/生活场景
+inline const std::vector<std::pair<std::string, std::string>>& sogou_abbreviations_v173() {
+    static const std::vector<std::pair<std::string, std::string>> abbrs = {
+        // 办公文档
+        {"wz", "文章"}, {"bt", "标题"}, {"fj", "附件"}, {"zy", "摘要"},
+        {"gjz", "关键字"}, {"ml", "目录"}, {"ys", "页数"}, {"zd", "重点"},
+        {"xg", "相关"}, {"ck", "参考"}, {"ps", "批注"}, {"dy", "打印"},
+        {"fz", "复制"}, {"nt", "内容"}, {"wj", "文件"}, {"wd", "文档"},
+        {"bb", "表格"}, {"tupian", "图片"},
+        // 邮件通信
+        {"yj", "邮件"}, {"sjr", "收件人"}, {"fjr", "发件人"},
+        {"cy", "抄送"}, {"msc", "密送"}, {"hy", "回复"},
+        // 项目管理
+        {"xm", "项目"}, {"rl", "任务"}, {"lc", "流程"}, {"jd", "进度"},
+        {"pc", "排期"}, {"dg", "迭代"}, {"lx", "立项"}, {"jx", "结项"},
+        // 财务
+        {"cw", "财务"}, {"fp", "发票"}, {"fy", "费用"}, {"cb", "成本"},
+        {"lr", "利润"}, {"js", "结算"}, {"hk", "汇款"}, {"ye", "余额"},
+        // 人力资源
+        {"rs", "人事"}, {"zp", "招聘"}, {"xz", "薪资"}, {"jj", "奖金"},
+        {"kq", "考勤"}, {"cc", "出差"}, {"nx", "内训"},
+        // 客服
+        {"kf", "客服"}, {"ts", "投诉"}, {"wt", "问题"}, {"sl", "受理"},
+        {"bl", "办理"}, {"hf", "回复"}, {"myd", "满意度"},
+        // 情感表达
+        {"gx", "高兴"}, {"sx", "伤心"}, {"shengqi", "生气"},
+        {"zhaoji", "着急"}, {"danxin", "担心"}, {"fangxin", "放心"},
+        {"xihuan", "喜欢"}, {"taoyan", "讨厌"},
+        // 天气环境
+        {"tq", "天气"}, {"wd", "温度"}, {"sd", "湿度"}, {"fs", "风速"},
+        {"yq", "阴晴"}, {"xy", "下雨"}, {"xt", "下雪"}, {"qt", "晴天"},
+        {"yt", "阴天"}, {"dt", "多云"},
+        // 时间日期
+        {"jn", "今年"}, {"qn", "去年"}, {"mn", "明年"},
+        {"jy", "本月"}, {"sy", "上月"}, {"xy", "下月"},
+        {"jt", "今天"}, {"zt", "昨天"}, {"mt", "明天"},
+        {"jz", "本周"}, {"sz", "上周"}, {"xz", "下周"},
+        // 方位方向
+        {"zb", "左边"}, {"yb", "右边"}, {"qb", "前边"}, {"hb", "后边"},
+        {"sb", "上边"}, {"xb", "下边"}, {"zj", "中间"},
+        // 程度副词
+        {"ch", "很"}, {"fch", "非常"}, {"th", "特别"}, {"jh", "极好"},
+        {"ych", "一般"}, {"shd", "稍微"}, {"bd", "比较"},
+    };
+    return abbrs;
+}
+
+// v0.9.173: 扩展长句预测
+inline const std::vector<std::pair<std::string, std::string>>& sogou_sentences_v173() {
+    static const std::vector<std::pair<std::string, std::string>> preds = {
+        // 工作沟通
+        {"wofaxangni", "我发给你，请查收一下"},
+        {"woyijingfa", "我已经发了，你看一下"},
+        {"qingchakanyixia", "请查看一下，有问题随时联系"},
+        {"wozhengzaihc", "我正在处理，稍等一下"},
+        {"yijingjiao", "已经交了，请确认一下"},
+        {"xianzaiyoukong", "现在有空吗？想找你聊聊"},
+        {"mingtianfangjia", "明天放假，有什么计划吗？"},
+        {"jintianjiaban", "今天加班，晚点回去"},
+        {"wobukequl", "我去不了，不好意思"},
+        {"bangwoyixia", "帮我一下，谢谢"},
+        // 日常生活
+        {"woyaomai", "我要买，多少钱？"},
+        {"zai nalimai", "在哪里买的？"},
+        {"zenmeyang", "怎么样？好用吗？"},
+        {"woyaotui", "我要退货，请问怎么操作？"},
+        {"keyihuohuan", "可以换货吗？"},
+        {"youxianhuo", "有现货吗？多久能到？"},
+        {"woyaoyuding", "我要预订，请问还有位置吗？"},
+        {"jidiankaishi", "几点开始？我提前到"},
+        // 社交聊天
+        {"nichisha", "你吃啥？一起呗"},
+        {"woyaochulai", "我要出来，你在哪？"},
+        {"yiqiqu", "一起去吧，叫上他们"},
+        {"zhoumoyoukong", "周末有空吗？出来玩"},
+        {"haojiubujian", "好久不见，最近怎么样？"},
+        {"zuijinmang", "最近忙什么呢？"},
+        {"youkongchulai", "有空出来聚聚"},
+        // 学习考试
+        {"kaoshizhunbei", "考试准备得怎么样了？"},
+        {"woyaochati", "我要查题，帮我看看"},
+        {"zuoyejiao", "作业交了吗？"},
+        {"kaoshichengji", "考试成绩出来了，你考多少？"},
+        // 表达感谢/道歉
+        {"tai ganxie", "太感谢了，帮了大忙"},
+        {"buhaoysqs", "不好意思，实在是抱歉"},
+        {"duibuqq", "对不起啊，下次一定"},
+    };
+    return preds;
+}
+
+// v0.9.173: 统一快速输入入口 v11 — 整合 v10 + 日期时间 + 计算器 + 热词 + 快捷回复 + 扩展缩写/长句
+inline std::vector<std::string> quick_candidates_v11(
+    const std::string& input,
+    const std::string& preceding = "",
+    const std::string& prev2 = "",
+    const std::string& theme_name = "default",
+    const UserWordFreqModel* freq_model = nullptr) {
+
+    std::vector<std::string> result;
+
+    // 1. 日期时间智能输入
+    auto dt = smart_datetime_v173(input);
+    for (const auto& d : dt) result.push_back(d);
+    if (!result.empty()) return result; // 日期时间命中则直接返回
+
+    // 2. 计算器
+    auto calc = smart_calculator_v173(input);
+    for (const auto& c : calc) result.push_back(c);
+    if (!result.empty()) return result;
+
+    // 3. 网络热词
+    for (const auto& hw : net_hotwords_v173()) {
+        if (input == hw.first) result.push_back(hw.second);
+    }
+
+    // 4. 快捷回复
+    for (const auto& rp : quick_replies_v173()) {
+        if (input == rp.first) {
+            if (std::find(result.begin(), result.end(), rp.second) == result.end())
+                result.push_back(rp.second);
+        }
+    }
+
+    // 5. 扩展缩写
+    for (const auto& ab : sogou_abbreviations_v173()) {
+        if (input == ab.first) {
+            if (std::find(result.begin(), result.end(), ab.second) == result.end())
+                result.push_back(ab.second);
+        }
+    }
+
+    // 6. 扩展长句预测
+    for (const auto& p : sogou_sentences_v173()) {
+        if (input == p.first) {
+            if (std::find(result.begin(), result.end(), p.second) == result.end())
+                result.push_back(p.second);
+        }
+    }
+
+    // 7. 调用 v10 获取基础候选
+    auto v10Result = quick_candidates_v10(input, preceding, prev2, theme_name, freq_model);
+    for (const auto& c : v10Result) {
+        if (std::find(result.begin(), result.end(), c) == result.end())
+            result.push_back(c);
+    }
+
+    return result;
+}
+
+// v0.9.173: boost_v11 — 将 v11 智能功能集成到 CLI 候选流程
+inline void boost_v11(const std::string& input, std::vector<std::string>& cands,
+                       const std::string& preceding = "") {
+    if (input.empty()) return;
+
+    // 1. 日期时间
+    auto dt = smart_datetime_v173(input);
+    if (!dt.empty()) {
+        cands.insert(cands.begin(), dt.begin(), dt.end());
+        return;
+    }
+
+    // 2. 计算器
+    auto calc = smart_calculator_v173(input);
+    if (!calc.empty()) {
+        cands.insert(cands.begin(), calc.begin(), calc.end());
+        return;
+    }
+
+    // 3. 网络热词
+    for (const auto& hw : net_hotwords_v173()) {
+        if (hw.first == input) {
+            cands.insert(cands.begin(), hw.second);
+            return;
+        }
+    }
+
+    // 4. 快捷回复
+    for (const auto& rp : quick_replies_v173()) {
+        if (rp.first == input) {
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == rp.second) { cands.erase(cands.begin()+i); cands.insert(cands.begin(), rp.second); return; }
+            }
+            cands.insert(cands.begin(), rp.second);
+            return;
+        }
+    }
+
+    // 5. 扩展缩写
+    for (const auto& ab : sogou_abbreviations_v173()) {
+        if (ab.first == input) {
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == ab.second) { cands.erase(cands.begin()+i); cands.insert(cands.begin(), ab.second); return; }
+            }
+            cands.insert(cands.begin(), ab.second);
+            return;
+        }
+    }
+
+    // 6. 扩展长句预测
+    for (const auto& p : sogou_sentences_v173()) {
+        if (p.first == input) {
+            for (size_t i = 1; i < cands.size(); ++i) {
+                if (cands[i] == p.second) { cands.erase(cands.begin()+i); cands.insert(cands.begin(), p.second); return; }
+            }
+            cands.insert(cands.begin(), p.second);
+            return;
+        }
+    }
+
+    // 7. 回退到 v10
+    boost_v10(input, cands, preceding);
+}
+
 } // namespace pinyin_ime

@@ -2219,6 +2219,144 @@ int main() {
         check("v172 v10 basic not empty", !v10basic.empty());
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // v0.9.173 测试：日期时间 / 计算器 / 热词 / 快捷回复 / 扩展缩写 / 扩展长句 / v11
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 日期时间
+    {
+        auto dt = smart_datetime_v173("date");
+        check("v173 date not empty", !dt.empty());
+        check("v173 date has 年", !dt.empty() && dt[0].find("年") != std::string::npos);
+
+        auto tm = smart_datetime_v173("time");
+        check("v173 time not empty", !tm.empty());
+        check("v173 time has :", !tm.empty() && tm[0].find(":") != std::string::npos);
+
+        auto wk = smart_datetime_v173("week");
+        check("v173 week not empty", !wk.empty());
+        check("v173 week has 星期", !wk.empty() && wk[0].find("星期") != std::string::npos);
+
+        auto now = smart_datetime_v173("now");
+        check("v173 now not empty", !now.empty());
+        check("v173 now has 年", !now.empty() && now[0].find("年") != std::string::npos);
+
+        auto rq = smart_datetime_v173("rq");
+        check("v173 rq not empty", !rq.empty());
+
+        auto sj = smart_datetime_v173("sj");
+        check("v173 sj not empty", !sj.empty());
+
+        auto xq = smart_datetime_v173("xq");
+        check("v173 xq not empty", !xq.empty());
+    }
+
+    // 计算器
+    {
+        auto c1 = smart_calculator_v173("1+2");
+        check("v173 calc 1+2=3", !c1.empty() && c1[0] == "3");
+
+        auto c2 = smart_calculator_v173("100*3");
+        check("v173 calc 100*3=300", !c2.empty() && c2[0] == "300");
+
+        auto c3 = smart_calculator_v173("10-4");
+        check("v173 calc 10-4=6", !c3.empty() && c3[0] == "6");
+
+        auto c4 = smart_calculator_v173("20/4");
+        check("v173 calc 20/4=5", !c4.empty() && c4[0] == "5");
+
+        auto c5 = smart_calculator_v173("(2+3)*4");
+        check("v173 calc (2+3)*4=20", !c5.empty() && c5[0] == "20");
+
+        auto c6 = smart_calculator_v173("2x3");
+        check("v173 calc 2x3=6", !c6.empty() && c6[0] == "6");
+
+        auto c7 = smart_calculator_v173("99+1");
+        check("v173 calc 99+1=100", !c7.empty() && c7[0] == "100");
+    }
+
+    // 网络热词
+    {
+        auto hw = net_hotwords_v173();
+        check("v173 hotwords not empty", !hw.empty());
+
+        auto v11 = quick_candidates_v11("xswl");
+        check("v173 xswl=笑死我了", !v11.empty() && v11[0] == "笑死我了");
+
+        auto v11b = quick_candidates_v11("yyds");
+        check("v173 yyds=永远的神", !v11b.empty() && v11b[0] == "永远的神");
+
+        auto v11c = quick_candidates_v11("awsl");
+        check("v173 awsl=啊我死了", !v11c.empty() && v11c[0] == "啊我死了");
+    }
+
+    // 快捷回复
+    {
+        auto rp = quick_replies_v173();
+        check("v173 replies not empty", !rp.empty());
+
+        auto v11 = quick_candidates_v11("hao");
+        check("v173 hao=好的", !v11.empty() && v11[0] == "好的");
+
+        auto v11b = quick_candidates_v11("sdlr");
+        check("v173 sdlr has 收到了", !v11b.empty() && v11b[0].find("收到了") != std::string::npos);
+
+        auto v11c = quick_candidates_v11("zlh");
+        check("v173 zlh=注意身体", !v11c.empty() && v11c[0] == "注意身体");
+    }
+
+    // 扩展缩写
+    {
+        auto ab = sogou_abbreviations_v173();
+        check("v173 abbrs not empty", !ab.empty());
+
+        auto v11 = quick_candidates_v11("wz");
+        check("v173 wz=文章", !v11.empty() && v11[0] == "文章");
+
+        auto v11b = quick_candidates_v11("kf");
+        check("v173 kf=客服", !v11b.empty() && v11b[0] == "客服");
+
+        auto v11c = quick_candidates_v11("xm");
+        check("v173 xm=项目", !v11c.empty() && v11c[0] == "项目");
+
+        auto v11d = quick_candidates_v11("tq");
+        check("v173 tq=天气", !v11d.empty() && v11d[0] == "天气");
+    }
+
+    // 扩展长句预测
+    {
+        auto preds = sogou_sentences_v173();
+        check("v173 sentences not empty", !preds.empty());
+
+        auto v11 = quick_candidates_v11("woyijingfa");
+        check("v173 woyijingfa has 已经发", !v11.empty() && v11[0].find("已经发") != std::string::npos);
+
+        auto v11b = quick_candidates_v11("haojiubujian");
+        check("v173 haojiubujian has 好久不见", !v11b.empty() && v11b[0].find("好久不见") != std::string::npos);
+    }
+
+    // v11 统一入口
+    {
+        auto v11 = quick_candidates_v11("nihao");
+        check("v173 v11 nihao not empty", !v11.empty());
+
+        auto v11gm = quick_candidates_v11("gm");
+        check("v173 v11 gm not empty", !v11gm.empty());
+
+        // boost_v11
+        std::vector<std::string> cands = {"中国", "文章", "中过"};
+        boost_v11("wz", cands);
+        check("v173 boost_v11 wz first=文章", !cands.empty() && cands[0] == "文章");
+
+        // 计算器 boost
+        std::vector<std::string> cands2 = {"中国"};
+        boost_v11("1+2", cands2);
+        check("v173 boost_v11 calc first=3", !cands2.empty() && cands2[0] == "3");
+
+        // 基础不受影响
+        auto v11basic = quick_candidates_v11("zhongguo");
+        check("v173 v11 zhongguo not empty", !v11basic.empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
