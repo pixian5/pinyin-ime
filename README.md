@@ -5,8 +5,9 @@
 
 - 当前源码版本：`0.9.174`（唯一来源见 `VERSION`）。
 - 详细分析与方案：**[20261103-0013-项目全面分析与下一步开发方案](docs/20261103-0013-项目全面分析与下一步开发方案-deepseek-4.1-flash.md)**。
-- 本轮（v0.9.174）新交付：**搜狗风格皮肤（浅色/深色）+ 候选选中态修复 + fcitx5 5.1.7 编译兼容**，见 `config/themes/`、`scripts/install_sogou_theme.sh`。
-- 下一步优先级：候选窗圆角/阴影（9-slice PNG 皮肤资源） → 云拼音 API 对接 → 用户词典云同步 → 页码条/隐藏翻页按钮 → 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
+- 本轮（v0.9.174）新交付：**搜狗风格皮肤（浅色/深色，直角面板 + 圆角蓝色选中胶囊 + 竖排候选）+ 候选首选选中态修复 + fcitx5 5.1.7 编译兼容**，见 `config/themes/`、`scripts/gen_sogou_skin_assets.py`、`scripts/install_sogou_theme.sh`、`scripts/start_fcitx5_dev.sh`。
+- S3 预构建产物：`cst:xbz/pinyin-ime/v0.9.174/`（在 v0.9.171 基础上加入 `lib/fcitx5/libpinyinime.so`、`share/fcitx5/{addon,inputmethod,themes}`、`scripts/`、`SHA256SUMS`）。
+- 下一步优先级：云拼音 API 对接 → 用户词典云同步 → 候选页码/每页 5 条（搜狗默认）可配置化 → 真圆角面板（有合成器时自动切换）→ 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
 
 ## v0.9.174（2026-11-20）：搜狗风格皮肤 + 候选选中态修复（实机 GUI 验证）
 
@@ -29,12 +30,21 @@
    改为至少推进一次（`ci <= candFocus_`），首选即有选中态。
 4. `pinyinime.cpp` 预编辑格式：`Text::applyFormat()` 在 fcitx5 5.1.7 不存在，
    改用 `append(pre, TextFormatFlags)` 传 `Underline|Bold`，修复 5.1.7 头文件下编译失败。
+5. `scripts/gen_sogou_skin_assets.py` + `config/themes/sogou-*/{panel,highlight,menu_bg,menu_hl,prev,next,radio,arrow}.png`
+   —— 用 Pillow 生成 9-slice 皮肤资源（4 倍超采样后缩小，边缘抗锯齿）。
+   **默认只启用圆角高亮胶囊**（`highlight.png`/`menu_hl.png`/翻页箭头），
+   因为带 alpha 的圆角**面板**在没有 X 合成器的桌面上会露出黑角（实测 X :1 无合成器时四角 `(0,0,0)`）；
+   开了合成器的桌面可把 `[InputPanel/Background]` 的 `Image` 换成 `panel.png`、`BorderWidth=0`、`Margin=12` 获得真圆角面板。
+6. `scripts/start_fcitx5_dev.sh` —— 把「停进程 → 重写 profile → 带 `FCITX_ADDON_DIRS`/DBus 启动 → 校验 `state=2`」固化成脚本，
+   避免上面两条踩坑重复发生。`fcitx5 -d` 必须重定向 stdout，否则脚本接管道会挂住。
 
 **实机验证（X11 :1 + Xfce + Thunar 地址栏，xdotool 注入按键）**
 
 - 候选窗几何：`77x370`，确认**竖排**生效（改前 `481x64` 横排）。
-- 候选窗截图确认：白底面板 + 首选 `#3a8ee6` 蓝底白字选中块，其余白底黑字。
+- 候选窗截图确认：白底面板 + 首选 `#3a8ee6` 蓝底白字选中块，其余白底黑字；
+  高亮块左上角像素连线呈阶梯状（半径≈6 的圆角），四角面板为描边色（非黑色）——圆角胶囊生效且未引入黑角。
 - 上屏验证：输入 `nihao` → 空格 → 地址栏出现 `你好`。
+- 像素级校验脚本：统计高亮色 `(58,142,230)` 的行/列，确认圆角与描边色 `(217,222,229)`，避免只靠肉眼。
 
 **踩坑记录（部署必看）**
 
@@ -54,6 +64,7 @@
 | libime / libIMEPinyin (1.1.5) 开发包 | 拼音引擎与头文件 |
 | cmake / g++ / pkg-config | 编译 addon |
 | fonts-noto-cjk | 皮肤字体 `Noto Sans CJK SC` |
+| python3-pil (Pillow) | 生成 9-slice 皮肤 PNG（`scripts/gen_sogou_skin_assets.py`） |
 | xdotool / xwd / ffmpeg | 虚拟桌面 GUI 自动化与截图验证 |
 
 
