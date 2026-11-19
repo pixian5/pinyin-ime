@@ -392,7 +392,8 @@ void PinyinIMEState::updateUI() {
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
         candidateList->setCursorIncludeUnselected(true);
-        // setCursorIndex(0)：fcitx5 5.1.7 的 CommonCandidateList 无此 setter；新建列表光标默认在第 0 位
+        // v0.9.174: 显式把光标从初始的 -1 推进到 0，否则 classicui 不画选中态
+        candidateList->nextCandidate();
 
         inputContext_->inputPanel().reset();
         inputContext_->inputPanel().setPreedit(preeditText);
@@ -435,6 +436,8 @@ void PinyinIMEState::updateUI() {
                 candidateList->setPageSize(static_cast<int>(ps));
                 candidateList->setSelectionKey(selectionKeys_);
                 candidateList->setCursorIncludeUnselected(true);
+                // v0.9.174: v 模式符号面板同样把光标推进到首项
+                candidateList->nextCandidate();
             }
         }
         inputContext_->inputPanel().reset();
@@ -449,9 +452,14 @@ void PinyinIMEState::updateUI() {
 
     // 预编辑（当前敲的拼音）+ 候选光标位置（逐词分段）
     auto [pre, cursorPos] = context_.preeditWithCursor();
+    // v0.9.174: 5.1.7 的 Text 没有 applyFormat()，只能在 append 时带 TextFormatFlags；
+    // 皮肤启用时给预编辑加下划线+粗体（原 applyFormat 写法在 5.1.7 头文件下编译不过）。
+    TextFormatFlags preeditFlags = TextFormatFlag::NoFlag;
+    if (!skinName_.empty())
+        preeditFlags = TextFormatFlags(TextFormatFlag::Underline) | TextFormatFlag::Bold;
     Text preeditText;
     if (!pre.empty()) {
-        preeditText.append(pre);
+        preeditText.append(pre, preeditFlags);
         preeditText.setCursor(static_cast<int>(cursorPos));
     }
 
@@ -515,10 +523,6 @@ void PinyinIMEState::updateUI() {
     }
 
     inputContext_->inputPanel().reset();
-    // v0.9.162: 皮肤系统 — 应用TextFormatFlag增强预编辑区显示
-    if (!skinName_.empty()) {
-        preeditText.applyFormat(TextFormatFlag::Underline | TextFormatFlag::Bold);
-    }
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();
@@ -552,8 +556,11 @@ void PinyinIMEState::updateUI() {
         // 让 Ctrl+←/→ 移动焦点后，候选窗里高亮的就是即将上屏的那个候选（第 15 轮只做了
         // 上屏语义、视觉仍固定在第 1 个）。candFocus_ 已在 keyEvent 钳制到 < end-begin，
         // 且 end>begin 时才走到这里，故索引必有效。翻页/新拼音/退格已把 candFocus_ 归零。
-        // fcitx5 5.1.7 的 CommonCandidateList 无 setCursorIndex，用 nextCandidate() 逐步移动
-        for (unsigned ci = 0; ci < candFocus_ && ci < 9; ++ci)
+        // v0.9.174: 候选窗必须画出「选中态」。5.1.7 的 CommonCandidateList 没有
+        // setCursorIndex，光标初始为 -1（classicui 见到 -1 就不画高亮），因此要
+        // 至少 nextCandidate() 一次把光标推到 0；candFocus_>0 时再继续右移。
+        // 旧实现只在 candFocus_>0 时移动，首选永远没有蓝色高亮，手感不像搜狗。
+        for (unsigned ci = 0; ci <= candFocus_; ++ci)
             candidateList->nextCandidate();
         inputContext_->inputPanel().setCandidateList(std::move(candidateList));
     }

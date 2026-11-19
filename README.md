@@ -3,9 +3,59 @@
 
 ## 【当前开发进度】【下一步待实现】
 
-- 当前源码版本：`0.9.173`（唯一来源见 `VERSION`）。
+- 当前源码版本：`0.9.174`（唯一来源见 `VERSION`）。
 - 详细分析与方案：**[20261103-0013-项目全面分析与下一步开发方案](docs/20261103-0013-项目全面分析与下一步开发方案-deepseek-4.1-flash.md)**。
-- 下一步优先级：搜狗式候选窗 GUI → 云拼音 API 对接 → 用户词典云同步 → 皮肤系统增强 → 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
+- 本轮（v0.9.174）新交付：**搜狗风格皮肤（浅色/深色）+ 候选选中态修复 + fcitx5 5.1.7 编译兼容**，见 `config/themes/`、`scripts/install_sogou_theme.sh`。
+- 下一步优先级：候选窗圆角/阴影（9-slice PNG 皮肤资源） → 云拼音 API 对接 → 用户词典云同步 → 页码条/隐藏翻页按钮 → 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
+
+## v0.9.174（2026-11-20）：搜狗风格皮肤 + 候选选中态修复（实机 GUI 验证）
+
+**目标**：把 fcitx5 里的观感与手感往搜狗输入法靠——白底候选面板、首选蓝色选中块、竖排候选，并修掉"首选没有高亮"这个最影响手感的问题。
+
+**新增/修改**
+
+1. `config/themes/sogou-light/theme.conf`、`config/themes/sogou-dark/theme.conf`
+   —— classicui 皮肤：`#ffffff` 面板 + 1px `#d9dee5` 描边、首选高亮 `#3a8ee6`（白字）、
+   `Noto Sans CJK SC 12`、`PageButtonAlignment=Last Candidate`、`AccentColorField` 映射，
+   方便系统改用系统强调色。
+2. `scripts/install_sogou_theme.sh`
+   —— 一键安装皮肤到 `~/.local/share/fcitx5/themes/`，写 `~/.config/fcitx5/conf/classicui.conf`
+   （`Theme` / `Vertical Candidate List` / `UseDarkTheme`），然后 `fcitx5-remote -r` 热加载。
+   用法：`bash scripts/install_sogou_theme.sh [light|dark] [vertical|horizontal]`。
+3. `fcitx5-addon/pinyinime.cpp` 三处候选列表（主候选 / 表情面板 / v 模式符号）：
+   5.1.7 的 `CommonCandidateList` **没有** `setCursorIndex`，且光标初值是 `-1`，
+   旧代码只在 `candFocus_>0` 时才 `nextCandidate()`，导致 `cursorIndex==-1` 时 classicui
+   根本不画高亮 —— 实机上就是"首选没有蓝色选中块"，与搜狗手感差异最大的一处。
+   改为至少推进一次（`ci <= candFocus_`），首选即有选中态。
+4. `pinyinime.cpp` 预编辑格式：`Text::applyFormat()` 在 fcitx5 5.1.7 不存在，
+   改用 `append(pre, TextFormatFlags)` 传 `Underline|Bold`，修复 5.1.7 头文件下编译失败。
+
+**实机验证（X11 :1 + Xfce + Thunar 地址栏，xdotool 注入按键）**
+
+- 候选窗几何：`77x370`，确认**竖排**生效（改前 `481x64` 横排）。
+- 候选窗截图确认：白底面板 + 首选 `#3a8ee6` 蓝底白字选中块，其余白底黑字。
+- 上屏验证：输入 `nihao` → 空格 → 地址栏出现 `你好`。
+
+**踩坑记录（部署必看）**
+
+- fcitx5 默认**不加载** `~/.local/lib/fcitx5` 下的 addon，必须在启动参数里给
+  `FCITX_ADDON_DIRS=/home/<user>/.local/lib/fcitx5:/usr/lib/x86_64-linux-gnu/fcitx5`，
+  否则日志只有 `Could not locate library libpinyinime.so for addon pinyinime`，
+  而且 addon 不在组里时 fcitx5 退出会**改写** `~/.config/fcitx5/profile` 把 pinyinime 丢掉。
+  正确顺序：先停 fcitx5 → 写 profile（`DefaultIM=pinyinime` + Items/1）→ 带 `FCITX_ADDON_DIRS` 启动。
+- `fcitx5-remote` 必须带桌面会话的 `DBUS_SESSION_BUS_ADDRESS` 才能控制该实例
+  （否则返回 `state=0` 且 `-o/-s/-r` 全部静默失败）。
+
+**所需依赖（本轮实测）**
+
+| 依赖 | 说明 |
+| --- | --- |
+| fcitx5 (5.1.7) + fcitx5-frontend-{gtk3,qt5} | 框架与前端 |
+| libime / libIMEPinyin (1.1.5) 开发包 | 拼音引擎与头文件 |
+| cmake / g++ / pkg-config | 编译 addon |
+| fonts-noto-cjk | 皮肤字体 `Noto Sans CJK SC` |
+| xdotool / xwd / ffmpeg | 虚拟桌面 GUI 自动化与截图验证 |
+
 
 ## v0.9.173（2026-11-06）：搜狗式智能增强 — 日期时间/计算器/热词/快捷回复/扩展缩写/长句
 
