@@ -20,7 +20,10 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
+
+#include <fcitx-utils/event.h>
 
 #include <libime/pinyin/pinyinencoder.h>
 
@@ -470,8 +473,10 @@ void PinyinIMEState::updateUI() {
     if (page_ > maxPage_) {
         page_ = maxPage_;
     }
-    const size_t begin = page_ * ps;
-    const size_t end = std::min<size_t>(cands.size(), begin + ps);
+    // v0.9.175: 云候选占第 0 页尾部槽位（cloudShift_），本地候选起点随之后移，
+    // 保证本地候选一条都不丢；索引空间统一用 begin+dispK，selectCandidate 直接可用。
+    const size_t begin = localBegin();
+    const size_t end = std::min<size_t>(cands.size(), begin + localPageCapacity());
 
     // ── 简拼 boost（与 CLI 一致）──────────────────────────────
     // 若 preedit 匹配简拼预设（如 zg→中国），把预设词移到首位显示。
@@ -522,11 +527,14 @@ void PinyinIMEState::updateUI() {
         }
     }
 
+    // v0.9.175: cloudWords_ 已在 refreshUI 里按缓存算好（含去重/限条数），
+    // 这里只把它追加到第 0 页本地候选之后。
+
     inputContext_->inputPanel().reset();
     inputContext_->inputPanel().setPreedit(preeditText);
     if (end > begin) {
         auto candidateList = std::make_unique<CommonCandidateList>();
-        const size_t pageBase = page_ * ps;
+        const size_t pageBase = begin; // v0.9.175: 索引空间以本地候选起点为基准（云候选会占第 0 页尾部槽位）
         size_t dispK = 0;
         // v0.9.115: 鼠标点击候选上屏——用 PinyinCandidateWord（select() 回调
         // selectCandidate(显示索引)）替代 DisplayOnlyCandidateWord（select() 空实现，
@@ -549,6 +557,16 @@ void PinyinIMEState::updateUI() {
                                                        pageBase + dispK);
             ++dispK;
         }
+        // v0.9.175: 云候选（仅第 0 页）——排在本地候选之后，占 cloudShift_ 个预留槽位，
+        // 索引 cloudIdxBase_..+n 由 selectCandidate 识别后直接上屏（不进 libime 上下文）。
+        cloudIdxBase_ = SIZE_MAX;
+        if (page_ == 0 && !cloudWords_.empty()) {
+            cloudIdxBase_ = pageBase + dispK;
+            for (size_t k = 0; k < cloudWords_.size(); ++k) {
+                candidateList->append<PinyinCandidateWord>(Text(cloudWords_[k]),
+                                                           this, cloudIdxBase_ + k);
+            }
+        }
         candidateList->setPageSize(static_cast<int>(ps));
         candidateList->setSelectionKey(selectionKeys_);
         candidateList->setCursorIncludeUnselected(true);
@@ -568,10 +586,79 @@ void PinyinIMEState::updateUI() {
     inputContext_->updateUserInterface(UserInterfaceComponent::InputPanel);
 }
 
+void PinyinIMEState::kickCloudQuery() {
+    auto cloud = engine_->cloudClient();
+    if (!cloud) return;
+
+    std::string py;
+    for (char c : context_.preedit()) {
+        if (c != '\'' && c != ' ') py.push_back(c);
+    }
+    if (py.size() < 2) return;
+    // 已有缓存（含 cloud-cache 命中）就不必再请求
+    if (!cloud->query_cache_only(py).empty()) return;
+    if (!engine_->cloudMarkInFlight(py)) return;
+
+    // 后台线程发 HTTP（超时 1.5s 上限），完成后把「刷新 UI」投递回主循环。
+    // 注意：不能在线程里直接碰 InputContext / InputPanel（非线程安全）。
+    // 捕获的是 shared_ptr 客户端与引擎指针，不碰 state，避免输入上下文销毁后 UAF。
+    PinyinIMEEngine *eng = engine_;
+    Instance *inst = engine_->instance();
+    std::thread([cloud, eng, inst, py]() {
+        auto cands = cloud->query(py);
+        FCITX_DEBUG() << "pinyinime cloud: " << py << " -> " << cands.size()
+                      << " candidates";
+        eng->cloudClearInFlight(py);
+        inst->eventLoop().addPostEvent([inst, eng](EventSource *) {
+            if (auto *ic = inst->mostRecentInputContext()) {
+                if (auto *st = ic->propertyFor(eng->factory())) {
+                    st->refreshUI();
+                }
+            }
+            return false;  // one-shot
+        });
+    }).detach();
+}
+
 void PinyinIMEState::refreshUI() {
     const auto &cands = context_.candidatesToCursor();
     const size_t ps = pageSize();
-    maxPage_ = cands.empty() ? 0 : (cands.size() - 1) / ps;
+
+    // v0.9.175 云拼音候选：在 refreshUI 里一次算好（只读缓存，绝不阻塞输入路径），
+    // updateUI 只负责把 cloudWords_ 追加到第 0 页尾部。
+    cloudShift_ = 0;
+    cloudWords_.clear();
+    if (ps > 2 && !context_.empty()) {
+        if (auto cloud = engine_->cloudClient()) {
+            std::string py;
+            for (char c : context_.preedit()) {
+                if (c != '\'' && c != ' ') py.push_back(c);
+            }
+            if (py.size() >= 2) {
+                // 本机最多取 2 条，且至少给本地候选留 1 个槽位
+                size_t cap = std::min<size_t>(2, ps - 1);
+                for (const auto &c : cloud->query_cache_only(py)) {
+                    if (cloudWords_.size() >= cap) break;
+                    // 与本页本地候选去重（云候选经常和首选重复）
+                    bool dup = false;
+                    for (size_t i = 0; i < std::min<size_t>(cands.size(), ps - cap); ++i) {
+                        if (cands[i].toString() == c.chinese) { dup = true; break; }
+                    }
+                    if (!dup) cloudWords_.push_back(c.chinese);
+                }
+            }
+        }
+    }
+    cloudShift_ = cloudWords_.size();
+
+    const size_t firstCap = ps - cloudShift_;
+    if (cands.empty()) {
+        maxPage_ = 0;
+    } else if (cands.size() <= firstCap) {
+        maxPage_ = 0;
+    } else {
+        maxPage_ = 1 + (cands.size() - firstCap - 1) / ps;
+    }
     if (page_ > maxPage_) {
         page_ = maxPage_;
     }
@@ -580,6 +667,28 @@ void PinyinIMEState::refreshUI() {
 
 void PinyinIMEState::selectCandidate(size_t idx) {
     const auto &cands = context_.candidatesToCursor();
+    // v0.9.175 云候选：占第 0 页尾部槽位，索引区间 [cloudIdxBase_, +cloudWords_.size())，
+    // 直接上屏（不进 libime 上下文），并同样记进误上屏撤回栈。
+    if (cloudIdxBase_ != SIZE_MAX && idx >= cloudIdxBase_ &&
+        idx < cloudIdxBase_ + cloudWords_.size()) {
+        const size_t k = idx - cloudIdxBase_;
+        if (k < cloudWords_.size()) {
+            const std::string word = cloudWords_[k];
+            std::string pinyin;
+            for (char c : context_.preedit()) {
+                if (c != '\'' && c != ' ') pinyin.push_back(c);
+            }
+            undoStack_.emplace_back(word, pinyin);
+            if (undoStack_.size() > 32) undoStack_.erase(undoStack_.begin());
+            context_.clear();
+            rawInput_.clear();
+            boostSwap_ = 0;
+            boostInsertWord_.clear();
+            commitText(word);
+            refreshUI();
+            return;
+        }
+    }
     if (context_.empty() || idx >= cands.size()) {
         return;
     }
@@ -816,6 +925,37 @@ void PinyinIMEEngine::reloadConfig() {
             ime_->setShuangpinProfile(std::make_shared<libime::ShuangpinProfile>(sp));
         }
     }
+
+    // v0.9.175 云拼音客户端：只在「启用 + 配了 endpoint」时创建，否则彻底关闭，
+    // 保证离线环境零影响（不建线程、不碰网络）。
+    if (config().cloudPinyin.value() &&
+        !config().cloudEndpoint.value().empty()) {
+        pinyinime::CloudConfig cc;
+        cc.enabled = true;
+        cc.endpoint = config().cloudEndpoint.value();
+        cc.api_key = config().cloudApiKey.value();
+        cc.timeout_ms = std::max(200, config().cloudTimeoutMs.value());
+        cc.connect_timeout_ms = std::min(cc.timeout_ms, 800);
+        cloud_ = std::make_shared<pinyinime::CloudPinyinClient>(cc);
+        FCITX_INFO() << "pinyinime: cloud pinyin enabled, endpoint="
+                     << cc.endpoint << " timeout=" << cc.timeout_ms << "ms";
+    } else {
+        if (cloud_) {
+            FCITX_INFO() << "pinyinime: cloud pinyin disabled";
+        }
+        cloud_ = nullptr;
+    }
+}
+
+bool PinyinIMEEngine::cloudMarkInFlight(const std::string &py) {
+    std::lock_guard<std::mutex> lk(cloudMutex_);
+    if (cloudInFlight_.size() >= 8) return false;  // 上限，防止快速输入堆积线程
+    return cloudInFlight_.insert(py).second;
+}
+
+void PinyinIMEEngine::cloudClearInFlight(const std::string &py) {
+    std::lock_guard<std::mutex> lk(cloudMutex_);
+    cloudInFlight_.erase(py);
 }
 
 std::vector<InputMethodEntry> PinyinIMEEngine::listInputMethods() {
@@ -886,8 +1026,9 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
         !ctx.empty()) {
         const auto &ccands = ctx.candidatesToCursor();
         if (!ccands.empty()) {
-            const size_t begin = state->page_ * state->pageSize();
-            const size_t end = std::min<size_t>(ccands.size(), begin + state->pageSize());
+            const size_t begin = state->localBegin();
+            const size_t end =
+                std::min<size_t>(ccands.size(), begin + state->localPageCapacity());
             if (end > begin) {
                 if (event.key().check(FcitxKey_Left, KeyState::Ctrl)) {
                     state->candFocus_ = state->candFocus_ > 0 ? state->candFocus_ - 1 : 0;
@@ -1596,6 +1737,8 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             }
             state->candFocus_ = 0; // 新拼音改变候选，焦点回到首选
             state->refreshUI();
+            // v0.9.175: 每次字母输入后触发一次后台云查询（有缓存/已请求则跳过）
+            state->kickCloudQuery();
             event.filterAndAccept();
         }
         return;

@@ -43,6 +43,12 @@ add_executable(pinyin_corrector_test pinyin_corrector.cpp pinyin_corrector_test.
 # v0.9.123 搜狗式快速输入单元测试（无 libime 依赖，纯函数）
 add_executable(quick_input_test quick_input_test.cpp)
 
+# v0.9.175 云拼音客户端（libcurl）+ 自检
+find_package(CURL REQUIRED)
+add_executable(cloud_pinyin_test cloud_pinyin_test.cpp cloud_pinyin.cpp)
+target_link_libraries(cloud_pinyin_test PRIVATE CURL::libcurl)
+install(TARGETS cloud_pinyin_test DESTINATION bin)
+
 # Install targets
 install(TARGETS pinyin_ime_cli DESTINATION bin)
 install(TARGETS pinyin_corrector_test DESTINATION bin)

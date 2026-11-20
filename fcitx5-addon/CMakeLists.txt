@@ -37,18 +37,24 @@ if(NOT COMMAND add_fcitx5_addon)
     set_target_properties(${name} PROPERTIES PREFIX "lib")
   endfunction()
 endif()
-add_fcitx5_addon(pinyinime pinyinime.cpp ../cpp/pinyin_corrector.cpp)
+add_fcitx5_addon(pinyinime pinyinime.cpp ../cpp/pinyin_corrector.cpp
+                 ../cpp/cloud_pinyin.cpp)
+
+find_package(CURL REQUIRED)
+find_package(Threads REQUIRED)
 
 target_link_libraries(pinyinime PRIVATE
     Fcitx5::Core
     Fcitx5::Config
     Fcitx5::Utils
     LibIME::Pinyin
-    LibIME::Core)
+    LibIME::Core
+    CURL::libcurl
+    Threads::Threads)
 
 target_include_directories(pinyinime PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../cpp)  # 共享 emoji_list.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../cpp)  # 共享 emoji_list.h / cloud_pinyin.h
 
 install(TARGETS pinyinime DESTINATION "${FCITX_INSTALL_ADDONDIR}")
 

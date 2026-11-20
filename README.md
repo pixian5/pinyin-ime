@@ -3,11 +3,71 @@
 
 ## 【当前开发进度】【下一步待实现】
 
-- 当前源码版本：`0.9.174`（唯一来源见 `VERSION`）。
+- 当前源码版本：`0.9.175`（唯一来源见 `VERSION`）。
 - 详细分析与方案：**[20261103-0013-项目全面分析与下一步开发方案](docs/20261103-0013-项目全面分析与下一步开发方案-deepseek-4.1-flash.md)**。
-- 本轮（v0.9.174）新交付：**搜狗风格皮肤（浅色/深色，直角面板 + 圆角蓝色选中胶囊 + 竖排候选）+ 候选首选选中态修复 + fcitx5 5.1.7 编译兼容**，见 `config/themes/`、`scripts/gen_sogou_skin_assets.py`、`scripts/install_sogou_theme.sh`、`scripts/start_fcitx5_dev.sh`。
-- S3 预构建产物：`cst:xbz/pinyin-ime/v0.9.174/`（在 v0.9.171 基础上加入 `lib/fcitx5/libpinyinime.so`、`share/fcitx5/{addon,inputmethod,themes}`、`scripts/`、`SHA256SUMS`）。
-- 下一步优先级：云拼音 API 对接 → 用户词典云同步 → 候选页码/每页 5 条（搜狗默认）可配置化 → 真圆角面板（有合成器时自动切换）→ 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
+- 本轮（v0.9.175）新交付：**真·云拼音（libcurl 客户端 + 缓存 + 异步查询）贯通到 fcitx5 候选窗 + 每页条数默认 5（可配置）**，见 `cpp/cloud_pinyin.{h,cpp}`、`cpp/cloud_pinyin_test.cpp`、`scripts/mock_cloud_pinyin_server.py`。
+- S3 预构建产物：`cst:xbz/pinyin-ime/v0.9.175/`（在 v0.9.174 基础上更新 `lib/fcitx5/libpinyinime.so` 与 `scripts/`，含云拼音）。
+- 下一步优先级：用户词典云同步 → 真圆角面板（有合成器时自动切换）→ 云拼音协议对齐真实服务（鉴权/签名/多 provider）→ 统一评测口径与回归门禁 → 拆解万能头并抽取公共核心库 → 增强 LM 交付与纠错升级。
+
+## v0.9.175（2026-11-20）：云拼音落地 + 每页 5 条（实机 GUI 验证）
+
+**目标**：把"云拼音"从空壳做成真能用的功能——联网取词、缓存、异步不卡输入，候选窗里能看见、能点选上屏；同时把每页条数对齐搜狗默认（5 条，可配置）。
+
+**新增/修改**
+
+1. `cpp/cloud_pinyin.h` / `cpp/cloud_pinyin.cpp`（97 + 350 行，独立编译单元）
+   —— 首个**真正发 HTTP 请求**的云拼音客户端（`cpp/quick_input.h:2267` 里的旧 `CloudPinyinClient` 只是空壳，`query()` 直接返回空）。
+   libcurl `POST` JSON、`Authorization: Bearer`、超时（默认 1500ms）、内存缓存 + 磁盘缓存（`~/.cache/pinyin-ime/cloud/<pinyin>.cache`，7 天 TTL）、in-flight 去重。
+2. `cpp/cloud_pinyin_test.cpp`（141 行）+ `cpp/CMakeLists.txt` 的 `cloud_pinyin_test` 目标
+   —— 离线用例覆盖响应解析（正常/缺字段/坏 JSON/limit 截断）、缓存写读与 TTL 过期、请求合并去重；
+   给 endpoint 参数则跑联网用例。缓存目录可用 `PINYINIME_CLOUD_TEST_CACHE` 覆盖（方便并行测试）。
+3. `scripts/mock_cloud_pinyin_server.py`（97 行）
+   —— 协议样板 + 联调 mock：`POST /pinyin`（可选 `Authorization`）、`GET /health`。自带少量演示词条，
+   其中 `xuanfutianqi → 炫福天气` 故意不在本地词典里，用来验证"云候选真的来自网络"。
+4. `fcitx5-addon/`：云拼音接进候选窗（默认关闭，需配置 endpoint）
+   - `pinyinime.h`：新增 `CloudPinyin` / `CloudEndpoint` / `CloudApiKey` / `CloudTimeoutMs` 配置项；
+     `PinyinIMEState` 增加 `cloudWords_`、`cloudShift_`、`cloudIdxBase_`、`kickCloudQuery()`。
+   - 输入路径**只读缓存**（`query_cache_only`），网络查询由 `kickCloudQuery()` 在后台线程发起，
+     完成后通过 `EventLoop::addPostEvent` 回到主线程 `refreshUI()`——绝不阻塞按键。
+   - 云候选排在**第 0 页本地候选之后**，占 `cloudShift_` 个"预留槽位"，本地候选一条不丢；
+     与本地候选**去重**（云候选经常和首选重复）；点选时走合成索引 `cloudIdxBase_+k` 直接上屏，
+     并进误上屏撤回栈（`Ctrl+Z` 可撤回）。
+   - `pageSize` 默认 `9 → 5`，对齐搜狗默认每页 5 条；可在 `~/.config/fcitx5/conf/pinyinime.conf` 里改 `PageSize`。
+5. `scripts/start_fcitx5_dev.sh` 继续作为唯一启动入口（停进程 → 重写 profile → 带 `FCITX_ADDON_DIRS` 启动 → 校验 `state=2`）。
+
+**实机验证（X11 :1 + Thunar 地址栏 + xdotool 注入）**
+
+- `PageSize=5` 生效：候选窗 `77x226`（改前 9 条为 `77x370`），竖排保持。
+- 云拼音链路（端到端，两次复现）：
+  1. 启动 mock：`python3 scripts/mock_cloud_pinyin_server.py --port 8766`；
+  2. `~/.config/fcitx5/conf/pinyinime.conf` 加 `CloudPinyin=True` + `CloudEndpoint=http://127.0.0.1:8766/pinyin`；
+  3. 输入 `xuanfutianqi` → `~/.cache/pinyin-ime/cloud/xuanfutianqi.cache` 由 **addon** 写出（证明真发了 HTTP）；
+  4. 候选窗第 5 行出现 `炫福天气`（本地词典没有这个词），前 4 行仍是本地候选；
+  5. 鼠标点第 5 行 → Thunar 地址栏 `Ctrl+A Ctrl+C` 读出 `xsel -b -o` = `炫福天气`（真上屏）。
+- 去重验证：输入 `shurufa`，云端返回的 `输入法` 与本地首选重名 → 不重复占槽位，本页仍是 5 条本地候选。
+- 截图：`docs/assets/cloud-pinyin-v0.9.175-candidate.png`（4 倍最近邻放大 + 内边距，第 5 行即云候选）。
+
+**协议（mock 即样板，接真实服务时照此实现）**
+
+```
+POST {CloudEndpoint}          # 例：http://127.0.0.1:8766/pinyin
+Authorization: Bearer {CloudApiKey}   # 可选，留空则不发
+{"pinyin":"xuanfutianqi","limit":5}
+
+→ 200
+{"candidates":[{"w":"炫福天气","p":"xuan fu tian qi","s":99}]}
+```
+
+**踩坑记录**
+
+- 云候选**不能**直接拼在 `cands.size()` 之后：`selectCandidate` 的索引就是 libime 候选下标，
+  合成索引会撞车。改为"第 0 页尾部预留槽位 + `cloudIdxBase_` 区间判定"，分页起点 (`localBegin()`)
+  随之整体前移，本地候选不丢。
+- 每次字母输入都会触发一次前缀查询（`ni`/`nih`/`niha`/`nihao`），靠磁盘缓存 + in-flight 去重把重复请求压掉；
+  真实服务上线前建议加 250ms 防抖（`terminal(background=true)` 起 mock 服务，`nohup cmd &` 在本环境会挂住）。
+- `pinyinime.h` 里 `FCITX_CONFIGURATION(...)` 宏的结尾是 `};);`，**不要**以为多写了个分号去"修"它——
+  改掉会报 `unterminated argument list invoking macro`。
+
 
 ## v0.9.174（2026-11-20）：搜狗风格皮肤 + 候选选中态修复（实机 GUI 验证）
 
@@ -65,6 +125,8 @@
 | cmake / g++ / pkg-config | 编译 addon |
 | fonts-noto-cjk | 皮肤字体 `Noto Sans CJK SC` |
 | python3-pil (Pillow) | 生成 9-slice 皮肤 PNG（`scripts/gen_sogou_skin_assets.py`） |
+| libcurl4-openssl-dev | 云拼音 HTTP 客户端（`cpp/cloud_pinyin.cpp`、addon 链接 `CURL::libcurl`） |
+| xsel / xclip | 校验上屏结果（从 X 选区读回文字，比肉眼/截图更可靠） |
 | xdotool / xwd / ffmpeg | 虚拟桌面 GUI 自动化与截图验证 |
 
 

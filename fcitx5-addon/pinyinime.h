@@ -25,7 +25,9 @@
 #include <fcitx/instance.h>
 
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -35,12 +37,15 @@
 #include <libime/pinyin/pinyinime.h>
 #include <libime/pinyin/shuangpinprofile.h>
 
+// v0.9.175: 云拼音客户端（独立编译单元，逐步从 quick_input.h 万能头里拆出来）
+#include "cloud_pinyin.h"
+
 namespace fcitx {
 
 FCITX_CONFIGURATION(
     PinyinIMEConfig,
     Option<int> nbest{this, "NBest", _("Number of candidates"), 45};
-    Option<int> pageSize{this, "PageSize", _("Candidates per page"), 9};
+    Option<int> pageSize{this, "PageSize", _("Candidates per page"), 5};
     Option<std::string> dataDir{this, "DataDir", _("Data directory"),
                                 "/root/.local/pinyin-ime/share/libime"};
     Option<std::string> userDataDir{
@@ -68,7 +73,15 @@ FCITX_CONFIGURATION(
         this, "EnableShuangpin", _("Enable double pinyin (shuangpin)"), false};
     Option<std::string> shuangpinScheme{
         this, "ShuangpinScheme", _("Double pinyin scheme (xiaohe/ziranma/ms/ziguang/abc/zhongwenzhixing/pinyinjiajia/gb)"),
-        "xiaohe"};);
+        "xiaohe"};
+    // v0.9.175: 云拼音（默认关闭，接口协议见 cpp/cloud_pinyin.h）
+    Option<bool> cloudPinyin{this, "CloudPinyin", _("Enable cloud pinyin"), false};
+    Option<std::string> cloudEndpoint{
+        this, "CloudEndpoint", _("Cloud pinyin endpoint (full URL)"), ""};
+    Option<std::string> cloudApiKey{this, "CloudApiKey",
+                                    _("Cloud pinyin API key (Bearer)"), ""};
+    Option<int> cloudTimeoutMs{this, "CloudTimeoutMs",
+                               _("Cloud pinyin timeout (ms)"), 1500};);
 
 class PinyinIMEEngine;
 
@@ -90,6 +103,19 @@ public:
     libime::PinyinContext context_;
     size_t page_ = 0;
     size_t maxPage_ = 0;
+    // v0.9.175 云候选：第 0 页尾部预留槽位数，及云候选在索引空间里的起点
+    size_t cloudShift_ = 0;
+    size_t cloudIdxBase_ = SIZE_MAX;
+
+    // 本地候选在索引空间里的起点/本页容量（第 0 页少 cloudShift_ 个）
+    size_t localBegin() const {
+        const size_t ps = pageSize();
+        return page_ == 0 ? 0 : (ps - cloudShift_) + (page_ - 1) * ps;
+    }
+    size_t localPageCapacity() const {
+        const size_t ps = pageSize();
+        return page_ == 0 ? ps - cloudShift_ : ps;
+    }
     KeyList selectionKeys_;
     // 候选焦点（页内 0..pageSize-1）：Ctrl+←/→ 移动，空格上屏焦点候选（默认 0=首选）。
     size_t candFocus_ = 0;
@@ -121,6 +147,10 @@ public:
     std::vector<std::pair<std::string, std::string>> undoStack_;
 
     size_t pageSize() const;
+    // v0.9.175 云拼音：当前拼音串对应的云候选（只在第 0 页追加到本地候选之后）
+    std::vector<std::string> cloudWords_;
+    // 触发一次后台云查询（同一拼音在引擎层去重，不会重复发请求）
+    void kickCloudQuery();
     // 上屏一段已提交文本（整句 / 英文整行 / 标点），清面板并 commitString。
     void commitText(const std::string &text);
     // 上屏中文标点：打拼音中先上屏首选，空闲直接上屏。
@@ -157,6 +187,12 @@ public:
     void saveUserData();
 
     auto factory() { return &factory_; }
+    Instance *instance() { return instance_; }
+    // v0.9.175 云拼音客户端（配置启用时非空；线程共享，查询在后台线程执行）
+    std::shared_ptr<pinyinime::CloudPinyinClient> cloudClient() { return cloud_; }
+    // 标记/查询某拼音是否已有后台请求在飞（线程安全）
+    bool cloudMarkInFlight(const std::string &py);
+    void cloudClearInFlight(const std::string &py);
 
 private:
     bool ensureDataLoaded();
@@ -164,6 +200,9 @@ private:
     Instance *instance_;
     PinyinIMEConfig config_;
     std::unique_ptr<libime::PinyinIME> ime_;
+    std::shared_ptr<pinyinime::CloudPinyinClient> cloud_;
+    std::mutex cloudMutex_;
+    std::unordered_set<std::string> cloudInFlight_;
     std::string userHistPath_, userDictPath_;
     FactoryFor<PinyinIMEState> factory_{
         [this](InputContext &ic) {
