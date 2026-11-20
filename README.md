@@ -70,7 +70,8 @@ Authorization: Bearer {CloudApiKey}   # 可选，留空则不发
 - S3 发布用 `rclone copy` 默认**不跟符号链接**：`lib/libIMECore.so` → `.so.1.1.17` 这类软链不会上传。
   现在改为 `rclone copy --copy-links --files-from <list>` 把软链**按目标内容**上传（远端是真实文件副本），
   因此包内 `SHA256SUMS`（129 条，`find -L` 生成）+ `bin/` 里 x86_64 的 `pinyin_ime_cli` /
-  `cloud_pinyin_test` 与远端对象数一一对应；`rclone check --one-way` 全绿。
+  `cloud_pinyin_test` 与远端对象数一一对应（远端 130 个对象 = 129 个受校验文件 + `SHA256SUMS` 自身，
+  `rclone check --one-way --copy-links` 报告 **0 differences / 130 matching**）。
 
 
 ## v0.9.174（2026-11-20）：搜狗风格皮肤 + 候选选中态修复（实机 GUI 验证）
