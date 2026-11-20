@@ -67,9 +67,10 @@ Authorization: Bearer {CloudApiKey}   # 可选，留空则不发
   真实服务上线前建议加 250ms 防抖（`terminal(background=true)` 起 mock 服务，`nohup cmd &` 在本环境会挂住）。
 - `pinyinime.h` 里 `FCITX_CONFIGURATION(...)` 宏的结尾是 `};);`，**不要**以为多写了个分号去"修"它——
   改掉会报 `unterminated argument list invoking macro`。
-- S3 发布用 `rclone copy` 默认**不跟符号链接**：`lib/libIMECore.so` → `.so.1.1.17` 这类软链不会上传，
-  所以包内 `SHA256SUMS`（116 条真实文件）与远端对象数 116 一致，但软链别名缺失（运行时用系统
-  `libFcitx5Utils` / `libIMECore` 即可）。若要自带整套库，下一步应打成 tar.gz 再上传。
+- S3 发布用 `rclone copy` 默认**不跟符号链接**：`lib/libIMECore.so` → `.so.1.1.17` 这类软链不会上传。
+  现在改为 `rclone copy --copy-links --files-from <list>` 把软链**按目标内容**上传（远端是真实文件副本），
+  因此包内 `SHA256SUMS`（129 条，`find -L` 生成）+ `bin/` 里 x86_64 的 `pinyin_ime_cli` /
+  `cloud_pinyin_test` 与远端对象数一一对应；`rclone check --one-way` 全绿。
 
 
 ## v0.9.174（2026-11-20）：搜狗风格皮肤 + 候选选中态修复（实机 GUI 验证）
