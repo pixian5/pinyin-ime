@@ -67,6 +67,14 @@
 #include "emoji_list.h"
 #include "abbr_presets.h"
 #include "pinyin_corrector.h"
+
+// 版本号唯一来源：CMake 从仓库根 VERSION 生成的 version.h。
+// 手工编译（不经 CMake）时退化为 unknown，避免再出现写死 0.9.86 的漂移。
+#if __has_include("version.h")
+#include "version.h"
+#else
+#define PINYINIME_VERSION "unknown"
+#endif
 #include "quick_input.h"
 
 #ifdef __unix__
@@ -1016,7 +1024,7 @@ int main(int argc, char **argv) {
         } else if (a == "--json") {
             jsonOutput = true;
         } else if (a == "--version") {
-            std::cout << "pinyin_ime_cli 0.9.86\n";
+            std::cout << "pinyin_ime_cli " << PINYINIME_VERSION << "\n";
             return 0;
         } else if (a == "--batch") {
             if (i + 1 >= argc) {

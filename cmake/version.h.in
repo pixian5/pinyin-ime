@@ -1,0 +1,9 @@
+/* 自动生成，请勿手工修改 —— 由 CMake 从仓库根 VERSION 文件生成。
+ * 唯一版本来源：<repo>/VERSION
+ * 生成目标：<build>/version.h（cpp 与 fcitx5-addon 共用同一模板）
+ */
+#pragma once
+
+#ifndef PINYINIME_VERSION
+#define PINYINIME_VERSION "@PINYINIME_VERSION@"
+#endif

@@ -14,3 +14,15 @@ jobs:
       - uses: checkout-action@0.0.1
       - name: Shell / version / packaging checks
         run: bash scripts/ci_static.sh
+
+  # 纯 C++ 单测，不依赖 libime/fcitx5，任何带 g++ 的 runner 都能跑。
+  # 目的：让 quick_input_test（600+ 用例）从“本机手工跑”变成“每次提交必跑”。
+  unit:
+    name: Unit tests (quick_input_test)
+    runs-on: euleros-2.10.1
+    steps:
+      - uses: checkout-action@0.0.1
+      - name: Build
+        run: g++ -std=c++17 -O1 -I cpp cpp/quick_input_test.cpp -o /tmp/quick_input_test
+      - name: Run
+        run: /tmp/quick_input_test

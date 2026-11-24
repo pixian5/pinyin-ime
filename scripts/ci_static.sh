@@ -30,6 +30,23 @@ check "addon CMake 读取 VERSION" grep -q 'file(STRINGS.*VERSION' fcitx5-addon/
 check "addon 模板 Library 正确" grep -qx 'Library=libpinyinime' fcitx5-addon/pinyinime.conf.in
 check "inputmethod 存在" test -f fcitx5-addon/pinyinime.inputmethod
 
+# 版本号唯一来源：源码里不允许再出现写死的 CLI 版本，CMake 不允许写死 project 版本
+check "CLI 无写死版本号" bash -c "! grep -q 'pinyin_ime_cli 0\\.9\\.' cpp/pinyin_ime_cli.cpp"
+check "CLI 使用生成的 PINYINIME_VERSION" grep -q 'PINYINIME_VERSION' cpp/pinyin_ime_cli.cpp
+check "CMake 无写死 project 版本" bash -c "! grep -qE 'project\\(\\S+ VERSION 0\\.' fcitx5-addon/CMakeLists.txt"
+check "CMake 生成了 version.h 模板" test -s cmake/version.h.in
+
+# README 只允许一个「当前版本」标题（历史版本一律用「历史版本：」），且顶部版本与 VERSION 一致
+cur_count=$(grep -c '^## 当前版本' README.md || true)
+check "README 只有一个当前版本标题（当前 ${cur_count} 个）" test "$cur_count" -le 1
+check "README 顶部版本与 VERSION 一致" grep -q "\`${version}\`" README.md
+check "CHANGELOG 含当前版本" grep -q "v${version}" CHANGELOG.md
+
+echo "=== 仓库卫生 ==="
+elf_count=$(git ls-files | xargs -r file 2>/dev/null | grep -Ec 'ELF|PE32|Mach-O' || true)
+check "无二进制入库（当前 ${elf_count} 个 ELF/PE/Mach-O）" test "$elf_count" -eq 0
+check "ip.txt 未入库" bash -c '! git ls-files --error-unmatch ip.txt >/dev/null 2>&1'
+
 echo "=== 打包配置 ==="
 check "spec 包含 inputmethod" grep -q 'pinyinime.inputmethod' packaging/pinyin-ime.spec
 check "spec 包含 LM" grep -q 'zh_CN.lm' packaging/pinyin-ime.spec

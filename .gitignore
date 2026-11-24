@@ -88,8 +88,9 @@ pinyin-ime-s3/desktop-v0.9.83/
 pinyin-ime-s3/v0.9.93/
 pinyin-ime-s3/v0.9.94/
 
-# 项目根 ip.txt（本机公网 IP，要求必须入库）：显式反忽略，防止将来宽规则误伤
-!ip.txt
+# 项目根 ip.txt 含 20+ 台服务器公网地址，属节点信息，禁止入库。
+# 2026-11-24 决策：撤销旧的“显式反忽略”，从跟踪中移除，仅保留本机文件。
+ip.txt
 
 
 # x86_64 本机构建目录（2026-10-19 Ubuntu 24.04 x86_64 轮）
@@ -140,6 +141,14 @@ dist/*.so
 pinyin_ime_cli
 fcitx5-addon/*.so
 tools/*.so
+
+# 测试二进制与便携运行时（2026-11-24 清理：这些曾被误入库，仓库体积从 4.4MB 回涨到 6.3MB）
+cpp/quick_input_test
+cpp/quick_input_test_latest
+tools/qt_ime_test_client
+tools/visual_ime_test
+tools/xterm_ime_test
+pinyin-ime/
 
 # S3 下载产物（用 rclone 获取，不入库）
 pinyin-ime-s3/

@@ -8,9 +8,10 @@
 - 每次修改就递增一次版本号：**`+0.0.1`**，每一位满十进一
   （`0.0.9 → 0.1.0`，`0.9.9 → 1.0.0`）。
 - 若是全新项目，版本号从 **`0.0.0`** 开始。
-- 项目根目录 `VERSION` 文件与 `fcitx5-addon/CMakeLists.txt` 里的
-  `project(pinyinime VERSION ...)` 必须**同步**更新。
-- 当前版本：`0.9.50`（下一轮任何修改 → `0.9.51`）。
+- 项目根目录 `VERSION` 是**唯一**版本来源：`cpp/` 与 `fcitx5-addon/` 的 CMake 都从它读取，
+  经 `cmake/version.h.in` 生成 `version.h`（CLI 输出、addon 的 `pinyinime.conf` 都用这个值）。
+  源码、CMake、文档里**禁止**再写死版本号字面量（`scripts/ci_static.sh` 会检查）。
+- 当前版本：`0.9.176`（下一轮任何修改 → `0.9.177`）。
 
 ## 2. 重大问题的文档记录
 

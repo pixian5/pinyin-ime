@@ -4,6 +4,18 @@ project(libime_bench CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 版本号唯一来源：仓库根 VERSION → 生成 version.h（禁止在源码里手写版本字面量）
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" PINYINIME_VERSION LIMIT_COUNT 1)
+string(STRIP "${PINYINIME_VERSION}" PINYINIME_VERSION)
+if(NOT PINYINIME_VERSION)
+  message(FATAL_ERROR "仓库根 VERSION 为空或不存在")
+endif()
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/version.h.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/version.h"
+  @ONLY)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
 # GCC 10 兼容：提供 <source_location> stub（新版 GCC 不需要，但保留不影响）
 set(CXX20_STUBS "${CMAKE_CURRENT_SOURCE_DIR}/stubs/cxx20")
 if(EXISTS "${CXX20_STUBS}")

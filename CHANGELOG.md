@@ -1,6 +1,14 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.176 (2026-11-24)
+
+### 可信化修复：版本单一来源 + 仓库卫生 + CI 门禁
+- 版本单一来源：新增 `cmake/version.h.in`，`cpp/` 与 `fcitx5-addon/` 均由 CMake 从仓库根 `VERSION` 生成 `version.h`；删除 CLI `--version` 里写死的 `0.9.86`；删除 addon CMake 中把 `PINYINIME_VERSION` 覆盖回 `project()` 旧值（0.9.126）的两行。
+- 仓库卫生：`git rm --cached` 移除 8 个误入库二进制（`cpp/quick_input_test`、`cpp/quick_input_test_latest`、`tools/{qt_ime_test_client,visual_ime_test,xterm_ime_test}`、`pinyin-ime/opt/fcitx5-x11/lib/libFcitx5Utils.so{,.2,.5.1.23}`）与 `ip.txt`；`.gitignore` 补对应规则，撤销 `!ip.txt` 反忽略。
+- CI 门禁：`.gitcode/workflows/ci.yml` 新增 `unit` job（g++ 编译并运行 `quick_input_test`）；`scripts/ci_static.sh` 新增版本字面量、单一“当前版本”标题、CHANGELOG 版本、禁止二进制入库、`ip.txt` 未跟踪等检查。
+- 文档更正：README 的模糊音“硬性禁令”（称 `--fuzzy` 永远无效、相关代码是死代码）改为“默认关闭、显式启用”，与代码实际行为一致；5 个重复的“当前版本：”标题改为“历史版本：”。
+
 ## v0.9.121 (2026-10-21)
 
 ### 发布工程：可安装包 + GitCode Release + 文档/测试收敛

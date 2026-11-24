@@ -9,24 +9,26 @@
 #
 # 实机（Ubuntu 26.04）用法见 README「Fcitx5 addon：实机安装」。
 cmake_minimum_required(VERSION 3.16)
-project(pinyinime VERSION 0.9.126 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# 版本号唯一来源是仓库根目录的 VERSION；避免 addon conf 里的 Version 与发布版本漂移。
+# 版本号唯一来源是仓库根目录 VERSION。必须在 project() 之前读取：
+# project(... VERSION ...) 只接受字面量，旧写法 project(VERSION 0.9.126) 导致版本永远停在 0.9.126。
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" PINYINIME_VERSION LIMIT_COUNT 1)
 string(STRIP "${PINYINIME_VERSION}" PINYINIME_VERSION)
 if(NOT PINYINIME_VERSION)
-  set(PINYINIME_VERSION "${PROJECT_VERSION}")
+  message(FATAL_ERROR "仓库根 VERSION 为空或不存在")
 endif()
+project(pinyinime VERSION ${PINYINIME_VERSION} LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Fcitx5Core REQUIRED)
 find_package(Fcitx5Config REQUIRED)
 find_package(Fcitx5Utils REQUIRED)
 find_package(LibIMEPinyin REQUIRED)
 
-set(PINYINIME_VERSION ${PROJECT_VERSION})
+# 注意：不要再写 set(PINYINIME_VERSION ${PROJECT_VERSION}) 之类的覆盖行，
+# 否则会把上面从 VERSION 读到的值改回 project() 里的旧版本。
 
 # 兼容宏：旧版 fcitx5 的 add_fcitx5_addon 在 5.1.x 已移除，改为等价的现代写法：
 # MODULE 库（去 lib 前缀）+ install 到 addon 目录 + conf 里 Type=SharedLibrary。
