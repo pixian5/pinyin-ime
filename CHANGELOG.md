@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.178 (2026-11-26)
+
+### 结构：把 6991 行万能头 quick_input.h 拆成 10 个模块片段
+- `cpp/quick_input.h` 由 **6991 行降到 104 行**，只保留公共 include、皮肤（Theme）和 9 个片段 include；CLI 与 addon 的 include 路径、调用代码一行未改。
+- 新增 9 个片段头（`cpp/quick_input_*.h`）：`core` 602（v 模式/日期/计算器/数字大写/货币/单位/百分比）、`modes` 913（u/Tab/i/联想/自定义/中英混输/错音/成语/繁简/网址）、`typing` 666（分词/词频/断句/句式/最近输入/选词）、`cloud` 280（云接口/模糊音）、`clipboard` 100、`sentence` 246（长句切分/短语管理）、`stats` 966、`rank` 637（纠错/上下文/打分/DP 分词）、`ui` 837（表情/多 provider/同步/候选窗）、`boost` 1662（v0.9.164+ 增强入口）。
+- 片段不是独立头：必须在 `quick_input.h` 的 `namespace pinyin_ime` 内 include（片段内自带 namespace 会嵌套成 `pinyin_ime::pinyin_ime`，本轮已踩坑并写成 CI 检查）。
+- 等价性验证：新旧 `quick_input_test.cpp` 的 `g++ -E -P` 预处理输出**逐行完全一致**（65561 行、差异 0 行），即对 CLI/addon 而言语义零变化；g++ 编译通过，单测 699 passed / 0 failed。
+- `scripts/ci_static.sh` 新增拆分约束：`quick_input.h` ≤ 400 行、片段 ≥ 6 个、片段不得声明 namespace、umbrella 必须包含每个片段、CLI/addon 不得直接 include 片段。
+
 ## v0.9.177 (2026-11-26)
 
 ### 评测可信化（D1 第一步）：零泄漏 holdout + 唯一评测入口 + 门禁

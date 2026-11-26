@@ -42,6 +42,19 @@ check "README 只有一个当前版本标题（当前 ${cur_count} 个）" test 
 check "README 顶部版本与 VERSION 一致" grep -q "\`${version}\`" README.md
 check "CHANGELOG 含当前版本" grep -q "v${version}" CHANGELOG.md
 
+echo "=== quick_input.h 拆分 ==="
+qi_lines=$(wc -l < cpp/quick_input.h)
+check "quick_input.h <= 400 行（当前 ${qi_lines}）" test "$qi_lines" -le 400
+frag_count=$(ls cpp/quick_input_*.h | wc -l)
+check "拆分片段 >= 6 个（当前 ${frag_count}）" test "$frag_count" -ge 6
+check "片段不含 namespace 声明（防嵌套成 pinyin_ime::pinyin_ime）" bash -c "! grep -qE '^[[:space:]]*namespace[[:space:]]+pinyin_ime' cpp/quick_input_*.h"
+for f in cpp/quick_input_*.h; do
+    b=$(basename "$f")
+    check "quick_input.h 包含 ${b}" grep -q "\"${b}\"" cpp/quick_input.h
+done
+check "CLI 不直接 include 片段" bash -c "! grep -qE '#include \"quick_input_' cpp/pinyin_ime_cli.cpp"
+check "addon 不直接 include 片段" bash -c "! grep -qE '#include \"quick_input_' fcitx5-addon/pinyinime.cpp"
+
 echo "=== 仓库卫生 ==="
 elf_count=$(git ls-files | xargs -r file 2>/dev/null | grep -Ec 'ELF|PE32|Mach-O' || true)
 check "无二进制入库（当前 ${elf_count} 个 ELF/PE/Mach-O）" test "$elf_count" -eq 0
