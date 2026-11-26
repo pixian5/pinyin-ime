@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.193 (2026-11-26)
+
+### 模糊测试与两处性能/稳定性缺陷
+- 新增 `cpp/fuzz_segment_test.cpp` + `scripts/fuzz_test.sh`：固定种子随机串 + 对抗输入（10 万字符、非法 UTF-8、控制字符），带 ASan/UBSan。
+- **修复栈溢出**：`smart_segment` 递归深度等于输入长度，10 万字符直接 SIGSEGV；改为迭代 DP（`cnt/pick` 后正向重建），100k 输入 19ms。
+- **修复 O(n²)**：`typo_correction_lookup` 对每个位置拷贝整串做相邻交换，10 万字符 430ms；加 64 字符上限后 0ms。`quick_candidates_v5/v11` 从 464/411ms 降到 27/24ms。
+- 仓库卫生：删除 v0.9.192 误入库的 71 个 `.gcov`，`.gitignore` 增加 `*.gcov/*.gcda/*.gcno`，`ci_static.sh` 增 5 条守卫。
+- 验证：单测 721 passed（快照 42 例输出不变）、警告 0、fuzz 2000 次（普通）/1000 次（ASan）通过。
+
 ## v0.9.192 (2026-11-26)
 
 ### 警告清零、覆盖率与内存检查

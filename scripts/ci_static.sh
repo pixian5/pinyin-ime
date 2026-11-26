@@ -104,6 +104,11 @@ check "警告门禁脚本存在" test -x scripts/warnings_check.sh
 check "覆盖率脚本存在" test -x scripts/coverage.sh
 check "Sanitizer 脚本存在" test -x scripts/sanitizer_test.sh
 check "CLI 功能回归脚本存在" test -x scripts/cli_features_test.sh
+check "模糊测试脚本存在" test -x scripts/fuzz_test.sh
+check "模糊测试源存在" test -s cpp/fuzz_segment_test.cpp
+# 覆盖率调试产物绝不能入库（v0.9.192 曾误提交 71 个 .gcov）
+check "无 .gcov 入库" bash -c '! git ls-files | grep -q "\.gcov$"'
+check ".gitignore 忽略 gcov 产物" grep -q '^\*\.gcov$' .gitignore
 
 echo "=== 文档 ==="
 check "README 存在" test -s README.md

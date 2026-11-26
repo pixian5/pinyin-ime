@@ -625,7 +625,11 @@ inline std::vector<std::string> typo_correction_lookup(const std::string &input)
         }
     }
     // 通用纠错：相邻字母交换检测
-    if (result.empty() && input.size() >= 4) {
+    //
+    // v0.9.193：这里对每个位置都拷贝整串做交换再比较，长度 n 时是 O(n^2)；
+    // 10 万字符的粘贴输入实测 430ms，会把界面卡住。真实输入法预编辑不会
+    // 超过几十个字符，超过 64 直接不做「相邻交换」猜测。
+    if (result.empty() && input.size() >= 4 && input.size() <= 64) {
         static const std::vector<std::string> valid_initials = {
             "zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n",
             "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s",

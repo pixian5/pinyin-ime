@@ -75,6 +75,7 @@ fi
 echo "=== 覆盖率 / Sanitizer（单测）==="
 check "单测覆盖率 ≥90%" bash scripts/coverage.sh --unit
 check "ASan/UBSan 单测" bash scripts/sanitizer_test.sh
+check "模糊测试（500 次）" bash scripts/fuzz_test.sh 500
 
 echo "=== CLI 快照 ==="
 if [ -x cpp/build/pinyin_ime_cli ] && [ -f /usr/share/libime/zh_CN.lm ]; then

@@ -11,6 +11,11 @@ bench/results/
 # 由 first_word.py 按需自动下载，不入库
 bench/corpus/essay.txt
 
+# gcov 覆盖率产物（临时分析生成，绝不能入库）
+*.gcov
+*.gcda
+*.gcno
+
 # 编译产物（C++ 适配器，源码入库、二进制不入库）
 cpp/libime_bench
 cpp/*.o
