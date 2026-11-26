@@ -1,5 +1,5 @@
 {
-  "_说明": "基线随版本前移：当前为 v0.9.197（字符 trigram 重排序上线，CLI 与 addon 共用）。eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
+  "_说明": "基线随版本前移：当前为 v0.9.198（clean_corpus exact+5gram 近似去重、alpha=0.25）。eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
   "_环境": {
     "rootfs": "ubuntu-base-24.04.3-base-amd64",
     "libime": "1.1.5-1",
@@ -35,41 +35,50 @@
         "sent_acc": 42.67,
         "char_acc": 88.88
       },
-      "note": "字符 trigram 重排序（libime 原分 + alpha×字符整句 log 概率，alpha=2.0，nbest=10），CLI 默认开启；无模型时退回 27.83/84.81"
+      "note": "字符 trigram 重排序；42.67 为训练集泄漏复现值，2026-11-27 复检后废弃，不可作为基线"
+    },
+    {
+      "version": "0.9.198",
+      "overall": {
+        "sentences": 1200,
+        "sent_acc": 30.0,
+        "char_acc": 86.05
+      },
+      "note": "clean_corpus（exact + 5-gram 近似去重，排除 lccc_eval/daily/dialogue）重训，alpha=0.25；仍非文档级 split，属 P0 过渡基线"
     }
   ],
   "engine": "cli-batch-top1",
-  "version": "0.9.197",
-  "generated_at": "2026-11-26T23:32:51+08:00",
+  "version": "0.9.198",
+  "generated_at": "2026-11-27T01:30:48+08:00",
   "domains": {
     "baike": {
       "sentences": 300,
-      "sent_acc": 43.0,
-      "char_acc": 90.62,
-      "p50_ms": 85.5
+      "sent_acc": 30.33,
+      "char_acc": 88.35,
+      "p50_ms": 73.07
     },
     "news": {
       "sentences": 300,
-      "sent_acc": 50.67,
-      "char_acc": 91.74,
-      "p50_ms": 64.17
+      "sent_acc": 36.33,
+      "char_acc": 88.83,
+      "p50_ms": 55.11
     },
     "recent": {
       "sentences": 300,
-      "sent_acc": 47.33,
-      "char_acc": 90.62,
-      "p50_ms": 63.27
+      "sent_acc": 35.33,
+      "char_acc": 87.71,
+      "p50_ms": 56.52
     },
     "wiki": {
       "sentences": 300,
-      "sent_acc": 29.67,
-      "char_acc": 82.55,
-      "p50_ms": 55.6
+      "sent_acc": 18.0,
+      "char_acc": 79.31,
+      "p50_ms": 47.42
     }
   },
   "overall": {
     "sentences": 1200,
-    "sent_acc": 42.67,
-    "char_acc": 88.88
+    "sent_acc": 30.0,
+    "char_acc": 86.05
   }
 }

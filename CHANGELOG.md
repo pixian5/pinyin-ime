@@ -1,5 +1,17 @@
 # pinyin-ime 发布说明
 
+## v0.9.198 (2026-11-27)
+
+### 字符模型去泄漏与 clean 过渡基线
+- 确认 v0.9.197 的 42.67% / 88.88% 为训练集泄漏：1200 句 holdout 原文 100% 在 `bench/corpus`，字符 trigram 又用同一语料训练；`check_leakage.py` 未检查训练侧。
+- 新增 `bench/clean_corpus.py`：以 holdout 为固定 test，剔除逐字相同句子、与任一 test 共享 >=2 个字符 5-gram 的训练句，并排除 `lccc_eval/daily/dialogue`；clean 训练集 12,130 句 / 257,455 字。
+- 新增 `bench/check_train_leakage.py`：exact=0、near_dup=0、eval_only=0 才通过；`ci_build.sh` 每次从 clean 语料确定性重训，并与 `data/char_trigram.bin` `cmp`。
+- `scripts/train_char_lm.py` 增加 `--meta-out` / `--alpha`，`data/char_trigram.meta.json` 记录语料 sha256、alpha、模型 sha256；`cpp/char_lm.h` 的 `kAlpha` 从 2.0 降到 0.25。
+- 新模型：词表 3,929，bigram 107,229，trigram 203,674，2,945,931 字节；clean holdout **30.00% 句级 / 86.05% 字级**，无重排 27.83% / 84.81%。
+- `bench/baseline.json` 前移到 v0.9.198 clean 过渡基线；42.67 标为历史泄漏复现值，不再作为门禁。
+- 快照 42 例通过（4 例因模型变更有意更新：`womenzaiyonglibimezuoceshi`、`qi'an`、`e`、`riqi`）；完整 `ci_build.sh` 通过。
+- 已知限制：仍是句子级 + 5-gram 近似去重，不是文档级 split；LCCC/新闻/百科/维基的再分发许可仍未清，模型暂不应进入公开 Release。
+
 ## v0.9.197 (2026-11-26)
 
 ### 字符 trigram 重排序上线（CLI + fcitx5 addon）

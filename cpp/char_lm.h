@@ -77,8 +77,9 @@ public:
     float score(std::string_view utf8) const;
 
     // 重排权重：候选最终分 = libime 原分 + alpha * score()。
-    // 2.0 来自 1200 句 holdout 的 dev/test 对半调参，测试集未参与选参。
-    static constexpr float kAlpha = 2.0f;
+    // 0.25 来自 clean_corpus（exact + 5-gram 近似去重）上的 dev 调参；
+    // 文档级 split 尚未完成，不能把该值当成最终最优。
+    static constexpr float kAlpha = 0.25f;
 
     bool empty() const { return vocab_.empty(); }
     size_t vocabSize() const { return vocab_.size(); }

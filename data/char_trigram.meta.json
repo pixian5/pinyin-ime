@@ -1,0 +1,54 @@
+{
+  "kind": "pinyin-ime-char-trigram-v1",
+  "version": "0.9.198",
+  "alpha": 0.25,
+  "built_at": "2026-11-26T17:35:29.351589+00:00",
+  "model": "char_trigram.bin",
+  "model_sha256": "f6a3653cde8cb8939755820b9cc381bd9092c9a62615d877a4c46122c414ef76",
+  "model_bytes": 2945931,
+  "corpus": "bench/corpus（clean_corpus.py --near-dup-threshold 2；排除 lccc_eval/daily/dialogue）",
+  "files": [
+    {
+      "file": "baike.txt",
+      "sha256": "75cbb372575ab0a5b4b72bd952d4bbefe1b009559a3beb00d0d5325e54d218e7",
+      "sentences": 5384,
+      "chars": 131802
+    },
+    {
+      "file": "news.txt",
+      "sha256": "504d2df771158e982fbdbff359fa2c5867d5dab6c84862f7a1498bede808aae2",
+      "sentences": 1621,
+      "chars": 30610
+    },
+    {
+      "file": "recent.txt",
+      "sha256": "d950092c8c046a69fcaa63e4eee48b950e38e8b6cc09b41d4f928b95096cc10f",
+      "sentences": 3619,
+      "chars": 69174
+    },
+    {
+      "file": "wiki.txt",
+      "sha256": "fd04703273f5ad8afcd3f420cead6b7d0419f9ae591d62034dcdc180d90b5b06",
+      "sentences": 1506,
+      "chars": 25869
+    }
+  ],
+  "sentences": 12130,
+  "chars": 257455,
+  "split": {
+    "script": "bench/clean_corpus.py",
+    "near_dup_threshold": 2,
+    "holdout": "bench/holdout（1200 句固定 test）",
+    "test_sentences": 1200,
+    "train_sentences": 12130,
+    "train_chars": 257455,
+    "exact_removed": 1201,
+    "near_dup_removed": 798,
+    "eval_only_skipped": [
+      "lccc_eval.txt",
+      "daily.txt",
+      "dialogue.txt"
+    ],
+    "caveat": "句子级 + 5-gram 近似去重，不是文档级 split；同文档剩余句子仍可能残留风格泄漏"
+  }
+}

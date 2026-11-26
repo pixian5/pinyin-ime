@@ -27,6 +27,9 @@ nbest 候选之间按「这个字串像不像正常中文」重排，把潜力�
 from __future__ import annotations
 
 import argparse
+import datetime
+import hashlib
+import json
 import struct
 import sys
 from collections import defaultdict
@@ -155,12 +158,54 @@ def write_model(path: Path, vocab, uni, bi, tri):
     )
 
 
+def corpus_metadata(corpus: Path) -> dict:
+    files = []
+    for f in sorted(corpus.glob("*.txt")):
+        text = f.read_text(encoding="utf-8", errors="ignore").splitlines()
+        sentences = [line.strip() for line in text if line.strip()]
+        files.append({
+            "file": f.name,
+            "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+            "sentences": len(sentences),
+            "chars": sum(len(s) for s in sentences),
+        })
+    return {
+        "files": files,
+        "sentences": sum(x["sentences"] for x in files),
+        "chars": sum(x["chars"] for x in files),
+    }
+
+
+def write_metadata(path: Path, corpus: Path, model: Path, alpha: float) -> None:
+    version_file = Path(__file__).resolve().parent.parent / "VERSION"
+    version = version_file.read_text(encoding="utf-8").strip() if version_file.exists() else "unknown"
+    meta = {
+        "kind": "pinyin-ime-char-trigram-v1",
+        "version": version,
+        "alpha": alpha,
+        "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "model": model.name,
+        "model_sha256": hashlib.sha256(model.read_bytes()).hexdigest(),
+        "model_bytes": model.stat().st_size,
+        "corpus": str(corpus),
+        **corpus_metadata(corpus),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"已写入模型元数据 {path}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", type=Path,
                     default=Path(__file__).resolve().parent.parent / "bench/corpus")
     ap.add_argument("--out", type=Path,
                     default=Path(__file__).resolve().parent.parent / "data/char_trigram.bin")
+    ap.add_argument("--meta-out", type=Path,
+                    default=None,
+                    help="可选：输出模型元数据 JSON（语料 hash、alpha、版本）")
+    ap.add_argument("--alpha", type=float, default=0.25,
+                    help="仅写入元数据，供运行时 kAlpha 对齐检查；不会改 C++ 常量")
     args = ap.parse_args()
     if not args.corpus.is_dir():
         print(f"找不到语料目录：{args.corpus}", file=sys.stderr)
@@ -171,6 +216,8 @@ def main() -> int:
         return 2
     vocab = build_vocab(uni)
     write_model(args.out, vocab, uni, bi, tri)
+    if args.meta_out:
+        write_metadata(args.meta_out, args.corpus, args.out, args.alpha)
     return 0
 
 
