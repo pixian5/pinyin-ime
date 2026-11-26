@@ -140,6 +140,7 @@ void usage(const char *prog) {
         << "  --dict-add P=W  添加词条（拼音=中文，如 --dict-add hh=你好）\n"
         << "  --dict-del P    删除词条（按拼音删除，如 --dict-del hh）\n"
         << "  --dict-import F 从文件批量导入（每行 拼音=中文）\n"
+        << "  --extra-dict F  加载额外 libime 文本词典（每行 词<TAB>拼音 拼音，如 中国<TAB>zhong guo）\n"
         << "  --dict-export F 导出用户词典到文件\n"
         << "  --dict-search K 搜索词条（关键词匹配拼音或中文）\n"
         << "  --stats-report  输入统计面板（高频词/准确率/使用量）\n"
@@ -862,6 +863,7 @@ int main(int argc, char **argv) {
     std::string dictAddEntry;     // --dict-add P=W
     std::string dictDelKey;       // --dict-del P
     std::string dictImportFile;   // --dict-import F
+    std::string extraDictFile;    // --extra-dict F：额外 libime 文本词典（v0.9.181）
     std::string dictExportFile;   // --dict-export F
     std::string dictSearchKey;    // --dict-search K
     bool doctorMode = false;      // --doctor：一键诊断
@@ -909,6 +911,9 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) dictDelKey = argv[++i];
         } else if (a == "--dict-import") {
             if (i + 1 < argc) dictImportFile = argv[++i];
+        } else if (a == "--extra-dict") {
+            if (i + 1 >= argc) { std::cerr << "--extra-dict 缺少参数\n"; return 1; }
+            extraDictFile = argv[++i];
         } else if (a == "--dict-export") {
             if (i + 1 < argc) dictExportFile = argv[++i];
         } else if (a == "--dict-search") {
@@ -1219,6 +1224,19 @@ int main(int argc, char **argv) {
                   std::make_unique<UserLanguageModel>(lmPath.c_str()));
     ime.dict()->load(PinyinDictionary::SystemDict, dictPath.c_str(),
                      PinyinDictFormat::Binary);
+    // v0.9.181: 额外文本词典（用于扩词实验/第三方词库），加载进 UserDict 索引。
+    // 文本格式与 libime 一致：每行「词<TAB>音节 音节」，空格分隔各音节。
+    if (!extraDictFile.empty()) {
+        try {
+            ime.dict()->load(PinyinDictionary::UserDict, extraDictFile.c_str(),
+                             PinyinDictFormat::Text);
+            if (!quiet)
+                std::cerr << "已加载额外词典: " << extraDictFile << "\n";
+        } catch (const std::exception &e) {
+            std::cerr << "额外词典加载失败: " << e.what() << "\n";
+            return 1;
+        }
+    }
     ime.setNBest(static_cast<size_t>(nbest));
     // v0.9.90: 音节分隔显示
     ime.setPreeditMode(PinyinPreeditMode::Pinyin);

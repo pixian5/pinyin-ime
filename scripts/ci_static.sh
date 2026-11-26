@@ -33,6 +33,10 @@ check "inputmethod 存在" test -f fcitx5-addon/pinyinime.inputmethod
 # 版本号唯一来源：源码里不允许再出现写死的 CLI 版本，CMake 不允许写死 project 版本
 check "CLI 无写死版本号" bash -c "! grep -q 'pinyin_ime_cli 0\\.9\\.' cpp/pinyin_ime_cli.cpp"
 check "CLI 使用生成的 PINYINIME_VERSION" grep -q 'PINYINIME_VERSION' cpp/pinyin_ime_cli.cpp
+# 额外文本词典入口（v0.9.181）：选项、帮助、加载点都要在
+check "CLI 提供 --extra-dict" grep -q '"--extra-dict"' cpp/pinyin_ime_cli.cpp
+check "CLI 帮助列出 --extra-dict" grep -q 'extra-dict F' cpp/pinyin_ime_cli.cpp
+check "extra-dict 加载进 UserDict" grep -q 'PinyinDictionary::UserDict, extraDictFile' cpp/pinyin_ime_cli.cpp
 check "CMake 无写死 project 版本" bash -c "! grep -qE 'project\\(\\S+ VERSION 0\\.' fcitx5-addon/CMakeLists.txt"
 check "CMake 生成了 version.h 模板" test -s cmake/version.h.in
 
