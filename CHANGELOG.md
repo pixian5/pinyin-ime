@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.194 (2026-11-26)
+
+### 运行时冒烟与升级矩阵（测试基建收尾）
+- 新增 `scripts/test_runtime_fcitx5.sh`：私有 Xvfb + 私有 HOME + `dbus-run-session` 启动**真实 fcitx5 5.1.7**，断言 addon 被加载、打印 `loaded lm=... dict=...`、注册为输入法、无加载错误，并用 D-Bus 控制器确认 `pinyinime` 可切换。实测 **5/5 通过**；没有 fcitx5 的环境自动 SKIP。
+- 新增 `scripts/test_upgrade_matrix.sh`：旧版 deb 安装 → 升级当前版 → 降级回滚 → 再升级 → 卸载，逐步校验 CLI 版本、`nihao→你好`、`sc.dict`/语言模型 md5 指纹、addon 版本与二进制、卸载后数据仍在。实测 **16/16 通过**（0.9.193→0.9.194）。
+- `release_check.sh --full` 接入两项（运行时 SKIP 记为提醒、升级矩阵为阻断项）；`ci_static.sh` 增加 6 条守卫。
+- **修复 runtime 包 install.sh/uninstall.sh 在无显示环境挂死**：`fcitx5 -r` 在容器/CI（无 DISPLAY）会卡住整个安装/卸载流程；两处都改为有 `DISPLAY`/`WAYLAND_DISPLAY` 时才调用并加 5 秒超时。该问题正是安装矩阵测试跑出来的。另修 `ci_static.sh` 在无 `.git` 的 chroot 里跑 `git diff --check` 直接失败的问题（改为非 git 仓库跳过）。
+- 已知限制：Xvfb 下 XIM 客户端能连上并切换输入法，但按键上屏的 commit 事件未取到（无窗口管理器），真实桌面打字仍需人工清单验证。
+
 ## v0.9.193 (2026-11-26)
 
 ### 模糊测试与两处性能/稳定性缺陷

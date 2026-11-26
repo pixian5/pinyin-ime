@@ -221,7 +221,10 @@ tar cf - usr | tar xf - -C /
 # 记录本次安装的文件，供 uninstall.sh 精确删除（不删系统自带的同名文件）
 mkdir -p /usr/share/doc/pinyin-ime
 find usr -type f | sed 's#^usr/#/#' > /usr/share/doc/pinyin-ime/installed-files.txt
-fcitx5 -r 2>/dev/null || true
+# v0.9.194：headless（容器/CI）里没有 DISPLAY 时 fcitx5 -r 会挂住，不能无条件调用
+if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    timeout 5 fcitx5 -r >/dev/null 2>&1 || true
+fi
 echo "安装完成。若 fcitx5 正在运行，请重启输入法（fcitx5 -r）后添加 pinyin-ime。"
 EOF
     chmod +x "$root/install.sh"
@@ -251,7 +254,10 @@ done < "$LIST"
 [ "$skipped" -gt 0 ] && echo "跳过 $skipped 个由系统包管理的文件（未删除）"
 rm -f "$LIST"
 rmdir /usr/share/doc/pinyin-ime /usr/share/fcitx5/addon /usr/share/fcitx5/conf       /usr/share/fcitx5/inputmethod /usr/share/libime 2>/dev/null || true
-fcitx5 -r 2>/dev/null || true
+# 同样避免 headless 下 fcitx5 -r 挂住
+if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    timeout 5 fcitx5 -r >/dev/null 2>&1 || true
+fi
 echo "已卸载 pinyin-ime（runtime 包安装的文件）。"
 EOF
     chmod +x "$root/uninstall.sh"

@@ -87,6 +87,19 @@ fi
 if [ "$FULL" = 1 ]; then
     echo "=== 安装矩阵 ==="
     check "三条安装路径" bash scripts/test_install.sh --skip-build
+    echo "=== 升级矩阵（deb）==="
+    check "旧版→当前→回滚→卸载" bash scripts/test_upgrade_matrix.sh
+    echo "=== fcitx5 运行时 ==="
+    if bash scripts/test_runtime_fcitx5.sh >/tmp/rc_runtime.log 2>&1; then
+        if grep -q "[SKIP]" /tmp/rc_runtime.log; then
+            warn "运行时测试跳过（$(head -1 /tmp/rc_runtime.log)）"
+        else
+            ok "addon 在真实 fcitx5 中加载/注册（$(grep -o '[0-9]* 通过' /tmp/rc_runtime.log | tail -1)）"
+        fi
+    else
+        ng "fcitx5 运行时冒烟失败"
+        tail -4 /tmp/rc_runtime.log | sed 's/^/     /'
+    fi
     echo "=== 准确率评测 ==="
     check "准确率不低于基线" bash scripts/eval_chroot.sh
 fi

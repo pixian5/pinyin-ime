@@ -106,6 +106,15 @@ check "Sanitizer 脚本存在" test -x scripts/sanitizer_test.sh
 check "CLI 功能回归脚本存在" test -x scripts/cli_features_test.sh
 check "模糊测试脚本存在" test -x scripts/fuzz_test.sh
 check "模糊测试源存在" test -s cpp/fuzz_segment_test.cpp
+# v0.9.194：运行时冒烟 + 升级矩阵
+check "fcitx5 运行时冒烟脚本存在" test -x scripts/test_runtime_fcitx5.sh
+check "运行时脚本无 fcitx5 时自动 SKIP" grep -q '[[]SKIP[]] 未安装 fcitx5' scripts/test_runtime_fcitx5.sh
+check "升级矩阵脚本存在" test -x scripts/test_upgrade_matrix.sh
+check "升级矩阵断言数据指纹" grep -q 'data_md5' scripts/test_upgrade_matrix.sh
+check "升级矩阵有退出清理（回到当前版）" grep -q 'trap cleanup EXIT' scripts/test_upgrade_matrix.sh
+check "发布门禁接入运行时/升级矩阵" grep -q 'test_runtime_fcitx5.sh' scripts/release_check.sh
+# runtime 的 install.sh/uninstall.sh 在 headless 里无 DISPLAY 时调 fcitx5 -r 会挂住（v0.9.194 实测）
+check "runtime install/uninstall 的 fcitx5 -r 都有显示环境守卫" bash -c '[ "$(grep -c "WAYLAND_DISPLAY" scripts/build_packages.sh)" -ge 2 ]'
 # 覆盖率调试产物绝不能入库（v0.9.192 曾误提交 71 个 .gcov）
 check "无 .gcov 入库" bash -c '! git ls-files | grep -q "\.gcov$"'
 check ".gitignore 忽略 gcov 产物" grep -q '^\*\.gcov$' .gitignore
@@ -116,7 +125,13 @@ check "CHANGELOG 存在" test -s CHANGELOG.md
 check "文档索引存在" test -s 文档索引.md
 
 echo "=== git 空白检查 ==="
-check "git diff --check" git diff --check
+# chroot/发布源码包可能没有 .git（rsync --exclude .git），此时 git diff 直接 fatal；
+# 只在该目录确实是 git 仓库时检查空白。
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    check "git diff --check" git diff --check
+else
+    echo "  [SKIP] 当前目录不是 git 仓库，跳过 git diff --check"
+fi
 
 if [ "$fail" != 0 ]; then
     echo "静态检查失败" >&2
