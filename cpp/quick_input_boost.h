@@ -1605,24 +1605,33 @@ inline void boost_v11(const std::string& input, std::vector<std::string>& cands,
                        const std::string& preceding = "") {
     if (input.empty()) return;
 
+    // v0.9.182：纯全拼输入时，v11 智能结果（时间/计算器/热词/快捷语/缩写）
+    // 不再抢占首位，而是排到第一位候选之后——用户打的更可能是「现在」而不是
+    // 「2026年11月26日 星期四」。仍保留一眼可见、一次选择即可上屏。
+    const bool demote = pinyin_fully_segmentable(input) && !cands.empty();
+    auto insert_v11 = [&](const std::vector<std::string>& items) {
+        if (demote) cands.insert(cands.begin() + 1, items.begin(), items.end());
+        else cands.insert(cands.begin(), items.begin(), items.end());
+    };
+
     // 1. 日期时间
     auto dt = smart_datetime_v173(input);
     if (!dt.empty()) {
-        cands.insert(cands.begin(), dt.begin(), dt.end());
+        insert_v11(dt);
         return;
     }
 
     // 2. 计算器
     auto calc = smart_calculator_v173(input);
     if (!calc.empty()) {
-        cands.insert(cands.begin(), calc.begin(), calc.end());
+        insert_v11(calc);
         return;
     }
 
     // 3. 网络热词
     for (const auto& hw : net_hotwords_v173()) {
         if (hw.first == input) {
-            cands.insert(cands.begin(), hw.second);
+            insert_v11(std::vector<std::string>{hw.second});
             return;
         }
     }
@@ -1631,9 +1640,9 @@ inline void boost_v11(const std::string& input, std::vector<std::string>& cands,
     for (const auto& rp : quick_replies_v173()) {
         if (rp.first == input) {
             for (size_t i = 1; i < cands.size(); ++i) {
-                if (cands[i] == rp.second) { cands.erase(cands.begin()+i); cands.insert(cands.begin(), rp.second); return; }
+                if (cands[i] == rp.second) { cands.erase(cands.begin()+i); insert_v11(std::vector<std::string>{rp.second}); return; }
             }
-            cands.insert(cands.begin(), rp.second);
+            insert_v11(std::vector<std::string>{rp.second});
             return;
         }
     }
@@ -1642,9 +1651,9 @@ inline void boost_v11(const std::string& input, std::vector<std::string>& cands,
     for (const auto& ab : sogou_abbreviations_v173()) {
         if (ab.first == input) {
             for (size_t i = 1; i < cands.size(); ++i) {
-                if (cands[i] == ab.second) { cands.erase(cands.begin()+i); cands.insert(cands.begin(), ab.second); return; }
+                if (cands[i] == ab.second) { cands.erase(cands.begin()+i); insert_v11(std::vector<std::string>{ab.second}); return; }
             }
-            cands.insert(cands.begin(), ab.second);
+            insert_v11(std::vector<std::string>{ab.second});
             return;
         }
     }

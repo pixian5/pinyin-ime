@@ -1,5 +1,6 @@
 // quick_input_test.cpp — 测试搜狗式快速输入功能
 #include "quick_input.h"
+#include "abbr_presets.h"
 #include "../fcitx5-addon/wayland_integration.h"
 #include "emoji_list.h"
 #include <iostream>
@@ -2369,6 +2370,35 @@ int main() {
         // 与 dp_pinyin_segment 的差异必须显式体现：DP 分词允许残段，不能拿来判合法性
         auto seg = dp_pinyin_segment("guangxuershiwuniannianyinbingqushi");
         check("v179 dp 分词仍按原逻辑（含残段）", !seg.empty());
+    }
+
+    // v0.9.182 回归：纯全拼不得被简拼启发式/v11 智能结果劫持首位
+    {
+        check("v182 全拼判定 xianzai", is_full_pinyin_input("xianzai"));
+        check("v182 全拼判定 长句", is_full_pinyin_input("changjianghouliuxiangmugongsi"));
+        check("v182 简拼不算全拼 bjdx", !is_full_pinyin_input("bjdx"));
+        check("v182 含隔音符不算全拼", !is_full_pinyin_input("xi'an"));
+
+        // 曾经的真 bug：ershilishiyoushi 被简拼启发式顶成「有时」，纯库是「又是」
+        std::vector<std::string> a = {"而是历史又是"};
+        boost_abbreviation("ershilishiyoushi", a);
+        check("v182 全拼不被启发式 boost 劫持", a[0] == "而是历史又是");
+
+        // 简拼仍然要能 boost 到预设词
+        std::vector<std::string> b = {"比较典型", "北京大学"};
+        boost_abbreviation("bjdx", b);
+        check("v182 简拼 boost 仍生效", b[0] == "北京大学");
+
+        // v11 时间结果：全拼输入下让位给中文首选，只排第二位
+        std::vector<std::string> c = {"现在", "西安"};
+        boost_v11("xianzai", c);
+        check("v182 xianzai 首位仍是现在", c[0] == "现在" && c.size() >= 2);
+        check("v182 xianzai 时间结果排第二位", c[1].find("年") != std::string::npos);
+
+        // 非全拼的显式缩写仍可置顶
+        std::vector<std::string> d = {"时间"};
+        boost_v11("sj", d);
+        check("v182 sj 仍可置顶时间", d[0].find(":") != std::string::npos || d[0].find("点") != std::string::npos);
     }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;

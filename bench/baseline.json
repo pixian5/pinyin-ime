@@ -1,5 +1,5 @@
 {
-  "_说明": "基线随版本前移：当前为 v0.9.179（英文误判修复后）。eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
+  "_说明": "基线随版本前移：当前为 v0.9.182（CLI 解码偏差归零后，与纯库参考系一致）。eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
   "_环境": {
     "rootfs": "ubuntu-base-24.04.3-base-amd64",
     "libime": "1.1.5-1",
@@ -18,36 +18,45 @@
         "char_acc": 83.32
       },
       "note": "首次真实引擎基线（拆分重构后，英文误判未修）"
+    },
+    {
+      "version": "0.9.179",
+      "overall": {
+        "sentences": 1200,
+        "sent_acc": 26.67,
+        "char_acc": 84.26
+      },
+      "note": "英文误判修复后首版 CLI 基线（存在 3 处解码偏差，见 v0.9.182 文档）"
     }
   ],
   "engine": "cli-batch-top1",
-  "version": "0.9.179",
-  "generated_at": "2026-11-26T15:55:33+08:00",
+  "version": "0.9.182",
+  "generated_at": "2026-11-26T17:40:00+08:00",
   "domains": {
     "baike": {
-      "sent_acc": 24.67,
-      "char_acc": 86.2,
+      "sent_acc": 26.0,
+      "char_acc": 86.8,
       "p50_ms": 81.31
     },
     "news": {
-      "sent_acc": 34.0,
-      "char_acc": 87.73,
+      "sent_acc": 35.0,
+      "char_acc": 88.11,
       "p50_ms": 62.55
     },
     "recent": {
-      "sent_acc": 33.0,
-      "char_acc": 86.75,
+      "sent_acc": 34.33,
+      "char_acc": 87.22,
       "p50_ms": 60.06
     },
     "wiki": {
-      "sent_acc": 15.0,
-      "char_acc": 76.38,
+      "sent_acc": 16.0,
+      "char_acc": 77.11,
       "p50_ms": 52.65
     }
   },
   "overall": {
     "sentences": 1200,
-    "sent_acc": 26.67,
-    "char_acc": 84.26
+    "sent_acc": 27.83,
+    "char_acc": 84.81
   }
 }

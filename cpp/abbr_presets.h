@@ -27,6 +27,9 @@
 
 namespace pinyin_ime {
 
+// 前向声明：定义在 quick_input_rank.h，本头文件只依赖它做「是否纯全拼」判定。
+inline bool pinyin_fully_segmentable(const std::string &input);
+
 // ── 内置简拼预设表 ──────────────────────────────────────────
 // 返回静态 unordered_map，O(1) 查找
 inline const std::unordered_map<std::string, std::string>& abbr_preset_map() {
@@ -775,6 +778,18 @@ inline void vowel_tail_boost(const std::string &input, std::vector<std::string> 
     cands.insert(cands.begin(), combined);
 }
 
+// v0.9.182：判断输入是否为「可完整切分的纯全拼」。
+// 这类输入（如 changjianghouliu）本来就由语言模型整句解码，
+// 不该再让简拼启发式（后缀/前缀/元音尾）去抢首位——holdout 上正是它们把
+// 「早期→早起」「作用→预约」这类正确结果顶掉，造成 CLI 比纯库低 0.4pp 以上。
+inline bool is_full_pinyin_input(const std::string &input) {
+    if (input.size() < 3) return false;
+    for (char c : input) {
+        if (c < 'a' || c > 'z') return false;
+    }
+    return pinyin_fully_segmentable(input);
+}
+
 inline void boost_abbreviation(const std::string &input, std::vector<std::string> &cands) {
     // 英文直通：常见英文词作为首选
     if (is_english_passthrough(input)) {
@@ -799,12 +814,15 @@ inline void boost_abbreviation(const std::string &input, std::vector<std::string
         cands.insert(cands.begin(), preset_word);
         return;
     }
-    // v0.9.44: 完整匹配失败时，尝试后缀匹配 boost
-    suffix_boost(input, cands);
-    // v0.9.52: 后缀匹配失败时，尝试前缀匹配 boost
-    prefix_boost(input, cands);
-    // v0.9.114: 通用元音尾词组合 boost（如 jrmsha→家人们好啊）
-    vowel_tail_boost(input, cands);
+    // 启发式 boost 只对「切不成全拼」的简拼/混输生效；纯全拼交给语言模型。
+    if (!is_full_pinyin_input(input)) {
+        // v0.9.44: 完整匹配失败时，尝试后缀匹配 boost
+        suffix_boost(input, cands);
+        // v0.9.52: 后缀匹配失败时，尝试前缀匹配 boost
+        prefix_boost(input, cands);
+        // v0.9.114: 通用元音尾词组合 boost（如 jrmsha→家人们好啊）
+        vowel_tail_boost(input, cands);
+    }
 }
 
 // 计算 boostSwap：返回预设词在候选列表中的位置（0 表示无需交换）

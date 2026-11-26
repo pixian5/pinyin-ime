@@ -1,6 +1,17 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.182 (2026-11-26)
+
+### CLI 与纯库解码偏差归零：句级 +1.16pp / 字级 +0.55pp
+- **现象**：同机同 LM/词典、同 holdout，`libime_bench` 27.83% / 84.81%，CLI 一直 26.67% / 84.26%。
+- **三处真因**（逐个用探针+逐行 diff 定位）：
+  1. `disambiguate_pinyin` 对所有输入无条件拆音节（`xian→xi'an`、`nian→ni'an`），连写全拼被拆成「西安/尼庵」——CLI 新增 `disambiguate_if_needed()`，纯全拼直接交给 libime。
+  2. 简拼启发式（后缀/前缀/元音尾 boost）作用于纯全拼，把正确首选顶掉（「早期→早起」）——`abbr_presets.h` 新增 `is_full_pinyin_input()` 守卫，启发式只对简拼/混输生效。
+  3. v11 预解码捷径在解码前就把 `xianzai` 换成日期时间并 `continue`，中文候选全被吞掉——捷径加 `v11_shortcut_allowed()`（`xianzai/shijian/riqi/xingqi` 放行正常解码），`boost_v11` 改为纯全拼时插到第二位。
+- **结果**：CLI **27.83% / 84.81%**，与纯库参考系逐句一致（1200/1200），四域同步上涨（wiki 字级 76.38→77.11）。
+- 单测 716 passed（新增 9 条 v182 用例）；CI 单测标准 `c++17 → c++20` 与 CMake 对齐；addon 编译通过。
+
 ## v0.9.181 (2026-11-26)
 
 ### 新增 `--extra-dict` + 词库扩充实验（结论：此路不通）

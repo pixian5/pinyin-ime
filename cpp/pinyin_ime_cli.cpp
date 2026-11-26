@@ -283,6 +283,33 @@ bool is_valid_pinyin(const std::string &s) {
     return pinyin_ime::pinyin_fully_segmentable(s);
 }
 
+// v0.9.182：歧义音节拆分只在"输入本身切不开"时才做。
+// 背景：disambiguate_pinyin 会把连写全拼里的 xian/nian/qian 硬拆成 xi'an/ni'an/qi'an，
+// 于是「先/县」「年/念」被解码成「西安」「尼庵」这类错词——holdout 上与纯 libime
+// 差 0.55pp 字级 / 1.16pp 句级，就是这么来的。纯全拼本来就该由 libime 自己解析。
+// v0.9.182：v11 预解码捷径是否允许。
+// 「xianzai(现在) / shijian(时间) / riqi(日期) / xingqi(星期)」本身是常用中文词，
+// 让捷径直接输出日期时间会把中文候选整条吞掉；这类输入交给正常解码，
+// 再由 boost_v11 把日期时间排到第二位（见 quick_input_boost.h 的 insert_v11）。
+static bool v11_shortcut_allowed(const std::string &line) {
+    if (!pinyin_ime::pinyin_fully_segmentable(line)) return true;
+    static const char *colliding[] = {"xianzai", "shijian", "riqi", "xingqi"};
+    for (const char *w : colliding) {
+        if (line == w) return false;
+    }
+    return true;
+}
+
+static std::string disambiguate_if_needed(const std::string &line) {
+    bool lettersOnly = !line.empty();
+    for (char c : line) {
+        if (c < 'a' || c > 'z') { lettersOnly = false; break; }
+    }
+    if (!lettersOnly) return disambiguate_pinyin(line);      // 含空格/标点：交给分段逻辑
+    if (pinyin_ime::pinyin_fully_segmentable(line)) return line;  // 纯全拼：不做拆分
+    return disambiguate_pinyin(line);                        // 简拼/混输：保留拆分
+}
+
 // v0.9.90: 前向声明
 std::string add_syllable_separators(const std::string &raw);
 
@@ -1895,7 +1922,8 @@ int main(int argc, char **argv) {
             // v0.9.109: 英文检测（含双写辅音）— 中文拼音音节不含任何双写辅音，
             // 命中即判定为英文，跳过 M3 纠错（避免 hello 被误纠成中文候选）。
             // v0.9.168: v9 缩写/预测/标点/量词优先检查，避免被 englishLineDoubled 拦截
-            {
+            // v0.9.182：v11 触发词若也是常用中文词，不走预解码捷径（见 v11_shortcut_allowed）
+            if (v11_shortcut_allowed(line)) {
                 std::vector<std::string> v9Cands;
                 pinyin_ime::boost_v11(line, v9Cands);
                 if (!v9Cands.empty()) {
@@ -1966,7 +1994,7 @@ int main(int argc, char **argv) {
                 std::string fixed = pinyin_corrector::correct_to_string(line);
                 if (!fixed.empty()) line = fixed;
             }
-            line = disambiguate_pinyin(line);
+            line = disambiguate_if_needed(line);
             // v0.9.85: 空格分隔 → 分段解码再拼接（"nihao shijie" → "你好"+"世界"）
             bool hasSpace = false;
             for (char c : line) if (c == ' ') { hasSpace = true; break; }
@@ -2008,7 +2036,6 @@ int main(int argc, char **argv) {
                 }
                 cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                 boost_abbreviation(line, cands);
-
                 boost_v11(line, cands);
             }
             if (top1Only) {
@@ -2563,7 +2590,7 @@ int main(int argc, char **argv) {
                 // 标点部分存在全局变量供输出时追加
                 _line_punct_suffix = punctPart;
             }
-            line = disambiguate_pinyin(line);
+            line = disambiguate_if_needed(line);
             // v0.9.85: 空格分隔 → 智能分段解码
             // 策略：如果所有段都≥4字符（词级分隔），分段解码再拼接
             //       否则（音节级分隔），去除空格整体解码

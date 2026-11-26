@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: checkout-action@0.0.1
       - name: Build
-        run: g++ -std=c++17 -O1 -I cpp cpp/quick_input_test.cpp -o /tmp/quick_input_test
+        run: g++ -std=c++20 -O1 -I cpp cpp/quick_input_test.cpp -o /tmp/quick_input_test
       - name: Run
         run: /tmp/quick_input_test
       - name: Holdout leakage audit (zero overlap with presets/templates)
