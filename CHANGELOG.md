@@ -1,6 +1,14 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.184 (2026-11-26)
+
+### 新增 `scripts/eval_chroot.sh`：一键真实评测
+- 一条命令完成「同步源码 → chroot 内编译 CLI → 1200 句 holdout 评测 → 与基线比对 → 报告回写」，支持 `--skip-build` 复用产物。
+- 前置检查 chroot 与 `zh_CN.lm` 是否存在；评测低于阈值时沿用 eval.py 的退出码 2。
+- 实跑两次（完整编译 / `--skip-build`）结果逐位一致：句级 27.83% / 字级 84.81%，门禁通过。
+- 说明：GitCode runner（euleros-2.10.1）缺 libime 开发包，评测暂未进 CI，仍需手工一条命令跑。
+
 ## v0.9.183 (2026-11-26)
 
 ### addon 与 CLI 统一歧义拆分入口
