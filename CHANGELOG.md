@@ -10,6 +10,7 @@
 - 新模型：词表 3,929，bigram 107,229，trigram 203,674，2,945,931 字节；clean holdout **30.00% 句级 / 86.05% 字级**，无重排 27.83% / 84.81%。
 - `bench/baseline.json` 前移到 v0.9.198 clean 过渡基线；42.67 标为历史泄漏复现值，不再作为门禁。
 - 快照 42 例通过（4 例因模型变更有意更新：`womenzaiyonglibimezuoceshi`、`qi'an`、`e`、`riqi`）；完整 `ci_build.sh` 通过。
+- 修 `build_packages.sh` 分模式打包时 `SHA256SUMS_v<VERSION>` 只剩当前模式产物的问题；现在最后一次会把同版本 rpm/deb/runtime 全部纳入清单。v0.9.198 安装矩阵 30/30。
 - 已知限制：仍是句子级 + 5-gram 近似去重，不是文档级 split；LCCC/新闻/百科/维基的再分发许可仍未清，模型暂不应进入公开 Release。
 
 ## v0.9.197 (2026-11-26)

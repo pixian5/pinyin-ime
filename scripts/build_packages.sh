@@ -334,16 +334,12 @@ write_checksums() {
     local names=()
     local rpmf="$DIST/pinyin-ime-${VERSION}-${RELEASE}.${ARCH_RPM}.rpm"
     local debf="$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb"
-    if [ "$MODE" = "rpm" ] || [ "$MODE" = "all" ]; then
-        if [ -f "$rpmf" ]; then names+=("$(basename "$rpmf")"); fi
-    fi
-    if [ "$MODE" = "deb" ] || [ "$MODE" = "all" ]; then
-        if [ -f "$debf" ]; then names+=("$(basename "$debf")"); fi
-    fi
+    # 只要本次版本对应的产物存在就纳入清单；分多次执行 rpm/deb/runtime
+    # 时，最后一次会把前两次的产物一起写进去，避免 SHA256SUMS 只剩一行。
+    if [ -f "$rpmf" ]; then names+=("$(basename "$rpmf")"); fi
+    if [ -f "$debf" ]; then names+=("$(basename "$debf")"); fi
     local rtf="$DIST/pinyin-ime-runtime-$VERSION-$ARCH_RPM.tar.gz"
-    if [ "$MODE" = "runtime" ] || [ "$MODE" = "all" ]; then
-        if [ -f "$rtf" ]; then names+=("$(basename "$rtf")"); fi
-    fi
+    if [ -f "$rtf" ]; then names+=("$(basename "$rtf")"); fi
     if [ "${#names[@]}" -eq 0 ]; then
         log "!! 没有可写校验清单的产物"; return 1
     fi
