@@ -27,7 +27,8 @@
 
 namespace pinyin_ime {
 
-// 前向声明：定义在 quick_input_rank.h，本头文件只依赖它做「是否纯全拼」判定。
+// 前向声明：pinyin_fully_segmentable 定义在 quick_input_rank.h，
+// disambiguate_pinyin 在本文件末尾（全局作用域）。
 inline bool pinyin_fully_segmentable(const std::string &input);
 
 // ── 内置简拼预设表 ──────────────────────────────────────────
@@ -963,4 +964,19 @@ inline std::string disambiguate_pinyin(const std::string &input) {
     }
 
     return result;
+}
+
+// v0.9.183：歧义拆分的统一入口（CLI 与 addon 共用）。
+// 纯全拼（可完整切成合法音节）不拆，交给 libime 自己解析——手工把连写里的
+// xian/nian/qian 拆成 xi'an/ni'an/qi'an 会把「现在」拆成「西安」、
+// 「年轻」拆成「尼庵」。只有切不开的简拼/混输才需要消歧。
+inline std::string disambiguate_if_needed(const std::string &input) {
+    if (input.empty()) return input;
+    bool lettersOnly = true;
+    for (char c : input) {
+        if (c < 'a' || c > 'z') { lettersOnly = false; break; }
+    }
+    if (!lettersOnly) return disambiguate_pinyin(input);      // 含空格/标点：交给分段逻辑
+    if (pinyin_ime::pinyin_fully_segmentable(input)) return input;  // 纯全拼：不做拆分
+    return disambiguate_pinyin(input);                        // 简拼/混输：保留拆分
 }

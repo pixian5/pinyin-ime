@@ -790,7 +790,7 @@ void PinyinIMEState::undoLastCommit() {
     page_ = 0;
     maxPage_ = 0;
     {
-        std::string disambig = disambiguate_pinyin(pinyin);
+        std::string disambig = disambiguate_if_needed(pinyin); // v0.9.183：纯全拼不拆音节
         for (char c : disambig) {
             if ((c >= 'a' && c <= 'z') || c == '\'') {
                 context_.type(std::string(1, c));
@@ -1726,7 +1726,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     rawPreedit.push_back(c);
                 }
             }
-            std::string disambig = disambiguate_pinyin(rawPreedit);
+            std::string disambig = disambiguate_if_needed(rawPreedit); // v0.9.183：纯全拼不拆音节
             if (disambig != rawPreedit) {
                 // 需要消歧：清空并重新输入拆分后的拼音
                 ctx.clear();

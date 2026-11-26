@@ -283,10 +283,6 @@ bool is_valid_pinyin(const std::string &s) {
     return pinyin_ime::pinyin_fully_segmentable(s);
 }
 
-// v0.9.182：歧义音节拆分只在"输入本身切不开"时才做。
-// 背景：disambiguate_pinyin 会把连写全拼里的 xian/nian/qian 硬拆成 xi'an/ni'an/qi'an，
-// 于是「先/县」「年/念」被解码成「西安」「尼庵」这类错词——holdout 上与纯 libime
-// 差 0.55pp 字级 / 1.16pp 句级，就是这么来的。纯全拼本来就该由 libime 自己解析。
 // v0.9.182：v11 预解码捷径是否允许。
 // 「xianzai(现在) / shijian(时间) / riqi(日期) / xingqi(星期)」本身是常用中文词，
 // 让捷径直接输出日期时间会把中文候选整条吞掉；这类输入交给正常解码，
@@ -300,15 +296,7 @@ static bool v11_shortcut_allowed(const std::string &line) {
     return true;
 }
 
-static std::string disambiguate_if_needed(const std::string &line) {
-    bool lettersOnly = !line.empty();
-    for (char c : line) {
-        if (c < 'a' || c > 'z') { lettersOnly = false; break; }
-    }
-    if (!lettersOnly) return disambiguate_pinyin(line);      // 含空格/标点：交给分段逻辑
-    if (pinyin_ime::pinyin_fully_segmentable(line)) return line;  // 纯全拼：不做拆分
-    return disambiguate_pinyin(line);                        // 简拼/混输：保留拆分
-}
+
 
 // v0.9.90: 前向声明
 std::string add_syllable_separators(const std::string &raw);

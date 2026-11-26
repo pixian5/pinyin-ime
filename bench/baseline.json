@@ -30,8 +30,8 @@
     }
   ],
   "engine": "cli-batch-top1",
-  "version": "0.9.182",
-  "generated_at": "2026-11-26T17:40:00+08:00",
+  "version": "0.9.183",
+  "generated_at": "2026-11-26T17:47:00+08:00",
   "domains": {
     "baike": {
       "sent_acc": 26.0,

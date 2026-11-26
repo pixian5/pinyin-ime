@@ -2400,6 +2400,15 @@ int main() {
         boost_v11("sj", d);
         check("v182 sj 仍可置顶时间", d[0].find(":") != std::string::npos || d[0].find("点") != std::string::npos);
     }
+
+    // v0.9.183 统一歧义入口：纯全拼不拆，简拼才拆
+    {
+        check("v183 xianzai 原样保留", disambiguate_if_needed("xianzai") == "xianzai");
+        check("v183 nianqing 原样保留", disambiguate_if_needed("nianqing") == "nianqing");
+        check("v183 切不开的 xianyoud 仍拆分", disambiguate_if_needed("xianyoud").find('\'') != std::string::npos);
+        check("v183 带空格输入交原逻辑", disambiguate_if_needed("xian zai") == disambiguate_pinyin("xian zai"));
+        check("v183 空串安全", disambiguate_if_needed("").empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }
