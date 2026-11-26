@@ -55,3 +55,11 @@ git show 0cabf54:.gitcode/workflows/ci.yml > .gitcode/workflows/ci.yml
 ## 本地门禁现状
 
 `bash scripts/ci_build.sh` 仍然完整可用：编译 CLI/addon、721 单测、警告检查、快捷词 9 条、fuzz 500、42 例快照、1200 句 holdout 评测与基线门禁。本地 chroot 实测 27.83% / 84.81%，基线通过。没有远端 CI 之后，发版前必须手动跑这一条命令。
+
+## 发布产物（v0.9.196）
+
+- `pinyin-ime_0.9.196_amd64.deb`（1,003,118 B）：`4ed94a1918a7f72b36dd8c04b2c5266383efd50042b08dd1b430918f5aed6a76`
+- `pinyin-ime-0.9.196-1.x86_64.rpm`（1,012,497 B）：`882756c9abc35f4cce28533f8cf71c1b9a2326965cd2f4fcff5f86faf997fd44`
+- `pinyin-ime-runtime-0.9.196-x86_64.tar.gz`（22,737,778 B）：`fe6081a827434f4e8b6f1d892a342d77bffe1c84ab79f5cc8ec0a48bda0cb5df`
+
+`sha256sum -c SHA256SUMS_v0.9.196` 三项全部 OK；deb 版本 0.9.196，rpm 版本 0.9.196-1，runtime 顶层目录为 `pinyin-ime-runtime-0.9.196-x86_64/`。由于没有远端 CI，这三个包均由本地 chroot 手动构建并校验，不经过任何自动流水线。
