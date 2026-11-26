@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.187 (2026-11-26)
+
+### 发布工程：架构自适应 + x86_64 deb/rpm 实测
+- `build_packages.sh` 不再写死 aarch64/arm64：改用 `uname -m` 推导 rpm/deb 架构与 addon 安装目录，`ARCH_RPM`/`ARCH_DEB`/`FCITX5_LIBDIR` 可覆盖；CLI/addon 产物路径与 `LM`/`DICT` 也可覆盖（支持 out-of-tree 构建）。
+- `pinyin-ime.spec` 的 `BuildArch: aarch64` 改为 `@ARCH@` 占位；rpmbuild 增加 `--target "$ARCH_RPM"`。旧写法在 x86_64 上直接报 “No compatible architectures found for build”。
+- 实测产出 `pinyin-ime_0.9.187_amd64.deb`（22,734,250 B）与 `pinyin-ime-0.9.187-1.x86_64.rpm`（22,743,733 B），deb md5sums 8 条全通过、rpm 元数据 Arch/License 正确，addon 落在 `/usr/lib/x86_64-linux-gnu/fcitx5/`。
+- `ci_static.sh` 新增 4 条发布工程守卫（禁止写死 aarch64、spec 占位符、架构推导、安装目录可覆盖）。
+- 未验证：真机 fcitx5 安装加载、aarch64 原生重测、依赖粒度细化、S3 发布链路（仍停 v0.9.121）。
+
 ## v0.9.186 (2026-11-26)
 
 ### LICENSE 落地 + 准确率口径分层

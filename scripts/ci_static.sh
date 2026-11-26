@@ -70,6 +70,15 @@ check "spec 包含 LM" grep -q 'zh_CN.lm' packaging/pinyin-ime.spec
 check "build_packages 校验 Library" grep -q 'Library=libpinyinime' scripts/build_packages.sh
 check "build_packages 校验 Version" grep -q 'Version=\$VERSION' scripts/build_packages.sh
 
+echo "=== 发布工程守卫（v0.9.187）==="
+# 架构必须由 uname -m 推导，spec 走 @ARCH@ 占位符：写死 aarch64 会让 x86_64
+# 机器上 rpmbuild 直接报 "No compatible architectures found for build"，
+# deb 也会把 addon 装进 aarch64-linux-gnu 目录而 fcitx5 找不到。
+check "build_packages 用 uname -m 推导架构" grep -q 'uname -m' scripts/build_packages.sh
+check "build_packages 无写死 aarch64" bash -c '! grep -q "ARCH_RPM=aarch64" scripts/build_packages.sh'
+check "spec 架构用 @ARCH@ 占位" grep -q 'BuildArch:      @ARCH@' packaging/pinyin-ime.spec
+check "deb addon 目录可覆盖（FCITX5_LIBDIR）" grep -q 'FCITX5_LIBDIR' scripts/build_packages.sh
+
 echo "=== 文档 ==="
 check "README 存在" test -s README.md
 check "CHANGELOG 存在" test -s CHANGELOG.md

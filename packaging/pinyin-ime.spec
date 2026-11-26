@@ -17,7 +17,7 @@ License:        LGPL-2.1-or-later
 URL:            https://gitcode.com/laotongtian/pinyin-ime
 Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:      aarch64
+BuildArch:      @ARCH@
 
 Requires:       fcitx5 >= 5.1
 Requires:       libime

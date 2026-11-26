@@ -5,6 +5,8 @@
 #   bash scripts/build_packages.sh          # 构建 rpm + deb 并校验
 #   bash scripts/build_packages.sh rpm      # 只构建 rpm
 #   bash scripts/build_packages.sh deb      # 只构建 deb
+#   ARCH_RPM=x86_64 ARCH_DEB=amd64 FCITX5_LIBDIR=/usr/lib/x86_64-linux-gnu/fcitx5 bash scripts/build_packages.sh
+#                                           # 覆盖架构/安装目录（默认按 uname -m 自动判断）
 #
 # 产物（dist/ 目录，不入库）:
 #   pinyin-ime-<version>-1.aarch64.rpm
@@ -31,26 +33,48 @@ cd "$PROJECT_ROOT"
 
 NB="${NB:-/workspace/native-build}"
 VERSION=$(cat VERSION)
-ARCH_RPM=aarch64
-ARCH_DEB=arm64
+# v0.9.187：架构自适应。以前写死 aarch64/arm64，导致 x86_64 机器上打出来的包名
+# 与 addon 安装目录全错（deb 会把 .so 放进 aarch64-linux-gnu，fcitx5 根本找不到）。
+# 需要交叉打包时用环境变量覆盖：ARCH_RPM=... ARCH_DEB=... FCITX5_LIBDIR=...
+case "$(uname -m)" in
+    x86_64|amd64)  DEFAULT_RPM_ARCH=x86_64; DEFAULT_DEB_ARCH=amd64; DEFAULT_FCITX5_LIBDIR=/usr/lib/x86_64-linux-gnu/fcitx5 ;;
+    aarch64|arm64) DEFAULT_RPM_ARCH=aarch64; DEFAULT_DEB_ARCH=arm64; DEFAULT_FCITX5_LIBDIR=/usr/lib/aarch64-linux-gnu/fcitx5 ;;
+    *)             DEFAULT_RPM_ARCH=$(uname -m); DEFAULT_DEB_ARCH=$(uname -m); DEFAULT_FCITX5_LIBDIR="/usr/lib/$(uname -m)-linux-gnu/fcitx5" ;;
+esac
+ARCH_RPM="${ARCH_RPM:-$DEFAULT_RPM_ARCH}"
+ARCH_DEB="${ARCH_DEB:-$DEFAULT_DEB_ARCH}"
+FCITX5_LIBDIR="${FCITX5_LIBDIR:-$DEFAULT_FCITX5_LIBDIR}"
 RELEASE=1
 DIST="$PROJECT_ROOT/dist"
 WORK="$PROJECT_ROOT/build/packages"
 
 log(){ echo -e "\033[36m[package]\033[0m $*"; }
 
-ADDON_SO="fcitx5-addon/build/libpinyinime.so"
-ADDON_CONF="fcitx5-addon/build/pinyinime.conf"
+# v0.9.187：构建产物与数据文件路径都可覆盖，支持 out-of-tree 构建（如 chroot /tmp/build）。
+ADDON_SO="${ADDON_SO:-fcitx5-addon/build/libpinyinime.so}"
+ADDON_CONF="${ADDON_CONF:-fcitx5-addon/build/pinyinime.conf}"
 CONF_TPL="fcitx5-addon/conf/pinyinime.conf"
 INPUTMETHOD="fcitx5-addon/pinyinime.inputmethod"
-CLI="cpp/build/pinyin_ime_cli"
+CLI="${CLI:-cpp/build/pinyin_ime_cli}"
 README_FILE="README.md"
-DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/pinyin-ime-s3/v0.9.116}"
-LM="$DATA_DIR/zh_CN.lm"
-DICT="$DATA_DIR/sc.dict"
+
+# 数据文件（zh_CN.lm / sc.dict）：优先 DATA_DIR，其次系统 libime 安装路径。
+# 以前默认指向仓外快照 pinyin-ime-s3/v0.9.116，换机器就必然缺文件。
+if [ -n "${DATA_DIR:-}" ]; then
+    LM="${LM:-$DATA_DIR/zh_CN.lm}"
+    DICT="${DICT:-$DATA_DIR/sc.dict}"
+else
+    LM="${LM:-}"
+    DICT="${DICT:-/usr/share/libime/sc.dict}"
+fi
+if [ -z "$LM" ]; then
+    for cand in /usr/share/libime/zh_CN.lm /usr/lib/*/libime/zh_CN.lm; do
+        [ -f "$cand" ] && { LM="$cand"; break; }
+    done
+fi
 
 for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE" "$LM" "$DICT"; do
-    [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon/CLI；数据见 pinyin-ime-s3/v0.9.116）"; exit 1; }
+    [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon/CLI；数据文件用 DATA_DIR 或 LM/DICT 指定）"; exit 1; }
 done
 mkdir -p "$DIST"
 
@@ -88,7 +112,11 @@ build_rpm() {
     stage_rootfs "$stage" "/usr/lib64/fcitx5"
     tar czf "$top/SOURCES/pinyin-ime-$VERSION.tar.gz" \
         -C "$WORK/stage-rpm" "pinyin-ime-$VERSION"
-    sed "s/@VERSION@/$VERSION/g" packaging/pinyin-ime.spec > "$top/SPECS/pinyin-ime.spec"
+    # v0.9.187：spec 里的架构改成占位符，按本机（或 ARCH_RPM 覆盖）替换。
+    # 旧 spec 写死 BuildArch: aarch64，x86_64 上 rpmbuild 直接报
+    # "No compatible architectures found for build"。
+    sed -e "s/@VERSION@/$VERSION/g" -e "s/@ARCH@/$ARCH_RPM/g" \
+        packaging/pinyin-ime.spec > "$top/SPECS/pinyin-ime.spec"
 
     local RB
     # 通用构建参数：不分发 debuginfo、不 strip——保证包内二进制与 S3 发布产物
@@ -117,7 +145,8 @@ build_rpm() {
             --define "__brp_python_hardlink $MRG/brp-python-hardlink"
         )
     fi
-    "$RB" "${RBFLAGS[@]}" --define "_topdir $top" -bb "$top/SPECS/pinyin-ime.spec" \
+    "$RB" "${RBFLAGS[@]}" --define "_topdir $top" --target "$ARCH_RPM" \
+        -bb "$top/SPECS/pinyin-ime.spec" \
         > "$WORK/rpmbuild.log" 2>&1 || { tail -25 "$WORK/rpmbuild.log"; exit 1; }
     local rpm_out
     rpm_out="$(find "$top/RPMS" -name '*.rpm' | head -1)"
@@ -127,7 +156,7 @@ build_rpm() {
 build_deb() {
     log "构建 DEB v$VERSION ..."
     local stage="$WORK/stage-deb"
-    stage_rootfs "$stage" "/usr/lib/aarch64-linux-gnu/fcitx5"
+    stage_rootfs "$stage" "$FCITX5_LIBDIR"
     python3 scripts/make_deb.py \
         --rootfs "$stage" \
         --output "$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb" \
