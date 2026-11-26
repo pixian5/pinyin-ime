@@ -76,6 +76,7 @@ dist/*.tar.gz
 dist/zh_CN.lm
 dist/sc.dict
 dist/custom_full.lm
+dist/SHA256SUMS_v*
 .secrets.env
 
 # S3 v0.9.83 large binaries (use rclone to download)
