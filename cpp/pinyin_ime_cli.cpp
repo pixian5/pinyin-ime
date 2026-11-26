@@ -274,83 +274,12 @@ std::string sp_display_name(ShuangpinBuiltinProfile p) {
 
 // 中文标点：半角 ASCII 标点 → 全角中文标点。纯前端（不进拼音解码），
 // 只负责「上屏标点」这一件事。返回空串表示该字符无对应中文标点。
-// v0.9.88: 检查字符串是否能分解为有效拼音音节
-// 如果不能，认为是英文单词，原样输出
-static const char *validPinyinSyllables[] = {
-    "a", "ai", "an", "ang", "ao",
-    "ba", "bai", "ban", "bang", "bao", "bei", "ben", "beng", "bi", "bian",
-    "biao", "bie", "bin", "bing", "bo", "bu",
-    "ca", "cai", "can", "cang", "cao", "ce", "cen", "ceng", "cha", "chai",
-    "chan", "chang", "chao", "che", "chen", "cheng", "chi", "chong", "chou",
-    "chu", "chua", "chuai", "chuan", "chuang", "chui", "chun", "chuo", "ci",
-    "cong", "cou", "cu", "cuan", "cui", "cun", "cuo",
-    "da", "dai", "dan", "dang", "dao", "de", "dei", "den", "deng", "di",
-    "dia", "dian", "diao", "die", "ding", "diu", "dong", "dou", "du", "duan",
-    "dui", "dun", "duo",
-    "e", "ei", "en", "eng", "er",
-    "fa", "fan", "fang", "fei", "fen", "feng", "fo", "fou", "fu",
-    "ga", "gai", "gan", "gang", "gao", "ge", "gei", "gen", "geng", "gong",
-    "gou", "gu", "gua", "guai", "guan", "guang", "gui", "gun", "guo",
-    "ha", "hai", "han", "hang", "hao", "he", "hei", "hen", "heng", "hong",
-    "hou", "hu", "hua", "huai", "huan", "huang", "hui", "hun", "huo",
-    "ji", "jia", "jian", "jiang", "jiao", "jie", "jin", "jing", "jiong",
-    "jiu", "ju", "juan", "jue", "jun",
-    "ka", "kai", "kan", "kang", "kao", "ke", "kei", "ken", "keng", "kong",
-    "kou", "ku", "kua", "kuai", "kuan", "kuang", "kui", "kun", "kuo",
-    "la", "lai", "lan", "lang", "lao", "le", "lei", "leng", "li", "lia",
-    "lian", "liang", "liao", "lie", "lin", "ling", "liu", "long", "lou",
-    "lu", "lv", "lua", "luan", "lve", "lun", "luo",
-    "ma", "mai", "man", "mang", "mao", "me", "mei", "men", "meng", "mi",
-    "mian", "miao", "mie", "min", "ming", "miu", "mo", "mou", "mu",
-    "na", "nai", "nan", "nang", "nao", "ne", "nei", "nen", "neng", "ni",
-    "nian", "niang", "niao", "nie", "nin", "ning", "niu", "nong", "nou",
-    "nu", "nv", "nuan", "nve", "nun", "nuo",
-    "o", "ou",
-    "pa", "pai", "pan", "pang", "pao", "pei", "pen", "peng", "pi", "pian",
-    "piao", "pie", "pin", "ping", "po", "pou", "pu",
-    "qi", "qia", "qian", "qiang", "qiao", "qie", "qin", "qing", "qiong",
-    "qiu", "qu", "quan", "que", "qun",
-    "ran", "rang", "rao", "re", "ren", "reng", "ri", "rong", "rou", "ru",
-    "rua", "ruan", "rui", "run", "ruo",
-    "sa", "sai", "san", "sang", "sao", "se", "sen", "seng", "sha", "shai",
-    "shan", "shang", "shao", "she", "shei", "shen", "sheng", "shi", "shong",
-    "shou", "shu", "shua", "shuai", "shuan", "shuang", "shui", "shun", "shuo",
-    "si", "song", "sou", "su", "suan", "sui", "sun", "suo",
-    "ta", "tai", "tan", "tang", "tao", "te", "teng", "ti", "tian", "tiao",
-    "tie", "ting", "tong", "tou", "tu", "tuan", "tui", "tun", "tuo",
-    "wa", "wai", "wan", "wang", "wei", "wen", "weng", "wo", "wu",
-    "xi", "xia", "xian", "xiang", "xiao", "xie", "xin", "xing", "xiong",
-    "xiu", "xu", "xuan", "xue", "xun",
-    "ya", "yan", "yang", "yao", "ye", "yi", "yin", "ying", "yo", "yong",
-    "you", "yu", "yuan", "yue", "yun",
-    "za", "zai", "zan", "zang", "zao", "ze", "zei", "zen", "zeng", "zha",
-    "zhai", "zhan", "zhang", "zhao", "zhe", "zhei", "zhen", "zheng", "zhi",
-    "zhong", "zhou", "zhu", "zhua", "zhuai", "zhuan", "zhuang", "zhui",
-    "zhun", "zhuo", "zi", "zong", "zou", "zu", "zuan", "zui", "zun", "zuo",
-    nullptr
-};
-
+// v0.9.88: 检查字符串是否能分解为有效拼音音节（不能则当英文原样输出）
+// v0.9.179: 改用 quick_input 的完整覆盖 DP 判断。
+// 旧实现是"最长音节贪心"：`guangxuershiwuniannianyinbingqushi` 会被切成 guang|xue|[r]|shi…，
+// 孤立的 'r' 让它误判为英文，整句被原样回显（holdout 1200 句里 13 句命中，1.1%）。
 bool is_valid_pinyin(const std::string &s) {
-    if (s.empty()) return false;
-    // 贪心匹配：尝试将 s 分解为有效拼音音节
-    size_t pos = 0;
-    while (pos < s.size()) {
-        bool matched = false;
-        // 尝试匹配最长的音节（最多6字符）
-        for (int len = std::min((size_t)6, s.size() - pos); len >= 1; --len) {
-            std::string sub = s.substr(pos, len);
-            for (const char **p = validPinyinSyllables; *p; ++p) {
-                if (sub == *p) {
-                    pos += len;
-                    matched = true;
-                    break;
-                }
-            }
-            if (matched) break;
-        }
-        if (!matched) return false;
-    }
-    return true;
+    return pinyin_ime::pinyin_fully_segmentable(s);
 }
 
 // v0.9.90: 前向声明

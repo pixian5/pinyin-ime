@@ -2357,6 +2357,19 @@ int main() {
         auto v11basic = quick_candidates_v11("zhongguo");
         check("v173 v11 zhongguo not empty", !v11basic.empty());
     }
+    // v0.9.179 完整覆盖 DP：合法拼音不得被误判为英文（旧贪心实现在 guangxuershi… 上失败）
+    {
+        check("v179 覆盖 长句 guangxuershi…", pinyin_fully_segmentable("guangxuershiwuniannianyinbingqushi"));
+        check("v179 覆盖 nvxing（ü 写作 v）", pinyin_fully_segmentable("nvxing"));
+        check("v179 覆盖 zzz 非法", !pinyin_fully_segmentable("zzz"));
+        check("v179 覆盖 banana（ba|na|na 合法）", pinyin_fully_segmentable("banana"));
+        check("v179 覆盖 hello 非法", !pinyin_fully_segmentable("hello"));
+        check("v179 覆盖 空串非法", !pinyin_fully_segmentable(""));
+        check("v179 覆盖 xian vs xi|an 两种切法均可", pinyin_fully_segmentable("xian") && pinyin_fully_segmentable("xianan"));
+        // 与 dp_pinyin_segment 的差异必须显式体现：DP 分词允许残段，不能拿来判合法性
+        auto seg = dp_pinyin_segment("guangxuershiwuniannianyinbingqushi");
+        check("v179 dp 分词仍按原逻辑（含残段）", !seg.empty());
+    }
     std::cout << "\n=== Results: " << pass << " passed, " << fail << " failed ===\n";
     return fail > 0 ? 1 : 0;
 }

@@ -364,6 +364,27 @@ inline std::vector<std::string> dp_pinyin_segment(const std::string& input) {
 }
 
 // v0.9.146 带分隔符的DP分词结果
+// v0.9.179：判断整串能否被有效音节**完整覆盖**（零残字）。
+// 与 dp_pinyin_segment 的差别：后者允许"单字符残段回退"（用于提示分词，不判合法性），
+// 且以音节数最少为目标——`guangxuershiwunian…` 会被切成长音节 `xue`，多出来的 'r' 变成残段，
+// 于是合法拼音被误判成非法，CLI 便把它当英文原样回显。
+// 这里只做可达性判断：每个位置都必须落在某个有效音节边界上。
+inline bool pinyin_fully_segmentable(const std::string& input) {
+    if (input.empty()) return false;
+    const auto& syl = valid_pinyin_syllables();
+    const size_t n = input.size();
+    std::vector<char> can(n + 1, 0);
+    can[0] = 1;  // 起点可达
+    for (size_t i = 0; i < n; ++i) {
+        if (!can[i]) continue;
+        const size_t maxLen = std::min<size_t>(6, n - i);
+        for (size_t len = 1; len <= maxLen; ++len) {
+            if (syl.count(input.substr(i, len))) can[i + len] = 1;
+        }
+    }
+    return can[n] != 0;
+}
+
 inline std::string dp_pinyin_segment_hint(const std::string& input) {
     auto segments = dp_pinyin_segment(input);
     if (segments.empty()) return {};
