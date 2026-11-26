@@ -19,6 +19,7 @@
 #   /usr/lib64/fcitx5/libpinyinime.so        fcitx5 addon（deb 布局为 /usr/lib/aarch64-linux-gnu/fcitx5/）
 #   /usr/share/fcitx5/addon/pinyinime.conf   addon 描述（版本与 VERSION 同步）
 #   /usr/share/fcitx5/conf/pinyinime.conf    用户配置模板
+#   /usr/share/pinyin-ime/char_trigram.bin  字符 trigram 重排模型（3.4MB）
 #   /usr/share/doc/pinyin-ime/README.md      说明文档
 #
 # 说明:
@@ -62,6 +63,7 @@ CONF_TPL="fcitx5-addon/conf/pinyinime.conf"
 INPUTMETHOD="fcitx5-addon/pinyinime.inputmethod"
 CLI="${CLI:-cpp/build/pinyin_ime_cli}"
 README_FILE="README.md"
+CHAR_LM="${CHAR_LM:-data/char_trigram.bin}"
 
 # 数据文件（zh_CN.lm / sc.dict）：优先 DATA_DIR，其次系统 libime 安装路径。
 # 以前默认指向仓外快照 pinyin-ime-s3/v0.9.116，换机器就必然缺文件。
@@ -78,7 +80,7 @@ if [ -z "$LM" ]; then
     done
 fi
 
-for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE"; do
+for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE" "$CHAR_LM"; do
     [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon/CLI；数据文件用 DATA_DIR 或 LM/DICT 指定）"; exit 1; }
 done
 # v0.9.190：数据文件仅在「自带数据」的模式（runtime，或 BUNDLE_DATA=1）下必需。
@@ -131,6 +133,7 @@ stage_rootfs() {
         install -D -m644 "$LM"     "$root/usr/share/libime/zh_CN.lm"
         install -D -m644 "$DICT"   "$root/usr/share/libime/sc.dict"
     fi
+    install -D -m644 "$CHAR_LM" "$root/usr/share/pinyin-ime/char_trigram.bin"
     install -D -m644 "$README_FILE" "$root/usr/share/doc/pinyin-ime/README.md"
     install -D -m755 "$CLI"        "$root/usr/bin/pinyin_ime_cli"
 }
@@ -220,7 +223,7 @@ cd "$(dirname "$0")"
 tar cf - usr | tar xf - -C /
 # 记录本次安装的文件，供 uninstall.sh 精确删除（不删系统自带的同名文件）
 mkdir -p /usr/share/doc/pinyin-ime
-find usr -type f | sed 's#^usr/#/#' > /usr/share/doc/pinyin-ime/installed-files.txt
+find usr -type f | sed 's#^#/#' > /usr/share/doc/pinyin-ime/installed-files.txt
 # v0.9.194：headless（容器/CI）里没有 DISPLAY 时 fcitx5 -r 会挂住，不能无条件调用
 if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
     timeout 5 fcitx5 -r >/dev/null 2>&1 || true
@@ -241,8 +244,15 @@ LIST=/usr/share/doc/pinyin-ime/installed-files.txt
 skipped=0
 while read -r f; do
     [ -f "$f" ] || continue
-    # 任何被 dpkg/rpm 系统包占用的文件（如 libime-data 的 sc.dict、发行版自带的
-    # pinyin-ime）都不动：便携包卸载绝不能让系统文件消失。
+    # libime 的 LM/词典是发行版共享数据，runtime 即使在无 libime-data 的系统里
+    # 装过，也不能在卸载时删掉（v0.9.197 安装矩阵实测：chroot 里 dpkg/rpm 不认领，
+    # 旧逻辑会把 sc.dict 删除）。统一视为共享数据，永远保留。
+    case "$f" in
+        /usr/share/libime/*)
+            skipped=$((skipped+1)); continue ;;
+    esac
+    # 任何被 dpkg/rpm 系统包占用的文件（如发行版自带的 pinyin-ime）都不动：
+    # 便携包卸载绝不能让系统文件消失。
     if command -v dpkg >/dev/null 2>&1 && dpkg -S "$f" >/dev/null 2>&1; then
         skipped=$((skipped+1)); continue
     fi
@@ -268,6 +278,7 @@ arch=$ARCH_RPM
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 addon_dir=$FCITX5_LIBDIR
 data=usr/share/libime/{zh_CN.lm,sc.dict} (self-contained)
+char_lm=usr/share/pinyin-ime/char_trigram.bin
 uninstall=uninstall.sh
 EOF
 

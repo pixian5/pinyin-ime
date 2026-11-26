@@ -1,5 +1,17 @@
 # pinyin-ime 发布说明
 
+## v0.9.197 (2026-11-26)
+
+### 字符 trigram 重排序上线（CLI + fcitx5 addon）
+- 新增 `scripts/train_char_lm.py`、`cpp/char_lm.{h,cpp}`、`data/char_trigram.bin`（3.4MB）：用 `bench/corpus` 324,490 字训练字符 trigram（词表 4,212、bigram 125,391、trigram 245,842），整句分数按 `0.55*p3 + 0.30*p2 + 0.15*p1` 加权，重排分数为 `libime score + 2.0 * 字符 log 概率`。
+- CLI 1200 句 holdout：**42.67% 句级 / 88.88% 字级**，较 v0.9.196 的 27.83% / 84.81% 提升 **+14.84pp / +4.07pp**；四域 baike 43.0/90.62、news 50.67/91.74、recent 47.33/90.62、wiki 29.67/82.55。新增 `--no-rerank` 开关，模型缺失时自动退回旧行为。
+- fcitx5 addon 新增 `displayToRaw_` 显示→原始候选索引映射，渲染、选词、简拼 boost、云候选、翻页统一口径；重排池为 `max(10, nbest)`。真实 fcitx5 5.1.7 + GTK3 敲 `nihao`+空格上屏「你好」，运行时冒烟 **6/6**。
+- **修重排引入的真 bug**：`context_.candidates()` 混有只覆盖首音节的短候选（如「你」），首版重排把它排到首位，空格只选一个字并留下 `hao`。现用 `candidateFullPinyin` 与当前 preedit 的紧凑拼音长度比较，只重排覆盖整段拼音的候选。
+- 修正 C++ 字符模型「上下文存在但目标字计数为 0」时错误回退 unigram 的问题，改为按 add-0.1 平滑，C++ 与 Python 分数逐字一致。
+- 门禁：42 例 CLI 快照重写并通过；`bench/baseline.json` 前移；`ci_build.sh` 全绿（编译、单测、警告 0、fuzz、快照、评测）。顺手修 `pinyin_ime_cli.cpp` 的 `system()` 返回值警告。
+- 打包：模型安装到 `/usr/share/pinyin-ime/char_trigram.bin`；deb/rpm 约 2.7MB，runtime 约 24MB。安装矩阵 **30/30**，并修掉 runtime 卸载清单缺 `usr` 前缀、误删 `/usr/share/libime/sc.dict` 两个 bug。
+- 文档：`docs/20261126-2349-字符trigram重排序上线-豆包.md`、`docs/20261126-2349-当前开发进度-豆包.md`、`docs/20261126-2349-下一步待实现-豆包.md`。
+
 
 ## v0.9.196 (2026-11-26)
 

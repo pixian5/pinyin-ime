@@ -72,6 +72,7 @@ check "deb 依赖声明含 libime-data" bash -c 'dpkg -s pinyin-ime 2>/dev/null 
 check "deb 不打包 zh_CN.lm" bash -c '! dpkg -L pinyin-ime 2>/dev/null | grep -q "/usr/share/libime/zh_CN.lm"'
 check "deb 不打包 sc.dict" bash -c '! dpkg -L pinyin-ime 2>/dev/null | grep -q "/usr/share/libime/sc.dict"'
 check "deb CLI --version 与 VERSION 一致" bash -c "[ \"\$(pinyin_ime_cli --version 2>/dev/null)\" = \"pinyin_ime_cli $VERSION\" ]"
+check "deb 安装字符重排模型" test -s /usr/share/pinyin-ime/char_trigram.bin
 check "deb 安装后无参数解码正确" smoke_decode "$(command -v pinyin_ime_cli)"
 dpkg -r pinyin-ime >/dev/null 2>&1 || true
 dpkg --purge --force-all pinyin-ime >/dev/null 2>&1 || true
@@ -81,6 +82,7 @@ rpm -e --nodeps pinyin-ime >/dev/null 2>&1 || true
 if rpm -i --nodeps --replacefiles "$RPM" >/tmp/ti_rpm.log 2>&1; then ok "rpm -i 安装"; else ng "rpm -i 失败"; sed -n 1,6p /tmp/ti_rpm.log | sed 's/^/     /'; fi
 check "rpm 已注册且版本=$VERSION" bash -c "rpm -q pinyin-ime | grep -q '$VERSION'"
 check "rpm 文件列表含 addon .so" bash -c 'rpm -ql pinyin-ime | grep -q "libpinyinime.so"'
+check "rpm 文件列表含字符模型" bash -c 'rpm -ql pinyin-ime | grep -q "char_trigram.bin"'
 check "rpm 不打包 LM/sc.dict" bash -c '! rpm -ql pinyin-ime | grep -Eq "zh_CN.lm|sc.dict"'
 check "rpm 安装后 CLI 可解码" smoke_decode "$(command -v pinyin_ime_cli)"
 if rpm -e --nodeps pinyin-ime >/tmp/ti_rpme.log 2>&1 && ! rpm -q pinyin-ime >/dev/null 2>&1; then
@@ -90,6 +92,7 @@ else
 fi
 # 卸载后不应残留 addon（rpm 会删自己装的文件）
 [ ! -f /usr/lib64/fcitx5/libpinyinime.so ] && ok "rpm 卸载后 addon 已移除" || ng "rpm 卸载后 addon 残留"
+[ ! -f /usr/share/pinyin-ime/char_trigram.bin ] && ok "rpm 卸载后字符模型已移除" || ng "rpm 卸载后字符模型残留"
 
 echo "=== 4. runtime 路径 ==="
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
@@ -98,12 +101,14 @@ RTD="$TMP/$(basename "$RT" .tar.gz)"
 check "runtime 含 install.sh" test -x "$RTD/install.sh"
 check "runtime 含 uninstall.sh" test -x "$RTD/uninstall.sh"
 check "runtime 含 BUILD-INFO.txt" test -s "$RTD/BUILD-INFO.txt"
+check "runtime 含字符重排模型" test -s "$RTD/usr/share/pinyin-ime/char_trigram.bin"
 ( cd "$RTD" && sh install.sh >/tmp/ti_rt.log 2>&1 ) && ok "install.sh 执行成功" || { ng "install.sh 失败"; sed -n 1,5p /tmp/ti_rt.log | sed 's/^/     /'; }
 check "runtime 安装后 CLI 可解码" smoke_decode /usr/bin/pinyin_ime_cli
 SC_SUM_BEFORE=$(md5sum /usr/share/libime/sc.dict 2>/dev/null | cut -d' ' -f1)
 ( cd "$RTD" && sh uninstall.sh >/tmp/ti_rtu.log 2>&1 ) && ok "uninstall.sh 执行成功" || ng "uninstall.sh 失败"
 check "runtime 卸载后 CLI 已移除" bash -c '! test -f /usr/bin/pinyin_ime_cli'
 check "runtime 卸载后 addon 已移除" bash -c '! test -f /usr/lib/x86_64-linux-gnu/fcitx5/libpinyinime.so'
+check "runtime 卸载后字符模型已移除" bash -c '! test -f /usr/share/pinyin-ime/char_trigram.bin'
 if [ -n "$SC_SUM_BEFORE" ]; then
     check "runtime 卸载后 sc.dict 未被误删" test -f /usr/share/libime/sc.dict
 fi

@@ -41,6 +41,7 @@
 
 // v0.9.175: 云拼音客户端（独立编译单元，逐步从 quick_input.h 万能头里拆出来）
 #include "cloud_pinyin.h"
+#include "char_lm.h"
 
 namespace fcitx {
 
@@ -149,6 +150,10 @@ public:
     std::vector<std::pair<std::string, std::string>> undoStack_;
 
     size_t pageSize() const;
+    // v0.9.197：字符 trigram 重排后的「显示位置 → 原始候选索引」映射。
+    // 空/未启用时保持 libime 原顺序；启用时 selectCandidate 必须先做一次映射。
+    std::vector<size_t> displayToRaw_;
+    bool rerankActive_ = false;
     // v0.9.175 云拼音：当前拼音串对应的云候选（只在第 0 页追加到本地候选之后）
     std::vector<std::string> cloudWords_;
     // 触发一次后台云查询（同一拼音在引擎层去重，不会重复发请求）
@@ -185,6 +190,11 @@ public:
     void reloadConfig() override;
 
     libime::PinyinIME *ime() { return ime_.get(); }
+    pinyin_ime::CharLM *charLM() { return charLM_.get(); }
+    // v0.9.197：重排池大小与 libime 的 nbest 保持一致（至少 10 个整句候选）
+    size_t rerankPool() const {
+        return std::max<size_t>(10, config().nbest.value());
+    }
     // 用户词库 / 自学习历史落盘（destructor 与 deactivate 时调用）。
     void saveUserData();
 
@@ -209,6 +219,7 @@ private:
     std::unique_ptr<fcitx::EventSource> cloudRefreshSource_;
     PinyinIMEConfig config_;
     std::unique_ptr<libime::PinyinIME> ime_;
+    std::unique_ptr<pinyin_ime::CharLM> charLM_;
     std::shared_ptr<pinyinime::CloudPinyinClient> cloud_;
     std::mutex cloudMutex_;
     std::unordered_set<std::string> cloudInFlight_;

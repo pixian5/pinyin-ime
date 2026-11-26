@@ -66,6 +66,7 @@
 
 #include "emoji_list.h"
 #include "abbr_presets.h"
+#include "char_lm.h"
 #include "pinyin_corrector.h"
 
 // 版本号唯一来源：CMake 从仓库根 VERSION 生成的 version.h。
@@ -167,6 +168,7 @@ void usage(const char *prog) {
         << "  --batch F       从文件批量处理（每行一段拼音，输出候选）\n"
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
         << "  --top-k N       输出前 N 个候选（Tab 分隔）\n"
+        << "  --no-rerank     关闭字符 trigram 重排序（默认自动查找 data/char_trigram.bin）\n"
         << "  --add-user K=V  添加用户词典条目（如 --add-user myname=张三）后退出\n"
         << "  --list-user     列出所有用户词典条目后退出\n"
         << "  --del-user K    删除用户词典条目（如 --del-user myname）后退出\n"
@@ -184,14 +186,62 @@ void usage(const char *prog) {
         << "撤回：Ctrl-Z 撤回最近一次候选上屏（恢复拼音，可继续编辑）\n";
 }
 
+// v0.9.197：字符 trigram 重排序模型；nullptr 表示未加载，行为退回 v0.9.196。
+static std::unique_ptr<pinyin_ime::CharLM> g_charLM;
+
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
+// 先取 libime 的整句候选前 10 个做重排（池子固定 10，保证 --top1/nbest=5
+// 也能吃到 recall@10 的潜力），再补上光标处的词级候选；没有模型时与原逻辑一致。
 std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
     std::vector<std::string> cands;
-    std::string top = ctx.sentence();
-    cands.push_back(top);
+    const auto &full = ctx.candidates();
+    if (full.empty()) {
+        std::string top = ctx.sentence();
+        if (!top.empty()) cands.push_back(top);
+    } else {
+        struct Item {
+            std::string text;
+            float score;
+            size_t order;
+        };
+        size_t pool = std::min(full.size(), std::max<size_t>(max, 10));
+        // 与 addon 同一规则：只重排覆盖整段拼音的候选。libime 的 candidates()
+        // 可能混入只覆盖首音节的短候选，短候选排到首位会让首选只上屏一个字。
+        std::string compactPreedit =
+            pinyin_ime::compactPinyin(ctx.preedit());
+        std::vector<Item> items;
+        items.reserve(pool);
+        for (size_t i = 0; i < pool; ++i) {
+            std::string text = full[i].toString();
+            if (text.empty()) continue;
+            std::string compactCand =
+                pinyin_ime::compactPinyin(ctx.candidateFullPinyin(full[i]));
+            if (pinyin_ime::is_full_pinyin_input(compactPreedit) &&
+                compactCand.size() != compactPreedit.size())
+                continue;
+            float score = full[i].score();
+            if (g_charLM) {
+                score += pinyin_ime::CharLM::kAlpha * g_charLM->score(text);
+            }
+            items.push_back({std::move(text), score, i});
+        }
+        std::stable_sort(items.begin(), items.end(),
+                         [](const Item &a, const Item &b) {
+                             if (a.score != b.score) return a.score > b.score;
+                             return a.order < b.order;
+                         });
+        for (auto &item : items) {
+            if (cands.size() >= max) break;
+            if (std::find(cands.begin(), cands.end(), item.text) == cands.end())
+                cands.push_back(std::move(item.text));
+        }
+    }
+
+    // 光标在词中间时，libime 还会给词级候选；这些不参与整句重排，按原顺序追加。
     for (const auto &c : ctx.candidatesToCursor()) {
         std::string t = c.toString();
-        if (t.empty() || t == top) continue;
+        if (t.empty() || std::find(cands.begin(), cands.end(), t) != cands.end())
+            continue;
         cands.push_back(t);
         if (cands.size() >= max) break;
     }
@@ -891,6 +941,7 @@ int main(int argc, char **argv) {
     bool dumpUser = false;       // --dump-user：导出用户学习历史
     bool top1Only = false;       // --top1：只输出首选候选
     int topK = 0;               // --top-k N：输出前N个候选
+    bool noRerank = false;       // --no-rerank：关闭字符 trigram 重排序
     bool benchmarkMode = false; // --benchmark：内置基准测试
     bool predictMode = false;    // --predict：联想预测
     std::string trainText;       // --train-text：从中文文本训练用户 LM
@@ -994,6 +1045,8 @@ int main(int argc, char **argv) {
             predictMode = true;
         } else if (a == "--top1") {
             top1Only = true;
+        } else if (a == "--no-rerank") {
+            noRerank = true;
         } else if (a == "--top-k") {
             if (i + 1 >= argc) {
                 std::cerr << "--top-k 缺少参数\n";
@@ -1052,7 +1105,11 @@ int main(int argc, char **argv) {
                 // 确保目录存在
                 std::string dir = path.substr(0, path.find_last_of('/'));
                 std::string cmd = "mkdir -p '" + dir + "'";
-                system(cmd.c_str());
+                const int rc = std::system(cmd.c_str());
+                if (rc != 0) {
+                    std::fprintf(stderr, "warn: 命令返回 %d: %s\n", rc,
+                                 cmd.c_str());
+                }
                 // 检查是否已存在
                 std::ifstream check(path);
                 bool found = false;
@@ -1247,7 +1304,15 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    ime.setNBest(static_cast<size_t>(nbest));
+    if (!noRerank) {
+        g_charLM = pinyin_ime::CharLM::findDefault(argv[0]);
+        if (g_charLM && !quiet) {
+            std::cerr << "字符重排序模型: " << g_charLM->path() << "\n";
+        }
+    }
+    // 重排池固定看前 10 个整句候选；只解码 nbest 个会浪费 recall@10 的潜力。
+    ime.setNBest(g_charLM ? std::max<size_t>(nbest, 10)
+                          : static_cast<size_t>(nbest));
     // v0.9.90: 音节分隔显示
     ime.setPreeditMode(PinyinPreeditMode::Pinyin);
 

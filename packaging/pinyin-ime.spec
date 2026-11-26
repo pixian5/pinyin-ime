@@ -32,6 +32,7 @@ pinyin-ime 是基于 libime 引擎的 Linux 拼音输入法，以 fcitx5 addon �
 - 全拼 / 简拼 / 整句解码（libime 语言模型）
 - 拼写纠错（M3）、模糊音按对开关、双拼（8 种方案）
 - 用户词典与自学习、联想预测、中文标点自动转换
+- 字符 trigram 重排序（整句候选，提升首选准确率）
 
 本包安装：fcitx5 addon（libpinyinime.so）、输入法描述、配置模板、
 CLI 测试工具 pinyin_ime_cli。语言模型与词典由 libime-data 提供。
@@ -55,6 +56,7 @@ cp -a usr %{buildroot}/usr
 /usr/share/fcitx5/conf/pinyinime.conf
 /usr/share/fcitx5/inputmethod/pinyinime.inputmethod
 /usr/share/doc/pinyin-ime/README.md
+/usr/share/pinyin-ime/char_trigram.bin
 
 %changelog
 * Mon Oct 19 2026 pinyin-ime team <pinyin-ime@gitcode.com> - @VERSION@-1

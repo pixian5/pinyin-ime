@@ -40,7 +40,7 @@ if(NOT COMMAND add_fcitx5_addon)
   endfunction()
 endif()
 add_fcitx5_addon(pinyinime pinyinime.cpp ../cpp/pinyin_corrector.cpp
-                 ../cpp/cloud_pinyin.cpp)
+                 ../cpp/cloud_pinyin.cpp ../cpp/char_lm.cpp)
 
 find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)

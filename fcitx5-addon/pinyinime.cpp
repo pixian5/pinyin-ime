@@ -17,6 +17,7 @@
 #include <fcitx/userinterface.h>
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -473,6 +474,68 @@ void PinyinIMEState::updateUI() {
     if (page_ > maxPage_) {
         page_ = maxPage_;
     }
+
+    // v0.9.197: 字符 trigram 重排——只重排 libime 的整句候选，词级候选保持原序。
+    // displayToRaw_ 是「显示索引 → 原始候选索引」的完整排列，渲染与选词共用。
+    displayToRaw_.clear();
+    rerankActive_ = false;
+    if (engine_->charLM() && !cands.empty() && !context_.empty()) {
+        const auto &full = context_.candidates();
+        const size_t pool = std::min(full.size(), engine_->rerankPool());
+        // 只重排覆盖整段拼音的候选：libime 的 candidates() 里还混有「你」这类
+        // 只覆盖首音节的候选，把它们排到首位会导致空格只选中一个字（v0.9.197 实测）。
+        std::string compactPreedit =
+            pinyin_ime::compactPinyin(context_.preedit());
+        struct Item {
+            size_t raw;
+            float score;
+            size_t order;
+        };
+        std::vector<Item> items;
+        std::vector<bool> used(cands.size(), false);
+        for (size_t i = 0; i < pool; ++i) {
+            std::string text = full[i].toString();
+            if (text.empty()) continue;
+            std::string compactCand = pinyin_ime::compactPinyin(
+                context_.candidateFullPinyin(full[i]));
+            if (pinyin_ime::is_full_pinyin_input(compactPreedit) &&
+                compactCand.size() != compactPreedit.size())
+                continue;
+            size_t raw = cands.size();
+            for (size_t k = 0; k < cands.size(); ++k) {
+                if (!used[k] && cands[k].toString() == text) {
+                    raw = k;
+                    break;
+                }
+            }
+            if (raw == cands.size()) continue;
+            used[raw] = true;
+            items.push_back({raw,
+                             full[i].score() +
+                                 pinyin_ime::CharLM::kAlpha *
+                                     engine_->charLM()->score(text),
+                             i});
+        }
+        std::stable_sort(items.begin(), items.end(),
+                         [](const Item &a, const Item &b) {
+                             if (a.score != b.score) return a.score > b.score;
+                             return a.order < b.order;
+                         });
+        std::vector<size_t> order;
+        order.reserve(cands.size());
+        bool changed = false;
+        for (auto &item : items) {
+            if (item.raw != order.size()) changed = true;
+            order.push_back(item.raw);
+        }
+        for (size_t k = 0; k < cands.size(); ++k) {
+            if (!used[k]) order.push_back(k);
+        }
+        if (order.size() == cands.size()) {
+            displayToRaw_ = std::move(order);
+            rerankActive_ = changed;
+        }
+    }
     // v0.9.175: 云候选占第 0 页尾部槽位（cloudShift_），本地候选起点随之后移，
     // 保证本地候选一条都不丢；索引空间统一用 begin+dispK，selectCandidate 直接可用。
     const size_t begin = localBegin();
@@ -527,6 +590,23 @@ void PinyinIMEState::updateUI() {
         }
     }
 
+    // 重排与简拼 boost 的协调：pword 已在候选里时，把它挪到显示首位；
+    // 需要「插入首位」时退回原顺序，避免插入词造成索引错位。
+    if (rerankActive_) {
+        if (!boostInsertWord_.empty()) {
+            displayToRaw_.clear();
+            rerankActive_ = false;
+        } else if (boostSwap_ > 0) {
+            for (size_t d = 0; d < displayToRaw_.size(); ++d) {
+                if (displayToRaw_[d] == boostSwap_) {
+                    std::swap(displayToRaw_[0], displayToRaw_[d]);
+                    break;
+                }
+            }
+            boostSwap_ = 0;
+        }
+    }
+
     // v0.9.175: cloudWords_ 已在 refreshUI 里按缓存算好（含去重/限条数），
     // 这里只把它追加到第 0 页本地候选之后。
 
@@ -546,8 +626,11 @@ void PinyinIMEState::updateUI() {
         }
         for (size_t i = begin; i < end; ++i) {
             size_t displayIdx = i;
-            // 简拼 boost：交换候选 0 和 boostSwap_ 的显示位置
-            if (boostSwap_ > 0 && page_ == 0) {
+            // v0.9.197：字符重排后的显示索引 → 原始候选索引
+            if (rerankActive_ && i < displayToRaw_.size()) {
+                displayIdx = displayToRaw_[i];
+            // 简拼 boost：交换候选 0 和 boostSwap_ 的显示位置（仅未重排时）
+            } else if (boostSwap_ > 0 && page_ == 0) {
                 if (i == begin) displayIdx = boostSwap_;
                 else if (i == boostSwap_) displayIdx = begin;
             }
@@ -690,6 +773,11 @@ void PinyinIMEState::selectCandidate(size_t idx) {
             refreshUI();
             return;
         }
+    }
+    // v0.9.197：字符重排后，显示索引先映射回原始候选索引；简拼 boost 的
+    // 原始索引交换仍在其后执行（重排启用时 boostSwap_ 已归零）。
+    if (rerankActive_ && idx < displayToRaw_.size()) {
+        idx = displayToRaw_[idx];
     }
     if (context_.empty() || idx >= cands.size()) {
         return;
@@ -887,6 +975,13 @@ bool PinyinIMEEngine::ensureDataLoaded() {
         ime_->dict()->load(libime::PinyinDictionary::UserDict,
                            userDictPath_.c_str(),
                            libime::PinyinDictFormat::Binary);
+    }
+    charLM_ = pinyin_ime::CharLM::findDefault();
+    if (charLM_) {
+        FCITX_INFO() << "pinyinime: char rerank model=" << charLM_->path()
+                     << " vocab=" << charLM_->vocabSize();
+    } else {
+        FCITX_WARN() << "pinyinime: char_trigram.bin not found, rerank disabled";
     }
     FCITX_INFO() << "pinyinime: loaded lm=" << lmPath << " dict=" << dictPath;
     return true;

@@ -45,8 +45,12 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-shlib-undefine
 add_executable(libime_bench libime_bench.cpp)
 target_link_libraries(libime_bench PRIVATE LibIME::Pinyin LibIME::Core ${FCITX5_UTILS_LIB})
 
+# v0.9.197 重排序实验：导出 nbest 候选的原始分数与分词（不进发布包）
+add_executable(nbest_dump nbest_dump.cpp char_lm.cpp)
+target_link_libraries(nbest_dump PRIVATE LibIME::Pinyin LibIME::Core ${FCITX5_UTILS_LIB})
+
 # M1：可运行输入法（命令行前端，交互 + 行模式）
-add_executable(pinyin_ime_cli pinyin_ime_cli.cpp pinyin_corrector.cpp)
+add_executable(pinyin_ime_cli pinyin_ime_cli.cpp pinyin_corrector.cpp char_lm.cpp)
 target_link_libraries(pinyin_ime_cli PRIVATE LibIME::Pinyin LibIME::Core ${FCITX5_UTILS_LIB})
 
 # M3 纠错 C++ 移植对拍自检（与 correction/fix_pinyin.py 同协议，无 libime 依赖）
@@ -66,3 +70,6 @@ install(TARGETS pinyin_ime_cli DESTINATION bin)
 install(TARGETS pinyin_corrector_test DESTINATION bin)
 install(TARGETS quick_input_test DESTINATION bin)
 install(TARGETS libime_bench DESTINATION bin)
+# v0.9.197：字符 trigram 重排模型（CLI/addon 共用，缺失时自动退回 libime 原顺序）
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../data/char_trigram.bin"
+        DESTINATION share/pinyin-ime)
