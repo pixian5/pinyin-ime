@@ -19,6 +19,7 @@ PASS=0
 FAIL=0
 ok()  { PASS=$((PASS + 1)); echo "  [PASS] $*"; }
 bad() { FAIL=$((FAIL + 1)); echo "  [FAIL] $*"; }
+skip() { echo "  [SKIP] $*"; }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(cat "$ROOT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]')"
@@ -106,6 +107,54 @@ dpkg -r pinyin-ime >/dev/null 2>&1
 [ ! -e /usr/lib/x86_64-linux-gnu/fcitx5/libpinyinime.so ] \
     && ok "卸载后 addon 已移除" \
     || bad "卸载后 addon 仍存在"
+
+# --- 6. RPM 路径（有 rpm 且 dist 里有新旧两个 rpm 才跑）-------------------------
+CUR_RPM="$(ls "$DIST"/pinyin-ime-"$VERSION"-*.rpm 2>/dev/null | head -1)"
+OLD_RPM=""
+if command -v rpm >/dev/null 2>&1 && [ -n "$CUR_RPM" ]; then
+    for f in $(ls "$DIST"/pinyin-ime-*.rpm 2>/dev/null | sort -V); do
+        v="$(basename "$f" | sed -E 's/pinyin-ime-([0-9.]+)-.*\.rpm/\1/')"
+        [ "$v" = "$VERSION" ] && continue
+        if [ "$(printf '%s\n%s\n' "$v" "$VERSION" | sort -V | tail -1)" = "$VERSION" ]; then
+            OLD_RPM="$f"
+        fi
+    done
+fi
+
+if [ -n "$OLD_RPM" ]; then
+    OLD_RPM_VER="$(basename "$OLD_RPM" | sed -E 's/pinyin-ime-([0-9.]+)-.*\.rpm/\1/')"
+    RPM_ADDON="/usr/lib64/fcitx5/libpinyinime.so"
+    rpm_ver() { rpm -q pinyin-ime --qf '%{VERSION}' 2>/dev/null; }
+    echo ""
+    echo "[info] RPM 升级路径：$OLD_RPM_VER → $VERSION"
+
+    rpm -e --nodeps pinyin-ime >/dev/null 2>&1 || true
+    rpm -i --nodeps "$OLD_RPM" >/dev/null 2>&1
+    [ "$(rpm_ver)" = "$OLD_RPM_VER" ] && ok "RPM 旧版 $OLD_RPM_VER 安装成功" || bad "RPM 旧版安装失败（实际 $(rpm_ver)）"
+    [ "$(decode_nihao)" = "你好" ] && ok "RPM 旧版解码 nihao → 你好" || bad "RPM 旧版解码异常：$(decode_nihao)"
+    [ "$(data_md5)" = "$BASE_MD5" ] && ok "RPM 旧版安装未改动 libime 数据" || bad "RPM 旧版安装改动了 libime 数据"
+
+    rpm -Uvh --nodeps "$CUR_RPM" >/dev/null 2>&1
+    [ "$(rpm_ver)" = "$VERSION" ] && ok "RPM 升级后版本 = $VERSION" || bad "RPM 升级后版本不对：$(rpm_ver)"
+    [ "$(data_md5)" = "$BASE_MD5" ] && ok "RPM 升级未改动 libime 数据" || bad "RPM 升级改动了 libime 数据"
+    [ "$(decode_nihao)" = "你好" ] && ok "RPM 升级后解码 nihao → 你好" || bad "RPM 升级后解码异常：$(decode_nihao)"
+    [ -f "$RPM_ADDON" ] && ok "RPM addon 二进制在位" || bad "RPM addon 二进制缺失（$RPM_ADDON）"
+
+    rpm -Uvh --oldpackage --nodeps "$OLD_RPM" >/dev/null 2>&1
+    [ "$(rpm_ver)" = "$OLD_RPM_VER" ] && ok "RPM 降级回 $OLD_RPM_VER 成功" || bad "RPM 降级失败（实际 $(rpm_ver)）"
+    [ "$(decode_nihao)" = "你好" ] && ok "RPM 降级后解码 nihao → 你好" || bad "RPM 降级后解码异常：$(decode_nihao)"
+    [ "$(data_md5)" = "$BASE_MD5" ] && ok "RPM 降级未改动 libime 数据" || bad "RPM 降级改动了 libime 数据"
+
+    rpm -Uvh --nodeps "$CUR_RPM" >/dev/null 2>&1
+    [ "$(rpm_ver)" = "$VERSION" ] && ok "RPM 再升级回 $VERSION" || bad "RPM 再升级失败（实际 $(rpm_ver)）"
+
+    rpm -e --nodeps pinyin-ime >/dev/null 2>&1
+    [ ! -e "$CLI" ] && ok "RPM 卸载后 CLI 已移除" || bad "RPM 卸载后 CLI 仍存在"
+    [ ! -e "$RPM_ADDON" ] && ok "RPM 卸载后 addon 已移除" || bad "RPM 卸载后 addon 仍存在"
+    [ -f "$DICT" ] && [ -f "$LM" ] && ok "RPM 卸载后 libime 数据仍在" || bad "RPM 卸载后 libime 数据被删除"
+else
+    skip "缺 rpm 或缺旧版 rpm 包，跳过 RPM 升级矩阵"
+fi
 
 echo ""
 echo "升级矩阵：$PASS 通过，$FAIL 失败"

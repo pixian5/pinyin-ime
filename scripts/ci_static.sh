@@ -115,6 +115,14 @@ check "升级矩阵有退出清理（回到当前版）" grep -q 'trap cleanup E
 check "发布门禁接入运行时/升级矩阵" grep -q 'test_runtime_fcitx5.sh' scripts/release_check.sh
 # runtime 的 install.sh/uninstall.sh 在 headless 里无 DISPLAY 时调 fcitx5 -r 会挂住（v0.9.194 实测）
 check "runtime install/uninstall 的 fcitx5 -r 都有显示环境守卫" bash -c '[ "$(grep -c "WAYLAND_DISPLAY" scripts/build_packages.sh)" -ge 2 ]'
+# v0.9.194 追加：真实上屏、rpm 矩阵、CI 真实构建
+check "运行时脚本含 GTK 真实上屏断言" grep -q '真实按键上屏' scripts/test_runtime_fcitx5.sh
+check "升级矩阵含 rpm 降级路径" grep -q 'rpm -Uvh --oldpackage' scripts/test_upgrade_matrix.sh
+check "升级矩阵断言 RPM 数据不被改动" grep -q 'RPM 降级未改动 libime 数据' scripts/test_upgrade_matrix.sh
+check "CI 构建脚本存在" test -x scripts/ci_build.sh
+check "CI workflow 存在" test -s .gitcode/workflows/ci.yml
+check "CI workflow 调用 ci_build.sh" grep -q 'scripts/ci_build.sh' .gitcode/workflows/ci.yml
+check "CI 有真实编译+评测 job" grep -q 'build-eval' .gitcode/workflows/ci.yml
 # 覆盖率调试产物绝不能入库（v0.9.192 曾误提交 71 个 .gcov）
 check "无 .gcov 入库" bash -c '! git ls-files | grep -q "\.gcov$"'
 check ".gitignore 忽略 gcov 产物" grep -q '^\*\.gcov$' .gitignore

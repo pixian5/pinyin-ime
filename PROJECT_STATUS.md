@@ -1,6 +1,6 @@
 # pinyin-ime 项目状态
 
-> 更新时间：2026-11-26 **v0.9.194**（测试工程再补两块：真实 fcitx5 5.1.7 里 addon 加载/注册/切换 5 项断言、deb 升级→回滚→卸载 16 项矩阵（数据指纹不变），均接入 `release_check.sh --full`；此前：安装矩阵 25 项、42 例快照、警告清零、覆盖率 92.7%、ASan/UBSan、fuzz（已修栈溢出与 O(n²)）；发布工程：rpm/deb 依赖 libime-data（约 1MB）、runtime 自包含且可卸载；LICENSE 落地（LGPL-2.1-or-later）并把准确率目标分层（原始 91%/68% vs 可达 88%/45%）；文档索引已收录全部新增文档，P1-8 关闭；真实评测收敛为 `scripts/eval_chroot.sh` 一条命令（27.83% / 84.81%，门禁通过）；前序 v0.9.183 把歧义拆分收敛为 CLI/addon 共享入口；功能矩阵仍以 v0.9.121 发布工程为基线，v0.9.122–v0.9.176 的功能见 README 与 CHANGELOG）
+> 更新时间：2026-11-26 **v0.9.195**（测试工程收尾：真实 fcitx5 里 addon 加载/注册/切换 + GTK 真实上屏「你好」6 项、deb+rpm 升级→回滚→卸载 30 项矩阵（数据指纹不变），均接入 `release_check.sh --full`，并新增 GitCode CI `build-eval` 真实编译+评测 job；此前：安装矩阵 25 项、42 例快照、警告清零、覆盖率 92.7%、ASan/UBSan、fuzz（已修栈溢出与 O(n²)）；发布工程：rpm/deb 依赖 libime-data（约 1MB）、runtime 自包含且可卸载；LICENSE 落地（LGPL-2.1-or-later）并把准确率目标分层（原始 91%/68% vs 可达 88%/45%）；文档索引已收录全部新增文档，P1-8 关闭；真实评测收敛为 `scripts/eval_chroot.sh` 一条命令（27.83% / 84.81%，门禁通过）；前序 v0.9.183 把歧义拆分收敛为 CLI/addon 共享入口；功能矩阵仍以 v0.9.121 发布工程为基线，v0.9.122–v0.9.176 的功能见 README 与 CHANGELOG）
 
 ## 项目概述
 

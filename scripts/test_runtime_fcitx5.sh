@@ -117,10 +117,36 @@ except Exception as e:
 PY
 fi
 
+# 真实上屏测试脚本（GTK3 + fcitx5 GTK im module，有 xdotool 才启用）
+TYPE_PY=""
+if command -v xdotool >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 \
+   && python3 -c "import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gtk" >/dev/null 2>&1; then
+    TYPE_PY="$WORK/type_test.py"
+    cat > "$TYPE_PY" <<'PY'
+import gi, sys
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+win = Gtk.Window(title="pinyin-ime-test")
+entry = Gtk.Entry()
+win.add(entry)
+win.show_all()
+win.present()
+entry.grab_focus()
+print("XID=%d" % win.get_window().get_xid()); sys.stdout.flush()
+def dump():
+    print("TEXT=[%s]" % entry.get_text()); sys.stdout.flush()
+    Gtk.main_quit(); return False
+GLib.timeout_add(15000, dump)
+Gtk.main()
+PY
+    echo "enabled" > "$WORK/type.enabled"
+fi
+
 # 在同一个 dbus 会话里启动 fcitx5、等待加载、做 D-Bus 断言，然后退出
 INNER="$WORK/inner.sh"
 cat > "$INNER" <<EOF
 #!/bin/bash
+export GTK_IM_MODULE=fcitx XMODIFIERS=@im=fcitx
 fcitx5 -D --verbose default=4 >"$LOG" 2>&1 &
 FPID=\$!
 for _ in \$(seq 1 40); do
@@ -133,6 +159,22 @@ if [ -n "\$CHECK_PY" ]; then
     echo \$? >"$WORK/check.rc"
 else
     echo 255 >"$WORK/check.rc"
+fi
+TYPE_PY="$TYPE_PY"
+if [ -n "\$TYPE_PY" ] && [ "\$(cat "$WORK/check.rc" 2>/dev/null)" = "0" ]; then
+    python3 "\$TYPE_PY" >"$WORK/type.out" 2>"$WORK/type.err" &
+    TPID=\$!
+    sleep 4
+    xdotool search --name pinyin-ime-test windowfocus 2>/dev/null || true
+    sleep 1
+    xdotool type --delay 120 nihao
+    sleep 1
+    xdotool key space
+    for _ in \$(seq 1 30); do
+        grep -q "TEXT=" "$WORK/type.out" 2>/dev/null && break
+        sleep 1
+    done
+    wait \$TPID 2>/dev/null
 fi
 kill \$FPID 2>/dev/null
 wait \$FPID 2>/dev/null
@@ -168,6 +210,16 @@ if [ -n "$CHECK_PY" ]; then
     fi
 else
     skip "未安装 python3-dbus，跳过 D-Bus 控制器断言"
+fi
+
+if [ -f "$WORK/type.enabled" ]; then
+    if grep -q 'TEXT=\[你好\]' "$WORK/type.out" 2>/dev/null; then
+        ok "真实按键上屏：nihao + 空格 → 你好（GTK3 + fcitx5 im module）"
+    else
+        bad "真实按键上屏未得到「你好」：$(tr '\n' ' ' < "$WORK/type.out" 2>/dev/null | tail -c 200)"
+    fi
+else
+    skip "缺 xdotool 或 python3-gi/GTK3，跳过真实按键上屏"
 fi
 
 echo ""

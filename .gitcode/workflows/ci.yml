@@ -30,3 +30,23 @@ jobs:
         run: python3 bench/check_leakage.py
       - name: Eval metrics/gate selftest
         run: python3 bench/eval.py --selftest
+
+  # 真正编译 CLI/addon 并跑 holdout 评测的 job（v0.9.194）。
+  # 之前 CI 只有静态检查和不依赖 libime 的单测，编译失败/准确率退化都发现不了。
+  build-eval:
+    name: Build + eval (Ubuntu 24.04)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: checkout-action@0.0.1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config python3 \
+            libimecore-dev libimepinyin-dev libime-data \
+            libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev \
+            libboost-all-dev libcurl4-openssl-dev
+      - name: Build, gates, snapshot and holdout eval
+        run: |
+          cd repo_workspace 2>/dev/null || true
+          bash scripts/ci_build.sh
