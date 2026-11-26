@@ -1,6 +1,14 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.188 (2026-11-26)
+
+### 发布产物校验清单
+- `build_packages.sh` 新增 `write_checksums()`：打包自检后生成 `dist/SHA256SUMS_v<VERSION>`，只列本次打出的 rpm/deb，旧版本残留不进清单；无产物则返回非 0。
+- `ci_static.sh` 增第 5 条发布工程守卫（必须包含 `SHA256SUMS_v$VERSION` 逻辑）。
+- 实测 0.9.188：清单两条记录，`sha256sum -c` 两项均 OK；rpm 22,743,929 B、deb 22,734,334 B。
+- 遗留：`build_release.sh` 仍是旧沙箱脚本（写死 aarch64/`/workspace`），未接入新清单。
+
 ## v0.9.187 (2026-11-26)
 
 ### 发布工程：架构自适应 + x86_64 deb/rpm 实测

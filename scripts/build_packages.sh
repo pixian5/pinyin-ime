@@ -211,10 +211,31 @@ print("所有文件 md5sums 校验通过 ✓")
 PYEOF
 }
 
+# v0.9.188：产物校验清单。发布时用户需要能核对下载物，不能只靠文件名。
+# 只覆盖本次真正打出来的包，旧版本残留不进清单。
+write_checksums() {
+    local out="$DIST/SHA256SUMS_v$VERSION"
+    local names=()
+    local rpmf="$DIST/pinyin-ime-${VERSION}-${RELEASE}.${ARCH_RPM}.rpm"
+    local debf="$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb"
+    if [ "$MODE" = "rpm" ] || [ "$MODE" = "all" ]; then
+        if [ -f "$rpmf" ]; then names+=("$(basename "$rpmf")"); fi
+    fi
+    if [ "$MODE" = "deb" ] || [ "$MODE" = "all" ]; then
+        if [ -f "$debf" ]; then names+=("$(basename "$debf")"); fi
+    fi
+    if [ "${#names[@]}" -eq 0 ]; then
+        log "!! 没有可写校验清单的产物"; return 1
+    fi
+    ( cd "$DIST" && sha256sum "${names[@]}" > "$(basename "$out")" )
+    log "校验清单: $(basename "$out")"
+    cat "$out"
+}
+
 case "$MODE" in
-    rpm)  build_rpm; verify_rpm ;;
-    deb)  build_deb; verify_deb ;;
-    all)  build_rpm; build_deb; verify_rpm; verify_deb ;;
+    rpm)  build_rpm; verify_rpm; write_checksums ;;
+    deb)  build_deb; verify_deb; write_checksums ;;
+    all)  build_rpm; build_deb; verify_rpm; verify_deb; write_checksums ;;
     *)    echo "用法: bash scripts/build_packages.sh [all|rpm|deb]"; exit 2 ;;
 esac
 

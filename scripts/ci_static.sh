@@ -78,6 +78,7 @@ check "build_packages 用 uname -m 推导架构" grep -q 'uname -m' scripts/buil
 check "build_packages 无写死 aarch64" bash -c '! grep -q "ARCH_RPM=aarch64" scripts/build_packages.sh'
 check "spec 架构用 @ARCH@ 占位" grep -q 'BuildArch:      @ARCH@' packaging/pinyin-ime.spec
 check "deb addon 目录可覆盖（FCITX5_LIBDIR）" grep -q 'FCITX5_LIBDIR' scripts/build_packages.sh
+check "打包产出 SHA256SUMS_v\$VERSION" grep -q 'SHA256SUMS_v$VERSION' scripts/build_packages.sh
 
 echo "=== 文档 ==="
 check "README 存在" test -s README.md
