@@ -20,6 +20,8 @@
 #include <fcitx-config/option.h>
 #include <fcitx-utils/i18n.h>
 #include <fcitx-utils/key.h>
+#include <fcitx-utils/event.h>
+#include <fcitx/event.h>
 #include <fcitx/inputcontextproperty.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
@@ -193,11 +195,18 @@ public:
     // 标记/查询某拼音是否已有后台请求在飞（线程安全）
     bool cloudMarkInFlight(const std::string &py);
     void cloudClearInFlight(const std::string &py);
+    // v0.9.192：云候选回填后「投递到主循环」的 EventSource。
+    // fcitx 的 addPostEvent 返回 unique_ptr，析构即注销事件；以前直接丢弃返回值，
+    // 结果是回调永远不触发——云候选到了也不刷新候选窗。这里由 engine 持有，
+    // 后台线程写入、主线程事件循环执行，故加锁。
+    void keepCloudRefreshSource(std::unique_ptr<fcitx::EventSource> source);
 
 private:
     bool ensureDataLoaded();
 
     Instance *instance_;
+    std::mutex cloudSourceMutex_;
+    std::unique_ptr<fcitx::EventSource> cloudRefreshSource_;
     PinyinIMEConfig config_;
     std::unique_ptr<libime::PinyinIME> ime_;
     std::shared_ptr<pinyinime::CloudPinyinClient> cloud_;

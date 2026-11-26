@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.192 (2026-11-26)
+
+### 警告清零、覆盖率与内存检查
+- **修功能缺陷**：`--phrase-add/--phrase-del/--phrase-list` 之前只解析不执行（帮助有、功能无），现落到 `custom_phrases.txt` 并可用；删除纯空壳 `--clipboard`。
+- **修云候选 UI 不刷新**：`addPostEvent` 返回的 `EventSource` 被丢弃导致回调注销，改由引擎持锁持有。
+- 清零 `-Wall -Wextra` 警告（单测/CLI/addon 各 0）：运算符优先级、未使用参数、`std::system` 返回值、`%04d%02d%02d` 缓冲区大小、nodiscard。
+- 新增 `scripts/warnings_check.sh`、`coverage.sh`（单测门槛 90%，实测 92.7%）、`sanitizer_test.sh`（ASan/UBSan，无 proc 环境自动降级 UBSan）、`cli_features_test.sh`（9 条快捷词行为）。
+- `release_check.sh` 增补上述四项；`ci_static.sh` 增补 4 条守卫。
+
 ## v0.9.191 (2026-11-26)
 
 ### 测试门禁与安装矩阵脚本化

@@ -609,14 +609,16 @@ void PinyinIMEState::kickCloudQuery() {
         FCITX_DEBUG() << "pinyinime cloud: " << py << " -> " << cands.size()
                       << " candidates";
         eng->cloudClearInFlight(py);
-        inst->eventLoop().addPostEvent([inst, eng](EventSource *) {
-            if (auto *ic = inst->mostRecentInputContext()) {
-                if (auto *st = ic->propertyFor(eng->factory())) {
-                    st->refreshUI();
+        // 返回的 EventSource 必须由 engine 持有到回调执行，否则析构即注销事件
+        eng->keepCloudRefreshSource(inst->eventLoop().addPostEvent(
+            [inst, eng](EventSource *) {
+                if (auto *ic = inst->mostRecentInputContext()) {
+                    if (auto *st = ic->propertyFor(eng->factory())) {
+                        st->refreshUI();
+                    }
                 }
-            }
-            return false;  // one-shot
-        });
+                return false;  // one-shot
+            }));
     }).detach();
 }
 
@@ -945,6 +947,13 @@ void PinyinIMEEngine::reloadConfig() {
         }
         cloud_ = nullptr;
     }
+}
+
+void PinyinIMEEngine::keepCloudRefreshSource(std::unique_ptr<EventSource> source) {
+    // 旧 source 若尚未触发，析构会把它从事件循环注销；正常场景下一轮查询到来时
+    // 上一轮早已执行完，这里只是防止 unique_ptr 无限堆积。
+    std::lock_guard<std::mutex> lk(cloudSourceMutex_);
+    cloudRefreshSource_ = std::move(source);
 }
 
 bool PinyinIMEEngine::cloudMarkInFlight(const std::string &py) {

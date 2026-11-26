@@ -288,6 +288,7 @@ private:
     // 本地词典provider
     std::vector<CloudCandidate> query_local(const std::string& pinyin,
                                             const CloudProviderConfig& cfg) {
+        (void)cfg;  // 本地缓存不看配置，接口统一而已
         // 从本地缓存文件加载
         if (cache_dir.empty()) return {};
 
@@ -324,6 +325,7 @@ private:
     // HTTP API provider（框架——实际需libcurl）
     std::vector<CloudCandidate> query_http(const std::string& pinyin,
                                            const CloudProviderConfig& cfg) {
+        (void)pinyin; (void)cfg;  // 框架代码：预留参数，真实实现用 libcurl
         // 框架代码：实际部署时用libcurl发送HTTP请求
         // POST cfg.endpoint
         // Body: {"pinyin": "...", "api_key": "..."}

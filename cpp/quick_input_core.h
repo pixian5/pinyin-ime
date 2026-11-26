@@ -180,7 +180,7 @@ inline std::string datetime_lookup(const std::string &input) {
     if (input == "ts") {
         std::time_t t = std::time(nullptr);
         std::tm *lt = std::localtime(&t);
-        char buf[16]; std::snprintf(buf, sizeof(buf), "%04d%02d%02d",
+        char buf[32]; std::snprintf(buf, sizeof(buf), "%04d%02d%02d",
                      lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday);
         return buf;
     }

@@ -62,6 +62,20 @@ else
     warn "无 $CXX，跳过单元测试"
 fi
 
+echo "=== 编译警告 ==="
+check "无 -Wall -Wextra 警告（单测）" bash scripts/warnings_check.sh
+
+echo "=== CLI 功能（快捷词）==="
+if [ -x cpp/build/pinyin_ime_cli ]; then
+    check "phrase-add/del/list 行为" bash scripts/cli_features_test.sh
+else
+    warn "缺 CLI，跳过快捷词行为测试"
+fi
+
+echo "=== 覆盖率 / Sanitizer（单测）==="
+check "单测覆盖率 ≥90%" bash scripts/coverage.sh --unit
+check "ASan/UBSan 单测" bash scripts/sanitizer_test.sh
+
 echo "=== CLI 快照 ==="
 if [ -x cpp/build/pinyin_ime_cli ] && [ -f /usr/share/libime/zh_CN.lm ]; then
     check "快照逐条一致" bash scripts/cli_snapshot_test.sh

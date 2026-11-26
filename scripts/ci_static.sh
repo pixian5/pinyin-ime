@@ -100,6 +100,10 @@ check "CLI 快照脚本存在" test -x scripts/cli_snapshot_test.sh
 check "快照用例非空" test -s bench/snapshots/cli_cases.txt
 check "快照期望含数据指纹" grep -q '^# lm_md5=' bench/snapshots/cli_expected.tsv
 check "快照期望含当前版本" grep -q "^# cli snapshot v$version" bench/snapshots/cli_expected.tsv
+check "警告门禁脚本存在" test -x scripts/warnings_check.sh
+check "覆盖率脚本存在" test -x scripts/coverage.sh
+check "Sanitizer 脚本存在" test -x scripts/sanitizer_test.sh
+check "CLI 功能回归脚本存在" test -x scripts/cli_features_test.sh
 
 echo "=== 文档 ==="
 check "README 存在" test -s README.md

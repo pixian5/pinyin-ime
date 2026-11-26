@@ -29,8 +29,9 @@ MODE="${1:-check}"
 
 # 数据路径：显式参数优先，否则交给 CLI 自己搜索系统默认路径
 ARGS=(--batch "$CASES" --top1 --quiet --user-data "$(mktemp -d)")
-[ -n "${LM:-}" ] && ARGS+=(--lm "$LM")
-[ -n "${DICT:-}" ] && ARGS+=(--dict "$DICT")
+# CLI 的数据文件走位置参数（lm、dict），不是 --lm/--dict 选项
+[ -n "${LM:-}" ] && ARGS+=("$LM")
+[ -n "${DICT:-}" ] && ARGS+=("$DICT")
 
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT

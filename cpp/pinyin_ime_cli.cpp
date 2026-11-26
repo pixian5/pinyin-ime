@@ -151,7 +151,6 @@ void usage(const char *prog) {
         << "  --cloud-config F  云拼音provider配置文件(v0.9.157)\n"
         << "  --dict-sync R  词典同步(v0.9.160): push:s3://path / pull:s3://path / sync:s3://path\n"
         << "  --fuzzy CFG    模糊音：z_zh,c_ch,s_sh,n_l,an_ang,en_eng,in_ing 或 all\n"
-        << "  --clipboard    剪贴板历史（查看/搜索/粘贴最近复制的文本）\n"
         << "  --phrase-add A=F  添加自定义快捷词（如 addr=我的地址）\n"
         << "  --phrase-del A  删除自定义快捷词\n"
         << "  --phrase-list   列出所有自定义快捷词\n"
@@ -863,7 +862,6 @@ int main(int argc, char **argv) {
     bool jsonOutput = false;     // --json：行模式输出 JSON 数组
     bool configWizard = false;    // --config：配置向导
     bool dictList = false;        // --dict-list
-    bool dictExport = false;      // --dict-export
     bool statsReport = false;     // --stats-report
     std::string themeName = "default";  // --theme
     std::string skinName;  // --skin (v0.9.154)
@@ -871,7 +869,6 @@ int main(int argc, char **argv) {
     std::string cloudConfigFile;  // --cloud-config (v0.9.157)
     std::string dictSyncRemote;   // --dict-sync (v0.9.157)
     std::string fuzzyConfig;  // --fuzzy (模糊音配置)
-    bool clipboardMode = false;  // --clipboard
     std::string phraseAdd;  // --phrase-add abbr=full
     std::string phraseDel;  // --phrase-del abbr
     bool phraseList = false;  // --phrase-list
@@ -949,8 +946,6 @@ int main(int argc, char **argv) {
             dictSyncRemote = argv[++i];
         } else if (a == "--cloud") {
             cloudEnabled = true;
-        } else if (a == "--clipboard") {
-            clipboardMode = true;
         } else if (a == "--phrase-add") {
             if (i + 1 >= argc) { std::cerr << "--phrase-add 缺少参数（格式: abbr=full）\n"; return 1; }
             phraseAdd = argv[++i];
@@ -1449,6 +1444,54 @@ int main(int argc, char **argv) {
             std::cout << "✗ 发现 " << issues << " 个问题 (" << checks << " 项检查)\n";
         }
         std::cout << "═══════════════════════════════════════\n";
+        return 0;
+    }
+
+    // v0.9.192：自定义快捷词（--phrase-add / --phrase-del / --phrase-list）。
+    // 这三个选项以前只在参数解析里置了标志位、后面从不执行，属于「帮助写了、
+    // 功能没有」；现在落到 $userDataDir/custom_phrases.txt，与 i 模式共用同一份表。
+    if (!phraseAdd.empty() || !phraseDel.empty() || phraseList) {
+        std::string phraseFile = userDataDir + "/custom_phrases.txt";
+        std::filesystem::create_directories(userDataDir);
+        auto pairs = pinyin_ime::load_custom_phrases_from_file(phraseFile);
+        auto save_pairs = [&](const std::vector<std::pair<std::string, std::string>> &v) {
+            std::ofstream out(phraseFile);
+            if (!out) return false;
+            out << "# pinyin-ime 自定义快捷词：每行 缩写=展开文本，# 开头为注释\n";
+            for (const auto &p : v) out << p.first << "=" << p.second << "\n";
+            return true;
+        };
+        if (!phraseAdd.empty()) {
+            auto pos = phraseAdd.find('=');
+            if (pos == std::string::npos || pos == 0 || pos + 1 >= phraseAdd.size()) {
+                std::cerr << "--phrase-add 格式应为 缩写=展开文本（如 addr=我的地址）\n";
+                return 1;
+            }
+            std::string abbr = phraseAdd.substr(0, pos);
+            std::string text = phraseAdd.substr(pos + 1);
+            bool replaced = false;
+            for (auto &p : pairs) {
+                if (p.first == abbr) { p.second = text; replaced = true; break; }
+            }
+            if (!replaced) pairs.emplace_back(abbr, text);
+            if (!save_pairs(pairs)) { std::cerr << "写入失败: " << phraseFile << "\n"; return 1; }
+            std::cout << (replaced ? "已更新 " : "已添加 ") << abbr << "=" << text
+                      << "（" << phraseFile << "）\n";
+            return 0;
+        }
+        if (!phraseDel.empty()) {
+            const size_t before = pairs.size();
+            pairs.erase(std::remove_if(pairs.begin(), pairs.end(),
+                        [&](const std::pair<std::string, std::string> &p) { return p.first == phraseDel; }),
+                        pairs.end());
+            if (before == pairs.size()) { std::cout << "没有找到快捷词 " << phraseDel << "\n"; return 0; }
+            if (!save_pairs(pairs)) { std::cerr << "写入失败: " << phraseFile << "\n"; return 1; }
+            std::cout << "已删除 " << phraseDel << "（剩 " << pairs.size() << " 条自定义快捷词）\n";
+            return 0;
+        }
+        auto merged = pinyin_ime::merge_custom_phrases(phraseFile);
+        std::cout << "自定义快捷词（" << phraseFile << "，共 " << merged.size() << " 条）\n";
+        for (const auto &p : merged) std::cout << "  " << p.first << "=" << p.second << "\n";
         return 0;
     }
 
@@ -2027,7 +2070,8 @@ int main(int argc, char **argv) {
                 boost_v11(line, cands);
             }
             if (top1Only) {
-                if (!cands.empty()) std::cout << cands[0]; std::cout << "\n";
+                if (!cands.empty()) std::cout << cands[0];
+                std::cout << "\n";
             } else if (topK > 0) {
                 size_t limit = std::min(static_cast<size_t>(topK), cands.size());
                 for (size_t i = 0; i < limit; ++i) {

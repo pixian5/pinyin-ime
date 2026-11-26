@@ -81,7 +81,8 @@ public:
         // 确保缓存目录存在
         if (!config.cache_dir.empty()) {
             std::string cmd = "mkdir -p " + config.cache_dir;
-            std::system(cmd.c_str());
+            // 明确忽略返回码：目录已存在时 mkdir -p 也返回 0，失败由下面 fopen 兜底
+            if (std::system(cmd.c_str()) != 0) { /* 忽略，交给 fopen 判断 */ }
         }
         FILE *fp = std::fopen(path.c_str(), "w");
         if (!fp) return false;

@@ -953,6 +953,7 @@ inline std::string choice_distribution_pie(const std::vector<int>& choice_counts
 inline std::vector<std::string> quick_candidates_v5(const std::string& input,
                     const std::string& preceding = "",
                     const std::string& theme_name = "default") {
+    (void)theme_name;  // 预留给主题化排序，当前不参与打分
     // 基于 v4
     auto result = quick_candidates_v4(input);
 

@@ -455,8 +455,8 @@ struct RecentHistory {
         std::vector<std::string> result;
         for (auto &item : items) {
             if (prefix.empty() ||
-                item.size() >= prefix.size() &&
-                item.compare(0, prefix.size(), prefix) == 0) {
+                (item.size() >= prefix.size() &&
+                 item.compare(0, prefix.size(), prefix) == 0)) {
                 result.push_back(item);
             }
             if (result.size() >= 10) break;

@@ -1,0 +1,5638 @@
+        -:    0:Source:cpp/quick_input_rank.h
+        -:    0:Graph:/tmp/cov/qt-quick_input_test.gcno
+        -:    0:Data:/tmp/cov/qt-quick_input_test.gcda
+        -:    0:Runs:1
+        -:    1:// 纠错与候选排序模块 —— quick_input.h 的片段（v0.9.178 拆出）。
+        -:    2:// 注意：本文件不是独立头文件，必须在 quick_input.h 的 namespace pinyin_ime 内 include；
+        -:    3:// 拆分只为缩小 quick_input.h 体积、明确模块归属，不改变任何调用方代码。
+        -:    4:
+        -:    5:// ── v0.9.145 智能拼音纠错 ──────────────────────────────────
+        -:    6:// 检测并修正常见的拼音输入错误
+function _ZN10pinyin_ime20smart_pinyin_correctERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 36 returned 100% blocks executed 67%
+       36:    7:inline std::vector<std::string> smart_pinyin_correct(const std::string& input) {
+       36:    8:    std::vector<std::string> corrections;
+call    0 returned 100%
+       36:    9:    if (input.empty() || input.size() < 2) return corrections;
+call    0 returned 100%
+branch  1 taken 97% (fallthrough)
+branch  2 taken 3%
+call    3 returned 100%
+branch  4 taken 3% (fallthrough)
+branch  5 taken 97%
+branch  6 taken 6% (fallthrough)
+branch  7 taken 94%
+        -:   10:
+        -:   11:    // 常见拼音错误模式：{错误模式, 修正}
+        -:   12:    static const std::vector<std::pair<std::string, std::string>> typo_patterns = {
+        -:   13:        // 遗漏韵母
+        -:   14:        {"zhonggu", "zhongguo"},   // 中国 遗漏 o
+        -:   15:        {"meiyo", "meiyou"},       // 没有 遗漏 u
+        -:   16:        {"buxhuan", "buxihuan"},   // 不喜欢 i→x
+        -:   17:        // 声母混淆
+        -:   18:        {"zhongguo", "zhongguo"},  // 正确，不修正
+        -:   19:        {"chongguo", "zhongguo"},  // ch→zh
+        -:   20:        {"zongguo", "zhongguo"},   // z→zh (补h)
+        -:   21:        {"shuzi", "shuzi"},        // 正确
+        -:   22:        {"suzi", "shuzi"},         // s→sh
+        -:   23:        // 韵母混淆
+        -:   24:        {"nihao", "nihao"},        // 正确
+        -:   25:        {"nihao", "nihao"},        // 正确
+        -:   26:        // 前后鼻音
+        -:   27:        {"zaijian", "zaijian"},    // 正确
+        -:   28:        // 常见多字词遗漏
+        -:   29:        {"xiexie", "xiexie"},      // 正确
+        -:   30:        {"xieixe", "xiexie"},      // 字母顺序错误
+        -:   31:        // n/l 混淆
+        -:   32:        {"lihao", "nihao"},        // l→n
+        -:   33:        // h 遗漏
+        -:   34:        {"suzi", "shuzi"},
+        -:   35:        {"cizi", "chizi"},
+        -:   36:        // 常见整词纠错
+        -:   37:        {"shurufa", "shurufa"},    // 正确
+        -:   38:        {"shurufa", "shurufa"},
+       52:   39:    };
+branch  0 taken 3% (fallthrough)
+branch  1 taken 97%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+branch  9 taken 100% (fallthrough)
+branch 10 taken 0% (throw)
+call   11 returned 100%
+branch 12 taken 100% (fallthrough)
+branch 13 taken 0% (throw)
+call   14 returned 100%
+branch 15 taken 100% (fallthrough)
+branch 16 taken 0% (throw)
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+branch 21 taken 100% (fallthrough)
+branch 22 taken 0% (throw)
+call   23 returned 100%
+branch 24 taken 100% (fallthrough)
+branch 25 taken 0% (throw)
+call   26 returned 100%
+branch 27 taken 100% (fallthrough)
+branch 28 taken 0% (throw)
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+branch 33 taken 100% (fallthrough)
+branch 34 taken 0% (throw)
+call   35 returned 100%
+branch 36 taken 100% (fallthrough)
+branch 37 taken 0% (throw)
+call   38 returned 100%
+branch 39 taken 100% (fallthrough)
+branch 40 taken 0% (throw)
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+branch 45 taken 100% (fallthrough)
+branch 46 taken 0% (throw)
+call   47 returned 100%
+branch 48 taken 100% (fallthrough)
+branch 49 taken 0% (throw)
+call   50 returned 100%
+branch 51 taken 100% (fallthrough)
+branch 52 taken 0% (throw)
+call   53 returned 100%
+branch 54 taken 100% (fallthrough)
+branch 55 taken 0% (throw)
+call   56 returned 100%
+branch 57 taken 100% (fallthrough)
+branch 58 taken 0% (throw)
+call   59 returned 100%
+call   60 returned 100%
+branch 61 taken 100% (fallthrough)
+branch 62 taken 0% (throw)
+call   63 returned 100%
+call   64 returned 100%
+call   65 returned 100%
+branch 66 taken 95% (fallthrough)
+branch 67 taken 5%
+call   68 returned 100%
+call   69 never executed
+branch 70 never executed
+branch 71 never executed
+call   72 never executed
+branch 73 never executed
+branch 74 never executed
+call   75 never executed
+        -:   40:
+        -:   41:    // 生成修正候选（去重）
+      646:   42:    for (auto& pattern : typo_patterns) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 95%
+branch  6 taken 5% (fallthrough)
+      612:   43:        if (input == pattern.first && pattern.first != pattern.second) {
+call    0 returned 100%
+branch  1 taken 3% (fallthrough)
+branch  2 taken 97%
+call    3 returned 100%
+branch  4 taken 17% (fallthrough)
+branch  5 taken 83%
+branch  6 taken 1% (fallthrough)
+branch  7 taken 100%
+        -:   44:            // 避免重复
+        3:   45:            bool dup = false;
+       3*:   46:            for (auto& c : corrections) if (c == pattern.second) { dup = true; break; }
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+call    6 never executed
+call    7 returned 100%
+branch  8 taken 33%
+branch  9 taken 67% (fallthrough)
+        3:   47:            if (!dup) corrections.push_back(pattern.second);
+branch  0 taken 67% (fallthrough)
+branch  1 taken 33%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        -:   48:        }
+        -:   49:    }
+        -:   50:
+        -:   51:    // 通用纠错：尝试在常见位置插入/删除/替换字符
+        -:   52:    // 1. 尝试在末尾补全常见韵母
+       34:   53:    if (input.size() >= 3) {
+call    0 returned 100%
+branch  1 taken 74% (fallthrough)
+branch  2 taken 26%
+       25:   54:        std::string last2 = input.substr(input.size() - 2);
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        -:   55:        // 如果以声母结尾，尝试补韵母
+        -:   56:        static const std::set<std::string> consonants = {
+        -:   57:            "zh", "ch", "sh", "b", "p", "m", "f", "d", "t",
+        -:   58:            "n", "l", "g", "k", "h", "j", "q", "x", "r", "z", "c", "s"
+       46:   59:        };
+branch  0 taken 4% (fallthrough)
+branch  1 taken 96%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+call   10 returned 100%
+branch 11 taken 100% (fallthrough)
+branch 12 taken 0% (throw)
+call   13 returned 100%
+call   14 returned 100%
+branch 15 taken 100% (fallthrough)
+branch 16 taken 0% (throw)
+call   17 returned 100%
+call   18 returned 100%
+branch 19 taken 100% (fallthrough)
+branch 20 taken 0% (throw)
+call   21 returned 100%
+call   22 returned 100%
+branch 23 taken 100% (fallthrough)
+branch 24 taken 0% (throw)
+call   25 returned 100%
+call   26 returned 100%
+branch 27 taken 100% (fallthrough)
+branch 28 taken 0% (throw)
+call   29 returned 100%
+call   30 returned 100%
+branch 31 taken 100% (fallthrough)
+branch 32 taken 0% (throw)
+call   33 returned 100%
+call   34 returned 100%
+branch 35 taken 100% (fallthrough)
+branch 36 taken 0% (throw)
+call   37 returned 100%
+call   38 returned 100%
+branch 39 taken 100% (fallthrough)
+branch 40 taken 0% (throw)
+call   41 returned 100%
+call   42 returned 100%
+branch 43 taken 100% (fallthrough)
+branch 44 taken 0% (throw)
+call   45 returned 100%
+call   46 returned 100%
+branch 47 taken 100% (fallthrough)
+branch 48 taken 0% (throw)
+call   49 returned 100%
+call   50 returned 100%
+branch 51 taken 100% (fallthrough)
+branch 52 taken 0% (throw)
+call   53 returned 100%
+call   54 returned 100%
+branch 55 taken 100% (fallthrough)
+branch 56 taken 0% (throw)
+call   57 returned 100%
+call   58 returned 100%
+branch 59 taken 100% (fallthrough)
+branch 60 taken 0% (throw)
+call   61 returned 100%
+call   62 returned 100%
+branch 63 taken 100% (fallthrough)
+branch 64 taken 0% (throw)
+call   65 returned 100%
+call   66 returned 100%
+branch 67 taken 100% (fallthrough)
+branch 68 taken 0% (throw)
+call   69 returned 100%
+call   70 returned 100%
+branch 71 taken 100% (fallthrough)
+branch 72 taken 0% (throw)
+call   73 returned 100%
+call   74 returned 100%
+branch 75 taken 100% (fallthrough)
+branch 76 taken 0% (throw)
+call   77 returned 100%
+call   78 returned 100%
+branch 79 taken 100% (fallthrough)
+branch 80 taken 0% (throw)
+call   81 returned 100%
+call   82 returned 100%
+branch 83 taken 100% (fallthrough)
+branch 84 taken 0% (throw)
+call   85 returned 100%
+call   86 returned 100%
+branch 87 taken 100% (fallthrough)
+branch 88 taken 0% (throw)
+call   89 returned 100%
+call   90 returned 100%
+branch 91 taken 100% (fallthrough)
+branch 92 taken 0% (throw)
+call   93 returned 100%
+call   94 returned 100%
+call   95 returned 100%
+branch 96 taken 95% (fallthrough)
+branch 97 taken 5%
+call   98 returned 100%
+call   99 returned 100%
+call   100 returned 100%
+call   101 returned 100%
+call   102 returned 100%
+call   103 returned 100%
+call   104 returned 100%
+call   105 returned 100%
+call   106 returned 100%
+call   107 returned 100%
+call   108 returned 100%
+call   109 returned 100%
+call   110 returned 100%
+call   111 returned 100%
+call   112 returned 100%
+call   113 returned 100%
+call   114 returned 100%
+call   115 returned 100%
+call   116 returned 100%
+call   117 returned 100%
+call   118 returned 100%
+call   119 returned 100%
+call   120 never executed
+branch 121 never executed
+branch 122 never executed
+call   123 never executed
+call   124 never executed
+call   125 never executed
+call   126 never executed
+call   127 never executed
+call   128 never executed
+call   129 never executed
+call   130 never executed
+call   131 never executed
+call   132 never executed
+call   133 never executed
+call   134 never executed
+call   135 never executed
+call   136 never executed
+call   137 never executed
+call   138 never executed
+call   139 never executed
+call   140 never executed
+call   141 never executed
+call   142 never executed
+call   143 never executed
+call   144 never executed
+branch 145 never executed
+branch 146 never executed
+call   147 never executed
+       25:   60:        if (consonants.count(last2) || consonants.count(input.substr(input.size() - 1))) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+branch 12 taken 40% (fallthrough)
+branch 13 taken 60%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0%
+call   16 returned 100%
+branch 17 taken 40% (fallthrough)
+branch 18 taken 60%
+branch 19 never executed
+branch 20 never executed
+call   21 never executed
+        -:   61:            // 尝试补 "a", "e", "i", "o", "u"
+       60:   62:            for (auto vowel : {'a', 'e', 'i', 'o', 'u'}) {
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 83%
+branch  3 taken 17% (fallthrough)
+       50:   63:                std::string corrected = input + vowel;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       50:   64:                bool dup = false;
+     150*:   65:                for (auto& c : corrections) if (c == corrected) { dup = true; break; }
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+call    6 returned 100%
+call    7 returned 100%
+branch  8 taken 67%
+branch  9 taken 33% (fallthrough)
+       50:   66:                if (!dup) corrections.push_back(corrected);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+       50:   67:            }
+call    0 returned 100%
+call    1 never executed
+        -:   68:        }
+       25:   69:    }
+call    0 returned 100%
+call    1 never executed
+        -:   70:
+        -:   71:    // 2. 尝试在 zh/ch/sh 位置补 h
+      163:   72:    for (size_t i = 0; i + 1 < input.size(); ++i) {
+call    0 returned 100%
+branch  1 taken 79%
+branch  2 taken 21% (fallthrough)
+      254:   73:        if ((input[i] == 'z' || input[i] == 'c' || input[i] == 's') &&
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+call    4 returned 100%
+branch  5 taken 6% (fallthrough)
+branch  6 taken 94%
+       11:   74:            input[i + 1] != 'h' && input[i + 1] != 'a' && input[i + 1] != 'e' &&
+call    0 returned 100%
+branch  1 taken 73% (fallthrough)
+branch  2 taken 27%
+call    3 returned 100%
+branch  4 taken 88% (fallthrough)
+branch  5 taken 12%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0%
+        7:   75:            input[i + 1] != 'i' && input[i + 1] != 'o' && input[i + 1] != 'u' &&
+call    0 returned 100%
+branch  1 taken 86% (fallthrough)
+branch  2 taken 14%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+call    6 returned 100%
+branch  7 taken 83% (fallthrough)
+branch  8 taken 17%
+      258:   76:            input[i + 1] != 'n' && input[i + 1] != 'g') {
+branch  0 taken 97% (fallthrough)
+branch  1 taken 3%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0%
+branch  8 taken 4% (fallthrough)
+branch  9 taken 96%
+        5:   77:            std::string corrected = input;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        5:   78:            corrected.insert(i + 1, "h");
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        5:   79:            bool dup = false;
+      30*:   80:            for (auto& c : corrections) if (c == corrected) { dup = true; break; }
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+call    6 returned 100%
+call    7 returned 100%
+branch  8 taken 83%
+branch  9 taken 17% (fallthrough)
+        5:   81:            if (!dup) corrections.push_back(corrected);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        5:   82:        }
+call    0 returned 100%
+call    1 never executed
+        -:   83:    }
+        -:   84:
+       34:   85:    return corrections;
+    =====:   86:}
+call    0 never executed
+        -:   87:
+        -:   88:// ── v0.9.145 增强上下文排序（支持多词上下文） ──────────────
+        -:   89:// 不仅看上一个词，还看上上个词，实现更精准的候选排序
+        -:   90:inline std::vector<std::string>
+function _ZN10pinyin_ime26context_rank_candidates_v2ERKSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS6_EERKS6_SC_ called 3 returned 100% blocks executed 51%
+        3:   91:context_rank_candidates_v2(const std::vector<std::string>& candidates,
+        -:   92:                            const std::string& last_committed,
+        -:   93:                            const std::string& prev_committed = "") {
+        3:   94:    auto result = context_rank_candidates(candidates, last_committed);
+call    0 returned 100%
+        -:   95:
+        -:   96:    // 二级上下文：两个词的组合关联
+        3:   97:    if (!prev_committed.empty() && !last_committed.empty() && result.size() > 1) {
+call    0 returned 100%
+branch  1 taken 33% (fallthrough)
+branch  2 taken 67%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0%
+branch  9 taken 33% (fallthrough)
+branch 10 taken 67%
+        -:   98:        // 常见三词组合
+        -:   99:        static const std::vector<std::vector<std::string>> trigram_rules = {
+        -:  100:            {"你", "好", "吗"},     // 你好吗
+        -:  101:            {"我", "的", "名"},     // 我的名字
+        -:  102:            {"不", "知", "道"},     // 不知道
+        -:  103:            {"现", "在", "时"},     // 现在时间
+        -:  104:            {"今", "天", "天"},     // 今天天气
+        -:  105:            {"中", "国", "人"},     // 中国人
+        -:  106:            {"人", "工", "智"},     // 人工智能
+        -:  107:            {"数", "据", "科"},     // 数据科学
+        -:  108:            {"网", "络", "安"},     // 网络安全
+        -:  109:            {"系", "统", "架"},     // 系统架构
+       41:  110:        };
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+call   10 returned 100%
+branch 11 taken 100% (fallthrough)
+branch 12 taken 0% (throw)
+call   13 returned 100%
+call   14 returned 100%
+branch 15 taken 100% (fallthrough)
+branch 16 taken 0% (throw)
+call   17 returned 100%
+call   18 returned 100%
+branch 19 taken 100% (fallthrough)
+branch 20 taken 0% (throw)
+call   21 returned 100%
+call   22 returned 100%
+branch 23 taken 100% (fallthrough)
+branch 24 taken 0% (throw)
+call   25 returned 100%
+call   26 returned 100%
+branch 27 taken 100% (fallthrough)
+branch 28 taken 0% (throw)
+call   29 returned 100%
+call   30 returned 100%
+branch 31 taken 100% (fallthrough)
+branch 32 taken 0% (throw)
+call   33 returned 100%
+call   34 returned 100%
+branch 35 taken 100% (fallthrough)
+branch 36 taken 0% (throw)
+call   37 returned 100%
+call   38 returned 100%
+branch 39 taken 100% (fallthrough)
+branch 40 taken 0% (throw)
+call   41 returned 100%
+call   42 returned 100%
+branch 43 taken 100% (fallthrough)
+branch 44 taken 0% (throw)
+call   45 returned 100%
+call   46 returned 100%
+branch 47 taken 100% (fallthrough)
+branch 48 taken 0% (throw)
+call   49 returned 100%
+call   50 returned 100%
+branch 51 taken 100% (fallthrough)
+branch 52 taken 0% (throw)
+call   53 returned 100%
+call   54 returned 100%
+branch 55 taken 100% (fallthrough)
+branch 56 taken 0% (throw)
+call   57 returned 100%
+call   58 returned 100%
+branch 59 taken 100% (fallthrough)
+branch 60 taken 0% (throw)
+call   61 returned 100%
+call   62 returned 100%
+branch 63 taken 100% (fallthrough)
+branch 64 taken 0% (throw)
+call   65 returned 100%
+call   66 returned 100%
+branch 67 taken 100% (fallthrough)
+branch 68 taken 0% (throw)
+call   69 returned 100%
+call   70 returned 100%
+branch 71 taken 100% (fallthrough)
+branch 72 taken 0% (throw)
+call   73 returned 100%
+call   74 returned 100%
+branch 75 taken 100% (fallthrough)
+branch 76 taken 0% (throw)
+call   77 returned 100%
+call   78 returned 100%
+branch 79 taken 100% (fallthrough)
+branch 80 taken 0% (throw)
+call   81 returned 100%
+call   82 returned 100%
+branch 83 taken 100% (fallthrough)
+branch 84 taken 0% (throw)
+call   85 returned 100%
+call   86 returned 100%
+branch 87 taken 100% (fallthrough)
+branch 88 taken 0% (throw)
+call   89 returned 100%
+call   90 returned 100%
+branch 91 taken 100% (fallthrough)
+branch 92 taken 0% (throw)
+call   93 returned 100%
+call   94 returned 100%
+branch 95 taken 100% (fallthrough)
+branch 96 taken 0% (throw)
+call   97 returned 100%
+call   98 returned 100%
+branch 99 taken 100% (fallthrough)
+branch 100 taken 0% (throw)
+call   101 returned 100%
+call   102 returned 100%
+branch 103 taken 100% (fallthrough)
+branch 104 taken 0% (throw)
+call   105 returned 100%
+call   106 returned 100%
+branch 107 taken 100% (fallthrough)
+branch 108 taken 0% (throw)
+call   109 returned 100%
+call   110 returned 100%
+branch 111 taken 100% (fallthrough)
+branch 112 taken 0% (throw)
+call   113 returned 100%
+call   114 returned 100%
+branch 115 taken 100% (fallthrough)
+branch 116 taken 0% (throw)
+call   117 returned 100%
+call   118 returned 100%
+branch 119 taken 100% (fallthrough)
+branch 120 taken 0% (throw)
+call   121 returned 100%
+call   122 returned 100%
+branch 123 taken 100% (fallthrough)
+branch 124 taken 0% (throw)
+call   125 returned 100%
+call   126 returned 100%
+branch 127 taken 100% (fallthrough)
+branch 128 taken 0% (throw)
+call   129 returned 100%
+call   130 returned 100%
+branch 131 taken 100% (fallthrough)
+branch 132 taken 0% (throw)
+call   133 returned 100%
+call   134 returned 100%
+branch 135 taken 100% (fallthrough)
+branch 136 taken 0% (throw)
+call   137 returned 100%
+call   138 returned 100%
+branch 139 taken 100% (fallthrough)
+branch 140 taken 0% (throw)
+call   141 returned 100%
+call   142 returned 100%
+branch 143 taken 100% (fallthrough)
+branch 144 taken 0% (throw)
+call   145 returned 100%
+call   146 returned 100%
+branch 147 taken 100% (fallthrough)
+branch 148 taken 0% (throw)
+call   149 returned 100%
+call   150 returned 100%
+branch 151 taken 100% (fallthrough)
+branch 152 taken 0% (throw)
+call   153 returned 100%
+call   154 returned 100%
+branch 155 taken 100% (fallthrough)
+branch 156 taken 0% (throw)
+call   157 returned 100%
+call   158 returned 100%
+branch 159 taken 100% (fallthrough)
+branch 160 taken 0% (throw)
+call   161 returned 100%
+call   162 returned 100%
+branch 163 taken 100% (fallthrough)
+branch 164 taken 0% (throw)
+call   165 returned 100%
+call   166 returned 100%
+branch 167 taken 100% (fallthrough)
+branch 168 taken 0% (throw)
+call   169 returned 100%
+call   170 returned 100%
+call   171 returned 100%
+branch 172 taken 91% (fallthrough)
+branch 173 taken 9%
+call   174 returned 100%
+call   175 returned 100%
+branch 176 taken 75% (fallthrough)
+branch 177 taken 25%
+call   178 returned 100%
+call   179 returned 100%
+call   180 returned 100%
+call   181 returned 100%
+call   182 returned 100%
+branch 183 taken 75% (fallthrough)
+branch 184 taken 25%
+call   185 returned 100%
+call   186 returned 100%
+call   187 returned 100%
+call   188 returned 100%
+call   189 returned 100%
+branch 190 taken 75% (fallthrough)
+branch 191 taken 25%
+call   192 returned 100%
+call   193 returned 100%
+call   194 returned 100%
+call   195 returned 100%
+call   196 returned 100%
+branch 197 taken 75% (fallthrough)
+branch 198 taken 25%
+call   199 returned 100%
+call   200 returned 100%
+call   201 returned 100%
+call   202 returned 100%
+call   203 returned 100%
+branch 204 taken 75% (fallthrough)
+branch 205 taken 25%
+call   206 returned 100%
+call   207 returned 100%
+call   208 returned 100%
+call   209 returned 100%
+call   210 returned 100%
+branch 211 taken 75% (fallthrough)
+branch 212 taken 25%
+call   213 returned 100%
+call   214 returned 100%
+call   215 returned 100%
+call   216 returned 100%
+call   217 returned 100%
+branch 218 taken 75% (fallthrough)
+branch 219 taken 25%
+call   220 returned 100%
+call   221 returned 100%
+call   222 returned 100%
+call   223 returned 100%
+call   224 returned 100%
+branch 225 taken 75% (fallthrough)
+branch 226 taken 25%
+call   227 returned 100%
+call   228 returned 100%
+call   229 returned 100%
+call   230 returned 100%
+call   231 returned 100%
+branch 232 taken 75% (fallthrough)
+branch 233 taken 25%
+call   234 returned 100%
+call   235 returned 100%
+call   236 returned 100%
+call   237 returned 100%
+call   238 returned 100%
+branch 239 taken 75% (fallthrough)
+branch 240 taken 25%
+call   241 returned 100%
+call   242 returned 100%
+call   243 returned 100%
+call   244 returned 100%
+call   245 never executed
+branch 246 never executed
+branch 247 never executed
+call   248 never executed
+call   249 never executed
+branch 250 never executed
+branch 251 never executed
+call   252 never executed
+call   253 never executed
+call   254 never executed
+call   255 never executed
+call   256 never executed
+branch 257 never executed
+branch 258 never executed
+call   259 never executed
+call   260 never executed
+call   261 never executed
+call   262 never executed
+call   263 never executed
+branch 264 never executed
+branch 265 never executed
+call   266 never executed
+call   267 never executed
+call   268 never executed
+call   269 never executed
+call   270 never executed
+branch 271 never executed
+branch 272 never executed
+call   273 never executed
+call   274 never executed
+call   275 never executed
+call   276 never executed
+call   277 never executed
+branch 278 never executed
+branch 279 never executed
+call   280 never executed
+call   281 never executed
+call   282 never executed
+call   283 never executed
+call   284 never executed
+branch 285 never executed
+branch 286 never executed
+call   287 never executed
+call   288 never executed
+call   289 never executed
+call   290 never executed
+call   291 never executed
+branch 292 never executed
+branch 293 never executed
+call   294 never executed
+call   295 never executed
+call   296 never executed
+call   297 never executed
+call   298 never executed
+branch 299 never executed
+branch 300 never executed
+call   301 never executed
+call   302 never executed
+call   303 never executed
+call   304 never executed
+call   305 never executed
+branch 306 never executed
+branch 307 never executed
+call   308 never executed
+call   309 never executed
+call   310 never executed
+call   311 never executed
+call   312 never executed
+branch 313 never executed
+branch 314 never executed
+call   315 never executed
+call   316 never executed
+call   317 never executed
+call   318 never executed
+branch 319 never executed
+branch 320 never executed
+call   321 never executed
+        -:  111:
+       1*:  112:        for (auto& rule : trigram_rules) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 never executed
+call    4 returned 100%
+branch  5 taken 100%
+branch  6 taken 0% (fallthrough)
+       1*:  113:            if (prev_committed == rule[0] && last_committed == rule[1]) {
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0%
+        -:  114:                // 把包含 rule[2] 的候选排到前面
+        4:  115:                for (size_t i = 1; i < result.size(); ++i) {
+call    0 returned 100%
+branch  1 taken 75%
+branch  2 taken 25% (fallthrough)
+        3:  116:                    if (result[i].find(rule[2]) != std::string::npos) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 0% (fallthrough)
+branch  4 taken 100%
+    #####:  117:                        std::swap(result[0], result[i]);
+call    0 never executed
+call    1 never executed
+call    2 never executed
+    #####:  118:                        break;
+        -:  119:                    }
+        -:  120:                }
+        1:  121:                break;
+        -:  122:            }
+        -:  123:        }
+        -:  124:    }
+        -:  125:
+        3:  126:    return result;
+    =====:  127:}
+call    0 never executed
+        -:  128:
+        -:  129:// ── v0.9.145 扩展句式模板（新增 20 个常用模板） ──────────────
+        -:  130:inline std::vector<std::pair<std::string, std::string>>
+function _ZN10pinyin_ime27extended_sentence_templatesB5cxx11Ev called 34 returned 100% blocks executed 78%
+       34:  131:extended_sentence_templates() {
+       34:  132:    auto templates = builtin_sentence_templates();  // 原有 34 个
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  133:
+        -:  134:    // v0.9.145 新增 20 个
+        -:  135:    std::vector<std::pair<std::string, std::string>> new_templates = {
+        -:  136:        {"ks", "开始"},           // 开始
+        -:  137:        {"js", "结束"},           // 结束
+        -:  138:        {"wz", "正在"},           // 正在
+        -:  139:        {"yy", "已有"},           // 已有
+        -:  140:        {"xy", "需要"},           // 需要
+        -:  141:        {"my", "没有"},           // 没有
+        -:  142:        {"bm", "不好意思"},       // 不好意思
+        -:  143:        {"dl", "登录"},           // 登录
+        -:  144:        {"tc", "退出"},           // 退出
+        -:  145:        {"sc", "删除"},           // 删除
+        -:  146:        {"xg", "修改"},           // 修改
+        -:  147:        {"cx", "查询"},           // 查询
+        -:  148:        {"tj", "添加"},           // 添加
+        -:  149:        {"gx", "更新"},           // 更新
+        -:  150:        {"az", "安装"},           // 安装
+        -:  151:        {"xz", "下载"},           // 下载
+        -:  152:        {"sc", "上传"},           // 上传
+        -:  153:        {"bf", "备份"},           // 备份
+        -:  154:        {"hf", "恢复"},           // 恢复
+        -:  155:        {"bt", "抱歉，"},         // 抱歉
+      748:  156:    };
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+branch 16 taken 100% (fallthrough)
+branch 17 taken 0% (throw)
+call   18 returned 100%
+branch 19 taken 100% (fallthrough)
+branch 20 taken 0% (throw)
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+branch 25 taken 100% (fallthrough)
+branch 26 taken 0% (throw)
+call   27 returned 100%
+branch 28 taken 100% (fallthrough)
+branch 29 taken 0% (throw)
+call   30 returned 100%
+branch 31 taken 100% (fallthrough)
+branch 32 taken 0% (throw)
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+branch 37 taken 100% (fallthrough)
+branch 38 taken 0% (throw)
+call   39 returned 100%
+branch 40 taken 100% (fallthrough)
+branch 41 taken 0% (throw)
+call   42 returned 100%
+branch 43 taken 100% (fallthrough)
+branch 44 taken 0% (throw)
+call   45 returned 100%
+branch 46 taken 100% (fallthrough)
+branch 47 taken 0% (throw)
+call   48 returned 100%
+branch 49 taken 100% (fallthrough)
+branch 50 taken 0% (throw)
+call   51 returned 100%
+branch 52 taken 100% (fallthrough)
+branch 53 taken 0% (throw)
+call   54 returned 100%
+branch 55 taken 100% (fallthrough)
+branch 56 taken 0% (throw)
+call   57 returned 100%
+branch 58 taken 100% (fallthrough)
+branch 59 taken 0% (throw)
+call   60 returned 100%
+call   61 returned 100%
+branch 62 taken 100% (fallthrough)
+branch 63 taken 0% (throw)
+call   64 returned 100%
+call   65 never executed
+        -:  157:
+      714:  158:    for (auto& t : new_templates) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 95%
+branch  6 taken 5% (fallthrough)
+      680:  159:        bool dup = false;
+    28322:  160:        for (auto& existing : templates) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 98%
+branch  6 taken 2% (fallthrough)
+    27710:  161:            if (existing.first == t.first) { dup = true; break; }
+call    0 returned 100%
+branch  1 taken 1% (fallthrough)
+branch  2 taken 100%
+        -:  162:        }
+      680:  163:        if (!dup) templates.push_back(t);
+branch  0 taken 90% (fallthrough)
+branch  1 taken 10%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        -:  164:    }
+        -:  165:
+       68:  166:    return templates;
+       34:  167:}
+call    0 returned 100%
+call    1 never executed
+call    2 never executed
+        -:  168:
+        -:  169:// ── v0.9.145 候选词质量评分 ──────────────────────────────────
+        -:  170:// 对候选词进行质量评分，用于排序优化
+function _ZN10pinyin_ime23candidate_quality_scoreERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES7_ called 2 returned 100% blocks executed 57%
+        2:  171:inline int candidate_quality_score(const std::string& candidate,
+        -:  172:                                    const std::string& input) {
+        2:  173:    int score = 0;
+        -:  174:
+        -:  175:    // 1. 长度匹配：候选词长度与输入拼音预期长度越接近越好
+        -:  176:    // UTF-8 中文每字 3 字节，拼音每音节约 2-4 字母
+        2:  177:    size_t expected_chars = input.size() / 3;  // 估计汉字个数
+call    0 returned 100%
+        2:  178:    size_t expected_bytes = expected_chars * 3;  // 估计 UTF-8 字节数
+       2*:  179:    if (candidate.size() == expected_bytes) score += 10;
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+        2:  180:    else if (candidate.size() >= expected_bytes / 2 && candidate.size() <= expected_bytes * 2) score += 5;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 50% (fallthrough)
+branch  5 taken 50%
+branch  6 taken 50% (fallthrough)
+branch  7 taken 50%
+        -:  181:    // 给所有非空候选基础分
+        2:  182:    if (!candidate.empty()) score += 1;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+        -:  183:
+        -:  184:    // 2. 常用字加分
+        -:  185:    static const std::set<std::string> common_chars = {
+        -:  186:        "的", "是", "在", "我", "有", "人", "这", "中",
+        -:  187:        "大", "为", "上", "个", "国", "不", "到", "会",
+        -:  188:        "时", "要", "说", "就", "出", "会", "可", "也",
+        -:  189:        "对", "生", "能", "而", "子", "那", "得", "于",
+       34:  190:    };
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+call   10 returned 100%
+branch 11 taken 100% (fallthrough)
+branch 12 taken 0% (throw)
+call   13 returned 100%
+call   14 returned 100%
+branch 15 taken 100% (fallthrough)
+branch 16 taken 0% (throw)
+call   17 returned 100%
+call   18 returned 100%
+branch 19 taken 100% (fallthrough)
+branch 20 taken 0% (throw)
+call   21 returned 100%
+call   22 returned 100%
+branch 23 taken 100% (fallthrough)
+branch 24 taken 0% (throw)
+call   25 returned 100%
+call   26 returned 100%
+branch 27 taken 100% (fallthrough)
+branch 28 taken 0% (throw)
+call   29 returned 100%
+call   30 returned 100%
+branch 31 taken 100% (fallthrough)
+branch 32 taken 0% (throw)
+call   33 returned 100%
+call   34 returned 100%
+branch 35 taken 100% (fallthrough)
+branch 36 taken 0% (throw)
+call   37 returned 100%
+call   38 returned 100%
+branch 39 taken 100% (fallthrough)
+branch 40 taken 0% (throw)
+call   41 returned 100%
+call   42 returned 100%
+branch 43 taken 100% (fallthrough)
+branch 44 taken 0% (throw)
+call   45 returned 100%
+call   46 returned 100%
+branch 47 taken 100% (fallthrough)
+branch 48 taken 0% (throw)
+call   49 returned 100%
+call   50 returned 100%
+branch 51 taken 100% (fallthrough)
+branch 52 taken 0% (throw)
+call   53 returned 100%
+call   54 returned 100%
+branch 55 taken 100% (fallthrough)
+branch 56 taken 0% (throw)
+call   57 returned 100%
+call   58 returned 100%
+branch 59 taken 100% (fallthrough)
+branch 60 taken 0% (throw)
+call   61 returned 100%
+call   62 returned 100%
+branch 63 taken 100% (fallthrough)
+branch 64 taken 0% (throw)
+call   65 returned 100%
+call   66 returned 100%
+branch 67 taken 100% (fallthrough)
+branch 68 taken 0% (throw)
+call   69 returned 100%
+call   70 returned 100%
+branch 71 taken 100% (fallthrough)
+branch 72 taken 0% (throw)
+call   73 returned 100%
+call   74 returned 100%
+branch 75 taken 100% (fallthrough)
+branch 76 taken 0% (throw)
+call   77 returned 100%
+call   78 returned 100%
+branch 79 taken 100% (fallthrough)
+branch 80 taken 0% (throw)
+call   81 returned 100%
+call   82 returned 100%
+branch 83 taken 100% (fallthrough)
+branch 84 taken 0% (throw)
+call   85 returned 100%
+call   86 returned 100%
+branch 87 taken 100% (fallthrough)
+branch 88 taken 0% (throw)
+call   89 returned 100%
+call   90 returned 100%
+branch 91 taken 100% (fallthrough)
+branch 92 taken 0% (throw)
+call   93 returned 100%
+call   94 returned 100%
+branch 95 taken 100% (fallthrough)
+branch 96 taken 0% (throw)
+call   97 returned 100%
+call   98 returned 100%
+branch 99 taken 100% (fallthrough)
+branch 100 taken 0% (throw)
+call   101 returned 100%
+call   102 returned 100%
+branch 103 taken 100% (fallthrough)
+branch 104 taken 0% (throw)
+call   105 returned 100%
+call   106 returned 100%
+branch 107 taken 100% (fallthrough)
+branch 108 taken 0% (throw)
+call   109 returned 100%
+call   110 returned 100%
+branch 111 taken 100% (fallthrough)
+branch 112 taken 0% (throw)
+call   113 returned 100%
+call   114 returned 100%
+branch 115 taken 100% (fallthrough)
+branch 116 taken 0% (throw)
+call   117 returned 100%
+call   118 returned 100%
+branch 119 taken 100% (fallthrough)
+branch 120 taken 0% (throw)
+call   121 returned 100%
+call   122 returned 100%
+branch 123 taken 100% (fallthrough)
+branch 124 taken 0% (throw)
+call   125 returned 100%
+call   126 returned 100%
+branch 127 taken 100% (fallthrough)
+branch 128 taken 0% (throw)
+call   129 returned 100%
+call   130 returned 100%
+branch 131 taken 100% (fallthrough)
+branch 132 taken 0% (throw)
+call   133 returned 100%
+call   134 returned 100%
+branch 135 taken 100% (fallthrough)
+branch 136 taken 0% (throw)
+call   137 returned 100%
+call   138 returned 100%
+call   139 returned 100%
+branch 140 taken 97% (fallthrough)
+branch 141 taken 3%
+call   142 returned 100%
+call   143 returned 100%
+call   144 returned 100%
+call   145 returned 100%
+call   146 returned 100%
+call   147 returned 100%
+call   148 returned 100%
+call   149 returned 100%
+call   150 returned 100%
+call   151 returned 100%
+call   152 returned 100%
+call   153 returned 100%
+call   154 returned 100%
+call   155 returned 100%
+call   156 returned 100%
+call   157 returned 100%
+call   158 returned 100%
+call   159 returned 100%
+call   160 returned 100%
+call   161 returned 100%
+call   162 returned 100%
+call   163 returned 100%
+call   164 returned 100%
+call   165 returned 100%
+call   166 returned 100%
+call   167 returned 100%
+call   168 returned 100%
+call   169 returned 100%
+call   170 returned 100%
+call   171 returned 100%
+call   172 returned 100%
+call   173 returned 100%
+call   174 returned 100%
+call   175 never executed
+branch 176 never executed
+branch 177 never executed
+call   178 never executed
+call   179 never executed
+call   180 never executed
+call   181 never executed
+call   182 never executed
+call   183 never executed
+call   184 never executed
+call   185 never executed
+call   186 never executed
+call   187 never executed
+call   188 never executed
+call   189 never executed
+call   190 never executed
+call   191 never executed
+call   192 never executed
+call   193 never executed
+call   194 never executed
+call   195 never executed
+call   196 never executed
+call   197 never executed
+call   198 never executed
+call   199 never executed
+call   200 never executed
+call   201 never executed
+call   202 never executed
+call   203 never executed
+call   204 never executed
+call   205 never executed
+call   206 never executed
+call   207 never executed
+call   208 never executed
+call   209 never executed
+call   210 never executed
+branch 211 never executed
+branch 212 never executed
+call   213 never executed
+       64:  191:    for (auto& ch : common_chars) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 97%
+branch  6 taken 3% (fallthrough)
+       62:  192:        if (candidate.find(ch) != std::string::npos) score += 2;
+call    0 returned 100%
+branch  1 taken 2% (fallthrough)
+branch  2 taken 98%
+        -:  193:    }
+        -:  194:
+        -:  195:    // 3. 包含标点减分（通常不是首选）
+       11:  196:    for (char c : candidate) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 82%
+branch  6 taken 18% (fallthrough)
+       9*:  197:        if (c == ' ' || c == '	') score -= 1;
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+branch  2 taken 0% (fallthrough)
+branch  3 taken 100%
+        -:  198:    }
+        -:  199:
+        2:  200:    return score;
+        -:  201:}
+        -:  202:
+        -:  203:// 统一入口：搜狗式快速输入 v6（v0.9.145）
+function _ZN10pinyin_ime19quick_candidates_v6ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES7_S7_S7_ called 33 returned 100% blocks executed 75%
+       33:  204:inline std::vector<std::string> quick_candidates_v6(const std::string& input,
+        -:  205:                    const std::string& preceding = "",
+        -:  206:                    const std::string& prev2 = "",
+        -:  207:                    const std::string& theme_name = "default") {
+        -:  208:    // 基于 v5
+       33:  209:    auto result = quick_candidates_v5(input, preceding, theme_name);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  210:
+        -:  211:    // 智能拼音纠错候选
+       33:  212:    auto corrections = smart_pinyin_correct(input);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       88:  213:    for (auto& c : corrections) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 62%
+branch  6 taken 38% (fallthrough)
+       55:  214:        bool dup = false;
+     180*:  215:        for (auto& r : result) if (r == c) { dup = true; break; }
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+call    6 returned 100%
+call    7 returned 100%
+branch  8 taken 69%
+branch  9 taken 31% (fallthrough)
+       55:  216:        if (!dup) result.push_back(c);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        -:  217:    }
+        -:  218:
+        -:  219:    // 扩展句式模板
+       33:  220:    auto templates = extended_sentence_templates();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+     1749:  221:    for (auto& t : templates) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 98%
+branch  6 taken 2% (fallthrough)
+     1716:  222:        if (input == t.first) {
+call    0 returned 100%
+branch  1 taken 1% (fallthrough)
+branch  2 taken 100%
+        3:  223:            bool dup = false;
+       3*:  224:            for (auto& r : result) if (r == t.second) { dup = true; break; }
+call    0 returned 100%
+call    1 returned 100%
+call    2 never executed
+call    3 never executed
+branch  4 never executed
+branch  5 never executed
+call    6 never executed
+call    7 returned 100%
+branch  8 taken 0%
+branch  9 taken 100% (fallthrough)
+        3:  225:            if (!dup) result.insert(result.begin(), t.second);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+        -:  226:        }
+        -:  227:    }
+        -:  228:
+        -:  229:    // 增强上下文排序
+       33:  230:    if (!preceding.empty()) {
+call    0 returned 100%
+branch  1 taken 3% (fallthrough)
+branch  2 taken 97%
+        1:  231:        result = context_rank_candidates_v2(result, preceding, prev2);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+call    4 returned 100%
+        -:  232:    }
+        -:  233:
+       66:  234:    return result;
+       33:  235:}
+call    0 returned 100%
+call    1 returned 100%
+call    2 never executed
+call    3 never executed
+call    4 never executed
+        -:  236:
+        -:  237:// ── v0.9.146 动态规划拼音分词 ──────────────────────────────────
+        -:  238:// 完整的有效拼音音节表（用于DP分词）
+function _ZN10pinyin_ime22valid_pinyin_syllablesB5cxx11Ev called 29 returned 100% blocks executed 50%
+       29:  239:inline const std::set<std::string>& valid_pinyin_syllables() {
+        -:  240:    static const std::set<std::string> syllables = {
+        -:  241:        // a
+        -:  242:        "a", "ai", "an", "ang", "ao",
+        -:  243:        // b
+        -:  244:        "ba", "bai", "ban", "bang", "bao", "bei", "ben", "beng", "bi", "bian",
+        -:  245:        "biao", "bie", "bin", "bing", "bo", "bu",
+        -:  246:        // c
+        -:  247:        "ca", "cai", "can", "cang", "cao", "ce", "cen", "ceng", "cha", "chai",
+        -:  248:        "chan", "chang", "chao", "che", "chen", "cheng", "chi", "chong", "chou",
+        -:  249:        "chu", "chua", "chuai", "chuan", "chuang", "chui", "chun", "chuo", "ci",
+        -:  250:        "cong", "cou", "cu", "cuan", "cui", "cun", "cuo",
+        -:  251:        // d
+        -:  252:        "da", "dai", "dan", "dang", "dao", "de", "dei", "den", "deng", "di",
+        -:  253:        "dia", "dian", "diao", "die", "ding", "diu", "dong", "dou", "du", "duan",
+        -:  254:        "dui", "dun", "duo",
+        -:  255:        // e
+        -:  256:        "e", "ei", "en", "eng", "er",
+        -:  257:        // f
+        -:  258:        "fa", "fan", "fang", "fei", "fen", "feng", "fo", "fou", "fu",
+        -:  259:        // g
+        -:  260:        "ga", "gai", "gan", "gang", "gao", "ge", "gei", "gen", "geng", "gong",
+        -:  261:        "gou", "gu", "gua", "guai", "guan", "guang", "gui", "gun", "guo",
+        -:  262:        // h
+        -:  263:        "ha", "hai", "han", "hang", "hao", "he", "hei", "hen", "heng", "hong",
+        -:  264:        "hou", "hu", "hua", "huai", "huan", "huang", "hui", "hun", "huo",
+        -:  265:        // j
+        -:  266:        "ji", "jia", "jian", "jiang", "jiao", "jie", "jin", "jing", "jiong",
+        -:  267:        "jiu", "ju", "juan", "jue", "jun",
+        -:  268:        // k
+        -:  269:        "ka", "kai", "kan", "kang", "kao", "ke", "kei", "ken", "keng", "kong",
+        -:  270:        "kou", "ku", "kua", "kuai", "kuan", "kuang", "kui", "kun", "kuo",
+        -:  271:        // l
+        -:  272:        "la", "lai", "lan", "lang", "lao", "le", "lei", "leng", "li", "lia",
+        -:  273:        "lian", "liang", "liao", "lie", "lin", "ling", "liu", "long", "lou",
+        -:  274:        "lu", "luan", "lun", "luo", "lv", "lve",
+        -:  275:        // m
+        -:  276:        "ma", "mai", "man", "mang", "mao", "me", "mei", "men", "meng", "mi",
+        -:  277:        "mian", "miao", "mie", "min", "ming", "miu", "mo", "mou", "mu",
+        -:  278:        // n
+        -:  279:        "na", "nai", "nan", "nang", "nao", "ne", "nei", "nen", "neng", "ni",
+        -:  280:        "nian", "niang", "niao", "nie", "nin", "ning", "niu", "nong", "nou",
+        -:  281:        "nu", "nuan", "nun", "nuo", "nv", "nve",
+        -:  282:        // o
+        -:  283:        "o", "ou",
+        -:  284:        // p
+        -:  285:        "pa", "pai", "pan", "pang", "pao", "pei", "pen", "peng", "pi", "pian",
+        -:  286:        "piao", "pie", "pin", "ping", "po", "pou", "pu",
+        -:  287:        // q
+        -:  288:        "qi", "qia", "qian", "qiang", "qiao", "qie", "qin", "qing", "qiong",
+        -:  289:        "qiu", "qu", "quan", "que", "qun",
+        -:  290:        // r
+        -:  291:        "ran", "rang", "rao", "re", "ren", "reng", "ri", "rong", "rou", "ru",
+        -:  292:        "rua", "ruan", "rui", "run", "ruo",
+        -:  293:        // s
+        -:  294:        "sa", "sai", "san", "sang", "sao", "se", "sen", "seng", "sha", "shai",
+        -:  295:        "shan", "shang", "shao", "she", "shei", "shen", "sheng", "shi", "shong",
+        -:  296:        "shou", "shu", "shua", "shuai", "shuan", "shuang", "shui", "shun", "shuo",
+        -:  297:        "si", "song", "sou", "su", "suan", "sui", "sun", "suo",
+        -:  298:        // t
+        -:  299:        "ta", "tai", "tan", "tang", "tao", "te", "teng", "ti", "tian", "tiao",
+        -:  300:        "tie", "ting", "tong", "tou", "tu", "tuan", "tui", "tun", "tuo",
+        -:  301:        // w
+        -:  302:        "wa", "wai", "wan", "wang", "wei", "wen", "weng", "wo", "wu",
+        -:  303:        // x
+        -:  304:        "xi", "xia", "xian", "xiang", "xiao", "xie", "xin", "xing", "xiong",
+        -:  305:        "xiu", "xu", "xuan", "xue", "xun",
+        -:  306:        // y
+        -:  307:        "ya", "yan", "yang", "yao", "ye", "yi", "yin", "ying", "yong", "you",
+        -:  308:        "yu", "yuan", "yue", "yun",
+        -:  309:        // z
+        -:  310:        "za", "zai", "zan", "zang", "zao", "ze", "zei", "zen", "zeng", "zha",
+        -:  311:        "zhai", "zhan", "zhang", "zhao", "zhe", "zhei", "zhen", "zheng", "zhi",
+        -:  312:        "zhong", "zhou", "zhu", "zhua", "zhuai", "zhuan", "zhuang", "zhui",
+        -:  313:        "zhun", "zhuo", "zi", "zong", "zou", "zu", "zuan", "zui", "zun", "zuo",
+      439:  314:    };
+branch  0 taken 3% (fallthrough)
+branch  1 taken 97%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+call   10 returned 100%
+branch 11 taken 100% (fallthrough)
+branch 12 taken 0% (throw)
+call   13 returned 100%
+call   14 returned 100%
+branch 15 taken 100% (fallthrough)
+branch 16 taken 0% (throw)
+call   17 returned 100%
+call   18 returned 100%
+branch 19 taken 100% (fallthrough)
+branch 20 taken 0% (throw)
+call   21 returned 100%
+call   22 returned 100%
+branch 23 taken 100% (fallthrough)
+branch 24 taken 0% (throw)
+call   25 returned 100%
+call   26 returned 100%
+branch 27 taken 100% (fallthrough)
+branch 28 taken 0% (throw)
+call   29 returned 100%
+call   30 returned 100%
+branch 31 taken 100% (fallthrough)
+branch 32 taken 0% (throw)
+call   33 returned 100%
+call   34 returned 100%
+branch 35 taken 100% (fallthrough)
+branch 36 taken 0% (throw)
+call   37 returned 100%
+call   38 returned 100%
+branch 39 taken 100% (fallthrough)
+branch 40 taken 0% (throw)
+call   41 returned 100%
+call   42 returned 100%
+branch 43 taken 100% (fallthrough)
+branch 44 taken 0% (throw)
+call   45 returned 100%
+call   46 returned 100%
+branch 47 taken 100% (fallthrough)
+branch 48 taken 0% (throw)
+call   49 returned 100%
+call   50 returned 100%
+branch 51 taken 100% (fallthrough)
+branch 52 taken 0% (throw)
+call   53 returned 100%
+call   54 returned 100%
+branch 55 taken 100% (fallthrough)
+branch 56 taken 0% (throw)
+call   57 returned 100%
+call   58 returned 100%
+branch 59 taken 100% (fallthrough)
+branch 60 taken 0% (throw)
+call   61 returned 100%
+call   62 returned 100%
+branch 63 taken 100% (fallthrough)
+branch 64 taken 0% (throw)
+call   65 returned 100%
+call   66 returned 100%
+branch 67 taken 100% (fallthrough)
+branch 68 taken 0% (throw)
+call   69 returned 100%
+call   70 returned 100%
+branch 71 taken 100% (fallthrough)
+branch 72 taken 0% (throw)
+call   73 returned 100%
+call   74 returned 100%
+branch 75 taken 100% (fallthrough)
+branch 76 taken 0% (throw)
+call   77 returned 100%
+call   78 returned 100%
+branch 79 taken 100% (fallthrough)
+branch 80 taken 0% (throw)
+call   81 returned 100%
+call   82 returned 100%
+branch 83 taken 100% (fallthrough)
+branch 84 taken 0% (throw)
+call   85 returned 100%
+call   86 returned 100%
+branch 87 taken 100% (fallthrough)
+branch 88 taken 0% (throw)
+call   89 returned 100%
+call   90 returned 100%
+branch 91 taken 100% (fallthrough)
+branch 92 taken 0% (throw)
+call   93 returned 100%
+call   94 returned 100%
+branch 95 taken 100% (fallthrough)
+branch 96 taken 0% (throw)
+call   97 returned 100%
+call   98 returned 100%
+branch 99 taken 100% (fallthrough)
+branch 100 taken 0% (throw)
+call   101 returned 100%
+call   102 returned 100%
+branch 103 taken 100% (fallthrough)
+branch 104 taken 0% (throw)
+call   105 returned 100%
+call   106 returned 100%
+branch 107 taken 100% (fallthrough)
+branch 108 taken 0% (throw)
+call   109 returned 100%
+call   110 returned 100%
+branch 111 taken 100% (fallthrough)
+branch 112 taken 0% (throw)
+call   113 returned 100%
+call   114 returned 100%
+branch 115 taken 100% (fallthrough)
+branch 116 taken 0% (throw)
+call   117 returned 100%
+call   118 returned 100%
+branch 119 taken 100% (fallthrough)
+branch 120 taken 0% (throw)
+call   121 returned 100%
+call   122 returned 100%
+branch 123 taken 100% (fallthrough)
+branch 124 taken 0% (throw)
+call   125 returned 100%
+call   126 returned 100%
+branch 127 taken 100% (fallthrough)
+branch 128 taken 0% (throw)
+call   129 returned 100%
+call   130 returned 100%
+branch 131 taken 100% (fallthrough)
+branch 132 taken 0% (throw)
+call   133 returned 100%
+call   134 returned 100%
+branch 135 taken 100% (fallthrough)
+branch 136 taken 0% (throw)
+call   137 returned 100%
+call   138 returned 100%
+branch 139 taken 100% (fallthrough)
+branch 140 taken 0% (throw)
+call   141 returned 100%
+call   142 returned 100%
+branch 143 taken 100% (fallthrough)
+branch 144 taken 0% (throw)
+call   145 returned 100%
+call   146 returned 100%
+branch 147 taken 100% (fallthrough)
+branch 148 taken 0% (throw)
+call   149 returned 100%
+call   150 returned 100%
+branch 151 taken 100% (fallthrough)
+branch 152 taken 0% (throw)
+call   153 returned 100%
+call   154 returned 100%
+branch 155 taken 100% (fallthrough)
+branch 156 taken 0% (throw)
+call   157 returned 100%
+call   158 returned 100%
+branch 159 taken 100% (fallthrough)
+branch 160 taken 0% (throw)
+call   161 returned 100%
+call   162 returned 100%
+branch 163 taken 100% (fallthrough)
+branch 164 taken 0% (throw)
+call   165 returned 100%
+call   166 returned 100%
+branch 167 taken 100% (fallthrough)
+branch 168 taken 0% (throw)
+call   169 returned 100%
+call   170 returned 100%
+branch 171 taken 100% (fallthrough)
+branch 172 taken 0% (throw)
+call   173 returned 100%
+call   174 returned 100%
+branch 175 taken 100% (fallthrough)
+branch 176 taken 0% (throw)
+call   177 returned 100%
+call   178 returned 100%
+branch 179 taken 100% (fallthrough)
+branch 180 taken 0% (throw)
+call   181 returned 100%
+call   182 returned 100%
+branch 183 taken 100% (fallthrough)
+branch 184 taken 0% (throw)
+call   185 returned 100%
+call   186 returned 100%
+branch 187 taken 100% (fallthrough)
+branch 188 taken 0% (throw)
+call   189 returned 100%
+call   190 returned 100%
+branch 191 taken 100% (fallthrough)
+branch 192 taken 0% (throw)
+call   193 returned 100%
+call   194 returned 100%
+branch 195 taken 100% (fallthrough)
+branch 196 taken 0% (throw)
+call   197 returned 100%
+call   198 returned 100%
+branch 199 taken 100% (fallthrough)
+branch 200 taken 0% (throw)
+call   201 returned 100%
+call   202 returned 100%
+branch 203 taken 100% (fallthrough)
+branch 204 taken 0% (throw)
+call   205 returned 100%
+call   206 returned 100%
+branch 207 taken 100% (fallthrough)
+branch 208 taken 0% (throw)
+call   209 returned 100%
+call   210 returned 100%
+branch 211 taken 100% (fallthrough)
+branch 212 taken 0% (throw)
+call   213 returned 100%
+call   214 returned 100%
+branch 215 taken 100% (fallthrough)
+branch 216 taken 0% (throw)
+call   217 returned 100%
+call   218 returned 100%
+branch 219 taken 100% (fallthrough)
+branch 220 taken 0% (throw)
+call   221 returned 100%
+call   222 returned 100%
+branch 223 taken 100% (fallthrough)
+branch 224 taken 0% (throw)
+call   225 returned 100%
+call   226 returned 100%
+branch 227 taken 100% (fallthrough)
+branch 228 taken 0% (throw)
+call   229 returned 100%
+call   230 returned 100%
+branch 231 taken 100% (fallthrough)
+branch 232 taken 0% (throw)
+call   233 returned 100%
+call   234 returned 100%
+branch 235 taken 100% (fallthrough)
+branch 236 taken 0% (throw)
+call   237 returned 100%
+call   238 returned 100%
+branch 239 taken 100% (fallthrough)
+branch 240 taken 0% (throw)
+call   241 returned 100%
+call   242 returned 100%
+branch 243 taken 100% (fallthrough)
+branch 244 taken 0% (throw)
+call   245 returned 100%
+call   246 returned 100%
+branch 247 taken 100% (fallthrough)
+branch 248 taken 0% (throw)
+call   249 returned 100%
+call   250 returned 100%
+branch 251 taken 100% (fallthrough)
+branch 252 taken 0% (throw)
+call   253 returned 100%
+call   254 returned 100%
+branch 255 taken 100% (fallthrough)
+branch 256 taken 0% (throw)
+call   257 returned 100%
+call   258 returned 100%
+branch 259 taken 100% (fallthrough)
+branch 260 taken 0% (throw)
+call   261 returned 100%
+call   262 returned 100%
+branch 263 taken 100% (fallthrough)
+branch 264 taken 0% (throw)
+call   265 returned 100%
+call   266 returned 100%
+branch 267 taken 100% (fallthrough)
+branch 268 taken 0% (throw)
+call   269 returned 100%
+call   270 returned 100%
+branch 271 taken 100% (fallthrough)
+branch 272 taken 0% (throw)
+call   273 returned 100%
+call   274 returned 100%
+branch 275 taken 100% (fallthrough)
+branch 276 taken 0% (throw)
+call   277 returned 100%
+call   278 returned 100%
+branch 279 taken 100% (fallthrough)
+branch 280 taken 0% (throw)
+call   281 returned 100%
+call   282 returned 100%
+branch 283 taken 100% (fallthrough)
+branch 284 taken 0% (throw)
+call   285 returned 100%
+call   286 returned 100%
+branch 287 taken 100% (fallthrough)
+branch 288 taken 0% (throw)
+call   289 returned 100%
+call   290 returned 100%
+branch 291 taken 100% (fallthrough)
+branch 292 taken 0% (throw)
+call   293 returned 100%
+call   294 returned 100%
+branch 295 taken 100% (fallthrough)
+branch 296 taken 0% (throw)
+call   297 returned 100%
+call   298 returned 100%
+branch 299 taken 100% (fallthrough)
+branch 300 taken 0% (throw)
+call   301 returned 100%
+call   302 returned 100%
+branch 303 taken 100% (fallthrough)
+branch 304 taken 0% (throw)
+call   305 returned 100%
+call   306 returned 100%
+branch 307 taken 100% (fallthrough)
+branch 308 taken 0% (throw)
+call   309 returned 100%
+call   310 returned 100%
+branch 311 taken 100% (fallthrough)
+branch 312 taken 0% (throw)
+call   313 returned 100%
+call   314 returned 100%
+branch 315 taken 100% (fallthrough)
+branch 316 taken 0% (throw)
+call   317 returned 100%
+call   318 returned 100%
+branch 319 taken 100% (fallthrough)
+branch 320 taken 0% (throw)
+call   321 returned 100%
+call   322 returned 100%
+branch 323 taken 100% (fallthrough)
+branch 324 taken 0% (throw)
+call   325 returned 100%
+call   326 returned 100%
+branch 327 taken 100% (fallthrough)
+branch 328 taken 0% (throw)
+call   329 returned 100%
+call   330 returned 100%
+branch 331 taken 100% (fallthrough)
+branch 332 taken 0% (throw)
+call   333 returned 100%
+call   334 returned 100%
+branch 335 taken 100% (fallthrough)
+branch 336 taken 0% (throw)
+call   337 returned 100%
+call   338 returned 100%
+branch 339 taken 100% (fallthrough)
+branch 340 taken 0% (throw)
+call   341 returned 100%
+call   342 returned 100%
+branch 343 taken 100% (fallthrough)
+branch 344 taken 0% (throw)
+call   345 returned 100%
+call   346 returned 100%
+branch 347 taken 100% (fallthrough)
+branch 348 taken 0% (throw)
+call   349 returned 100%
+call   350 returned 100%
+branch 351 taken 100% (fallthrough)
+branch 352 taken 0% (throw)
+call   353 returned 100%
+call   354 returned 100%
+branch 355 taken 100% (fallthrough)
+branch 356 taken 0% (throw)
+call   357 returned 100%
+call   358 returned 100%
+branch 359 taken 100% (fallthrough)
+branch 360 taken 0% (throw)
+call   361 returned 100%
+call   362 returned 100%
+branch 363 taken 100% (fallthrough)
+branch 364 taken 0% (throw)
+call   365 returned 100%
+call   366 returned 100%
+branch 367 taken 100% (fallthrough)
+branch 368 taken 0% (throw)
+call   369 returned 100%
+call   370 returned 100%
+branch 371 taken 100% (fallthrough)
+branch 372 taken 0% (throw)
+call   373 returned 100%
+call   374 returned 100%
+branch 375 taken 100% (fallthrough)
+branch 376 taken 0% (throw)
+call   377 returned 100%
+call   378 returned 100%
+branch 379 taken 100% (fallthrough)
+branch 380 taken 0% (throw)
+call   381 returned 100%
+call   382 returned 100%
+branch 383 taken 100% (fallthrough)
+branch 384 taken 0% (throw)
+call   385 returned 100%
+call   386 returned 100%
+branch 387 taken 100% (fallthrough)
+branch 388 taken 0% (throw)
+call   389 returned 100%
+call   390 returned 100%
+branch 391 taken 100% (fallthrough)
+branch 392 taken 0% (throw)
+call   393 returned 100%
+call   394 returned 100%
+branch 395 taken 100% (fallthrough)
+branch 396 taken 0% (throw)
+call   397 returned 100%
+call   398 returned 100%
+branch 399 taken 100% (fallthrough)
+branch 400 taken 0% (throw)
+call   401 returned 100%
+call   402 returned 100%
+branch 403 taken 100% (fallthrough)
+branch 404 taken 0% (throw)
+call   405 returned 100%
+call   406 returned 100%
+branch 407 taken 100% (fallthrough)
+branch 408 taken 0% (throw)
+call   409 returned 100%
+call   410 returned 100%
+branch 411 taken 100% (fallthrough)
+branch 412 taken 0% (throw)
+call   413 returned 100%
+call   414 returned 100%
+branch 415 taken 100% (fallthrough)
+branch 416 taken 0% (throw)
+call   417 returned 100%
+call   418 returned 100%
+branch 419 taken 100% (fallthrough)
+branch 420 taken 0% (throw)
+call   421 returned 100%
+call   422 returned 100%
+branch 423 taken 100% (fallthrough)
+branch 424 taken 0% (throw)
+call   425 returned 100%
+call   426 returned 100%
+branch 427 taken 100% (fallthrough)
+branch 428 taken 0% (throw)
+call   429 returned 100%
+call   430 returned 100%
+branch 431 taken 100% (fallthrough)
+branch 432 taken 0% (throw)
+call   433 returned 100%
+call   434 returned 100%
+branch 435 taken 100% (fallthrough)
+branch 436 taken 0% (throw)
+call   437 returned 100%
+call   438 returned 100%
+branch 439 taken 100% (fallthrough)
+branch 440 taken 0% (throw)
+call   441 returned 100%
+call   442 returned 100%
+branch 443 taken 100% (fallthrough)
+branch 444 taken 0% (throw)
+call   445 returned 100%
+call   446 returned 100%
+branch 447 taken 100% (fallthrough)
+branch 448 taken 0% (throw)
+call   449 returned 100%
+call   450 returned 100%
+branch 451 taken 100% (fallthrough)
+branch 452 taken 0% (throw)
+call   453 returned 100%
+call   454 returned 100%
+branch 455 taken 100% (fallthrough)
+branch 456 taken 0% (throw)
+call   457 returned 100%
+call   458 returned 100%
+branch 459 taken 100% (fallthrough)
+branch 460 taken 0% (throw)
+call   461 returned 100%
+call   462 returned 100%
+branch 463 taken 100% (fallthrough)
+branch 464 taken 0% (throw)
+call   465 returned 100%
+call   466 returned 100%
+branch 467 taken 100% (fallthrough)
+branch 468 taken 0% (throw)
+call   469 returned 100%
+call   470 returned 100%
+branch 471 taken 100% (fallthrough)
+branch 472 taken 0% (throw)
+call   473 returned 100%
+call   474 returned 100%
+branch 475 taken 100% (fallthrough)
+branch 476 taken 0% (throw)
+call   477 returned 100%
+call   478 returned 100%
+branch 479 taken 100% (fallthrough)
+branch 480 taken 0% (throw)
+call   481 returned 100%
+call   482 returned 100%
+branch 483 taken 100% (fallthrough)
+branch 484 taken 0% (throw)
+call   485 returned 100%
+call   486 returned 100%
+branch 487 taken 100% (fallthrough)
+branch 488 taken 0% (throw)
+call   489 returned 100%
+call   490 returned 100%
+branch 491 taken 100% (fallthrough)
+branch 492 taken 0% (throw)
+call   493 returned 100%
+call   494 returned 100%
+branch 495 taken 100% (fallthrough)
+branch 496 taken 0% (throw)
+call   497 returned 100%
+call   498 returned 100%
+branch 499 taken 100% (fallthrough)
+branch 500 taken 0% (throw)
+call   501 returned 100%
+call   502 returned 100%
+branch 503 taken 100% (fallthrough)
+branch 504 taken 0% (throw)
+call   505 returned 100%
+call   506 returned 100%
+branch 507 taken 100% (fallthrough)
+branch 508 taken 0% (throw)
+call   509 returned 100%
+call   510 returned 100%
+branch 511 taken 100% (fallthrough)
+branch 512 taken 0% (throw)
+call   513 returned 100%
+call   514 returned 100%
+branch 515 taken 100% (fallthrough)
+branch 516 taken 0% (throw)
+call   517 returned 100%
+call   518 returned 100%
+branch 519 taken 100% (fallthrough)
+branch 520 taken 0% (throw)
+call   521 returned 100%
+call   522 returned 100%
+branch 523 taken 100% (fallthrough)
+branch 524 taken 0% (throw)
+call   525 returned 100%
+call   526 returned 100%
+branch 527 taken 100% (fallthrough)
+branch 528 taken 0% (throw)
+call   529 returned 100%
+call   530 returned 100%
+branch 531 taken 100% (fallthrough)
+branch 532 taken 0% (throw)
+call   533 returned 100%
+call   534 returned 100%
+branch 535 taken 100% (fallthrough)
+branch 536 taken 0% (throw)
+call   537 returned 100%
+call   538 returned 100%
+branch 539 taken 100% (fallthrough)
+branch 540 taken 0% (throw)
+call   541 returned 100%
+call   542 returned 100%
+branch 543 taken 100% (fallthrough)
+branch 544 taken 0% (throw)
+call   545 returned 100%
+call   546 returned 100%
+branch 547 taken 100% (fallthrough)
+branch 548 taken 0% (throw)
+call   549 returned 100%
+call   550 returned 100%
+branch 551 taken 100% (fallthrough)
+branch 552 taken 0% (throw)
+call   553 returned 100%
+call   554 returned 100%
+branch 555 taken 100% (fallthrough)
+branch 556 taken 0% (throw)
+call   557 returned 100%
+call   558 returned 100%
+branch 559 taken 100% (fallthrough)
+branch 560 taken 0% (throw)
+call   561 returned 100%
+call   562 returned 100%
+branch 563 taken 100% (fallthrough)
+branch 564 taken 0% (throw)
+call   565 returned 100%
+call   566 returned 100%
+branch 567 taken 100% (fallthrough)
+branch 568 taken 0% (throw)
+call   569 returned 100%
+call   570 returned 100%
+branch 571 taken 100% (fallthrough)
+branch 572 taken 0% (throw)
+call   573 returned 100%
+call   574 returned 100%
+branch 575 taken 100% (fallthrough)
+branch 576 taken 0% (throw)
+call   577 returned 100%
+call   578 returned 100%
+branch 579 taken 100% (fallthrough)
+branch 580 taken 0% (throw)
+call   581 returned 100%
+call   582 returned 100%
+branch 583 taken 100% (fallthrough)
+branch 584 taken 0% (throw)
+call   585 returned 100%
+call   586 returned 100%
+branch 587 taken 100% (fallthrough)
+branch 588 taken 0% (throw)
+call   589 returned 100%
+call   590 returned 100%
+branch 591 taken 100% (fallthrough)
+branch 592 taken 0% (throw)
+call   593 returned 100%
+call   594 returned 100%
+branch 595 taken 100% (fallthrough)
+branch 596 taken 0% (throw)
+call   597 returned 100%
+call   598 returned 100%
+branch 599 taken 100% (fallthrough)
+branch 600 taken 0% (throw)
+call   601 returned 100%
+call   602 returned 100%
+branch 603 taken 100% (fallthrough)
+branch 604 taken 0% (throw)
+call   605 returned 100%
+call   606 returned 100%
+branch 607 taken 100% (fallthrough)
+branch 608 taken 0% (throw)
+call   609 returned 100%
+call   610 returned 100%
+branch 611 taken 100% (fallthrough)
+branch 612 taken 0% (throw)
+call   613 returned 100%
+call   614 returned 100%
+branch 615 taken 100% (fallthrough)
+branch 616 taken 0% (throw)
+call   617 returned 100%
+call   618 returned 100%
+branch 619 taken 100% (fallthrough)
+branch 620 taken 0% (throw)
+call   621 returned 100%
+call   622 returned 100%
+branch 623 taken 100% (fallthrough)
+branch 624 taken 0% (throw)
+call   625 returned 100%
+call   626 returned 100%
+branch 627 taken 100% (fallthrough)
+branch 628 taken 0% (throw)
+call   629 returned 100%
+call   630 returned 100%
+branch 631 taken 100% (fallthrough)
+branch 632 taken 0% (throw)
+call   633 returned 100%
+call   634 returned 100%
+branch 635 taken 100% (fallthrough)
+branch 636 taken 0% (throw)
+call   637 returned 100%
+call   638 returned 100%
+branch 639 taken 100% (fallthrough)
+branch 640 taken 0% (throw)
+call   641 returned 100%
+call   642 returned 100%
+branch 643 taken 100% (fallthrough)
+branch 644 taken 0% (throw)
+call   645 returned 100%
+call   646 returned 100%
+branch 647 taken 100% (fallthrough)
+branch 648 taken 0% (throw)
+call   649 returned 100%
+call   650 returned 100%
+branch 651 taken 100% (fallthrough)
+branch 652 taken 0% (throw)
+call   653 returned 100%
+call   654 returned 100%
+branch 655 taken 100% (fallthrough)
+branch 656 taken 0% (throw)
+call   657 returned 100%
+call   658 returned 100%
+branch 659 taken 100% (fallthrough)
+branch 660 taken 0% (throw)
+call   661 returned 100%
+call   662 returned 100%
+branch 663 taken 100% (fallthrough)
+branch 664 taken 0% (throw)
+call   665 returned 100%
+call   666 returned 100%
+branch 667 taken 100% (fallthrough)
+branch 668 taken 0% (throw)
+call   669 returned 100%
+call   670 returned 100%
+branch 671 taken 100% (fallthrough)
+branch 672 taken 0% (throw)
+call   673 returned 100%
+call   674 returned 100%
+branch 675 taken 100% (fallthrough)
+branch 676 taken 0% (throw)
+call   677 returned 100%
+call   678 returned 100%
+branch 679 taken 100% (fallthrough)
+branch 680 taken 0% (throw)
+call   681 returned 100%
+call   682 returned 100%
+branch 683 taken 100% (fallthrough)
+branch 684 taken 0% (throw)
+call   685 returned 100%
+call   686 returned 100%
+branch 687 taken 100% (fallthrough)
+branch 688 taken 0% (throw)
+call   689 returned 100%
+call   690 returned 100%
+branch 691 taken 100% (fallthrough)
+branch 692 taken 0% (throw)
+call   693 returned 100%
+call   694 returned 100%
+branch 695 taken 100% (fallthrough)
+branch 696 taken 0% (throw)
+call   697 returned 100%
+call   698 returned 100%
+branch 699 taken 100% (fallthrough)
+branch 700 taken 0% (throw)
+call   701 returned 100%
+call   702 returned 100%
+branch 703 taken 100% (fallthrough)
+branch 704 taken 0% (throw)
+call   705 returned 100%
+call   706 returned 100%
+branch 707 taken 100% (fallthrough)
+branch 708 taken 0% (throw)
+call   709 returned 100%
+call   710 returned 100%
+branch 711 taken 100% (fallthrough)
+branch 712 taken 0% (throw)
+call   713 returned 100%
+call   714 returned 100%
+branch 715 taken 100% (fallthrough)
+branch 716 taken 0% (throw)
+call   717 returned 100%
+call   718 returned 100%
+branch 719 taken 100% (fallthrough)
+branch 720 taken 0% (throw)
+call   721 returned 100%
+call   722 returned 100%
+branch 723 taken 100% (fallthrough)
+branch 724 taken 0% (throw)
+call   725 returned 100%
+call   726 returned 100%
+branch 727 taken 100% (fallthrough)
+branch 728 taken 0% (throw)
+call   729 returned 100%
+call   730 returned 100%
+branch 731 taken 100% (fallthrough)
+branch 732 taken 0% (throw)
+call   733 returned 100%
+call   734 returned 100%
+branch 735 taken 100% (fallthrough)
+branch 736 taken 0% (throw)
+call   737 returned 100%
+call   738 returned 100%
+branch 739 taken 100% (fallthrough)
+branch 740 taken 0% (throw)
+call   741 returned 100%
+call   742 returned 100%
+branch 743 taken 100% (fallthrough)
+branch 744 taken 0% (throw)
+call   745 returned 100%
+call   746 returned 100%
+branch 747 taken 100% (fallthrough)
+branch 748 taken 0% (throw)
+call   749 returned 100%
+call   750 returned 100%
+branch 751 taken 100% (fallthrough)
+branch 752 taken 0% (throw)
+call   753 returned 100%
+call   754 returned 100%
+branch 755 taken 100% (fallthrough)
+branch 756 taken 0% (throw)
+call   757 returned 100%
+call   758 returned 100%
+branch 759 taken 100% (fallthrough)
+branch 760 taken 0% (throw)
+call   761 returned 100%
+call   762 returned 100%
+branch 763 taken 100% (fallthrough)
+branch 764 taken 0% (throw)
+call   765 returned 100%
+call   766 returned 100%
+branch 767 taken 100% (fallthrough)
+branch 768 taken 0% (throw)
+call   769 returned 100%
+call   770 returned 100%
+branch 771 taken 100% (fallthrough)
+branch 772 taken 0% (throw)
+call   773 returned 100%
+call   774 returned 100%
+branch 775 taken 100% (fallthrough)
+branch 776 taken 0% (throw)
+call   777 returned 100%
+call   778 returned 100%
+branch 779 taken 100% (fallthrough)
+branch 780 taken 0% (throw)
+call   781 returned 100%
+call   782 returned 100%
+branch 783 taken 100% (fallthrough)
+branch 784 taken 0% (throw)
+call   785 returned 100%
+call   786 returned 100%
+branch 787 taken 100% (fallthrough)
+branch 788 taken 0% (throw)
+call   789 returned 100%
+call   790 returned 100%
+branch 791 taken 100% (fallthrough)
+branch 792 taken 0% (throw)
+call   793 returned 100%
+call   794 returned 100%
+branch 795 taken 100% (fallthrough)
+branch 796 taken 0% (throw)
+call   797 returned 100%
+call   798 returned 100%
+branch 799 taken 100% (fallthrough)
+branch 800 taken 0% (throw)
+call   801 returned 100%
+call   802 returned 100%
+branch 803 taken 100% (fallthrough)
+branch 804 taken 0% (throw)
+call   805 returned 100%
+call   806 returned 100%
+branch 807 taken 100% (fallthrough)
+branch 808 taken 0% (throw)
+call   809 returned 100%
+call   810 returned 100%
+branch 811 taken 100% (fallthrough)
+branch 812 taken 0% (throw)
+call   813 returned 100%
+call   814 returned 100%
+branch 815 taken 100% (fallthrough)
+branch 816 taken 0% (throw)
+call   817 returned 100%
+call   818 returned 100%
+branch 819 taken 100% (fallthrough)
+branch 820 taken 0% (throw)
+call   821 returned 100%
+call   822 returned 100%
+branch 823 taken 100% (fallthrough)
+branch 824 taken 0% (throw)
+call   825 returned 100%
+call   826 returned 100%
+branch 827 taken 100% (fallthrough)
+branch 828 taken 0% (throw)
+call   829 returned 100%
+call   830 returned 100%
+branch 831 taken 100% (fallthrough)
+branch 832 taken 0% (throw)
+call   833 returned 100%
+call   834 returned 100%
+branch 835 taken 100% (fallthrough)
+branch 836 taken 0% (throw)
+call   837 returned 100%
+call   838 returned 100%
+branch 839 taken 100% (fallthrough)
+branch 840 taken 0% (throw)
+call   841 returned 100%
+call   842 returned 100%
+branch 843 taken 100% (fallthrough)
+branch 844 taken 0% (throw)
+call   845 returned 100%
+call   846 returned 100%
+branch 847 taken 100% (fallthrough)
+branch 848 taken 0% (throw)
+call   849 returned 100%
+call   850 returned 100%
+branch 851 taken 100% (fallthrough)
+branch 852 taken 0% (throw)
+call   853 returned 100%
+call   854 returned 100%
+branch 855 taken 100% (fallthrough)
+branch 856 taken 0% (throw)
+call   857 returned 100%
+call   858 returned 100%
+branch 859 taken 100% (fallthrough)
+branch 860 taken 0% (throw)
+call   861 returned 100%
+call   862 returned 100%
+branch 863 taken 100% (fallthrough)
+branch 864 taken 0% (throw)
+call   865 returned 100%
+call   866 returned 100%
+branch 867 taken 100% (fallthrough)
+branch 868 taken 0% (throw)
+call   869 returned 100%
+call   870 returned 100%
+branch 871 taken 100% (fallthrough)
+branch 872 taken 0% (throw)
+call   873 returned 100%
+call   874 returned 100%
+branch 875 taken 100% (fallthrough)
+branch 876 taken 0% (throw)
+call   877 returned 100%
+call   878 returned 100%
+branch 879 taken 100% (fallthrough)
+branch 880 taken 0% (throw)
+call   881 returned 100%
+call   882 returned 100%
+branch 883 taken 100% (fallthrough)
+branch 884 taken 0% (throw)
+call   885 returned 100%
+call   886 returned 100%
+branch 887 taken 100% (fallthrough)
+branch 888 taken 0% (throw)
+call   889 returned 100%
+call   890 returned 100%
+branch 891 taken 100% (fallthrough)
+branch 892 taken 0% (throw)
+call   893 returned 100%
+call   894 returned 100%
+branch 895 taken 100% (fallthrough)
+branch 896 taken 0% (throw)
+call   897 returned 100%
+call   898 returned 100%
+branch 899 taken 100% (fallthrough)
+branch 900 taken 0% (throw)
+call   901 returned 100%
+call   902 returned 100%
+branch 903 taken 100% (fallthrough)
+branch 904 taken 0% (throw)
+call   905 returned 100%
+call   906 returned 100%
+branch 907 taken 100% (fallthrough)
+branch 908 taken 0% (throw)
+call   909 returned 100%
+call   910 returned 100%
+branch 911 taken 100% (fallthrough)
+branch 912 taken 0% (throw)
+call   913 returned 100%
+call   914 returned 100%
+branch 915 taken 100% (fallthrough)
+branch 916 taken 0% (throw)
+call   917 returned 100%
+call   918 returned 100%
+branch 919 taken 100% (fallthrough)
+branch 920 taken 0% (throw)
+call   921 returned 100%
+call   922 returned 100%
+branch 923 taken 100% (fallthrough)
+branch 924 taken 0% (throw)
+call   925 returned 100%
+call   926 returned 100%
+branch 927 taken 100% (fallthrough)
+branch 928 taken 0% (throw)
+call   929 returned 100%
+call   930 returned 100%
+branch 931 taken 100% (fallthrough)
+branch 932 taken 0% (throw)
+call   933 returned 100%
+call   934 returned 100%
+branch 935 taken 100% (fallthrough)
+branch 936 taken 0% (throw)
+call   937 returned 100%
+call   938 returned 100%
+branch 939 taken 100% (fallthrough)
+branch 940 taken 0% (throw)
+call   941 returned 100%
+call   942 returned 100%
+branch 943 taken 100% (fallthrough)
+branch 944 taken 0% (throw)
+call   945 returned 100%
+call   946 returned 100%
+branch 947 taken 100% (fallthrough)
+branch 948 taken 0% (throw)
+call   949 returned 100%
+call   950 returned 100%
+branch 951 taken 100% (fallthrough)
+branch 952 taken 0% (throw)
+call   953 returned 100%
+call   954 returned 100%
+branch 955 taken 100% (fallthrough)
+branch 956 taken 0% (throw)
+call   957 returned 100%
+call   958 returned 100%
+branch 959 taken 100% (fallthrough)
+branch 960 taken 0% (throw)
+call   961 returned 100%
+call   962 returned 100%
+branch 963 taken 100% (fallthrough)
+branch 964 taken 0% (throw)
+call   965 returned 100%
+call   966 returned 100%
+branch 967 taken 100% (fallthrough)
+branch 968 taken 0% (throw)
+call   969 returned 100%
+call   970 returned 100%
+branch 971 taken 100% (fallthrough)
+branch 972 taken 0% (throw)
+call   973 returned 100%
+call   974 returned 100%
+branch 975 taken 100% (fallthrough)
+branch 976 taken 0% (throw)
+call   977 returned 100%
+call   978 returned 100%
+branch 979 taken 100% (fallthrough)
+branch 980 taken 0% (throw)
+call   981 returned 100%
+call   982 returned 100%
+branch 983 taken 100% (fallthrough)
+branch 984 taken 0% (throw)
+call   985 returned 100%
+call   986 returned 100%
+branch 987 taken 100% (fallthrough)
+branch 988 taken 0% (throw)
+call   989 returned 100%
+call   990 returned 100%
+branch 991 taken 100% (fallthrough)
+branch 992 taken 0% (throw)
+call   993 returned 100%
+call   994 returned 100%
+branch 995 taken 100% (fallthrough)
+branch 996 taken 0% (throw)
+call   997 returned 100%
+call   998 returned 100%
+branch 999 taken 100% (fallthrough)
+branch 1000 taken 0% (throw)
+call   1001 returned 100%
+call   1002 returned 100%
+branch 1003 taken 100% (fallthrough)
+branch 1004 taken 0% (throw)
+call   1005 returned 100%
+call   1006 returned 100%
+branch 1007 taken 100% (fallthrough)
+branch 1008 taken 0% (throw)
+call   1009 returned 100%
+call   1010 returned 100%
+branch 1011 taken 100% (fallthrough)
+branch 1012 taken 0% (throw)
+call   1013 returned 100%
+call   1014 returned 100%
+branch 1015 taken 100% (fallthrough)
+branch 1016 taken 0% (throw)
+call   1017 returned 100%
+call   1018 returned 100%
+branch 1019 taken 100% (fallthrough)
+branch 1020 taken 0% (throw)
+call   1021 returned 100%
+call   1022 returned 100%
+branch 1023 taken 100% (fallthrough)
+branch 1024 taken 0% (throw)
+call   1025 returned 100%
+call   1026 returned 100%
+branch 1027 taken 100% (fallthrough)
+branch 1028 taken 0% (throw)
+call   1029 returned 100%
+call   1030 returned 100%
+branch 1031 taken 100% (fallthrough)
+branch 1032 taken 0% (throw)
+call   1033 returned 100%
+call   1034 returned 100%
+branch 1035 taken 100% (fallthrough)
+branch 1036 taken 0% (throw)
+call   1037 returned 100%
+call   1038 returned 100%
+branch 1039 taken 100% (fallthrough)
+branch 1040 taken 0% (throw)
+call   1041 returned 100%
+call   1042 returned 100%
+branch 1043 taken 100% (fallthrough)
+branch 1044 taken 0% (throw)
+call   1045 returned 100%
+call   1046 returned 100%
+branch 1047 taken 100% (fallthrough)
+branch 1048 taken 0% (throw)
+call   1049 returned 100%
+call   1050 returned 100%
+branch 1051 taken 100% (fallthrough)
+branch 1052 taken 0% (throw)
+call   1053 returned 100%
+call   1054 returned 100%
+branch 1055 taken 100% (fallthrough)
+branch 1056 taken 0% (throw)
+call   1057 returned 100%
+call   1058 returned 100%
+branch 1059 taken 100% (fallthrough)
+branch 1060 taken 0% (throw)
+call   1061 returned 100%
+call   1062 returned 100%
+branch 1063 taken 100% (fallthrough)
+branch 1064 taken 0% (throw)
+call   1065 returned 100%
+call   1066 returned 100%
+branch 1067 taken 100% (fallthrough)
+branch 1068 taken 0% (throw)
+call   1069 returned 100%
+call   1070 returned 100%
+branch 1071 taken 100% (fallthrough)
+branch 1072 taken 0% (throw)
+call   1073 returned 100%
+call   1074 returned 100%
+branch 1075 taken 100% (fallthrough)
+branch 1076 taken 0% (throw)
+call   1077 returned 100%
+call   1078 returned 100%
+branch 1079 taken 100% (fallthrough)
+branch 1080 taken 0% (throw)
+call   1081 returned 100%
+call   1082 returned 100%
+branch 1083 taken 100% (fallthrough)
+branch 1084 taken 0% (throw)
+call   1085 returned 100%
+call   1086 returned 100%
+branch 1087 taken 100% (fallthrough)
+branch 1088 taken 0% (throw)
+call   1089 returned 100%
+call   1090 returned 100%
+branch 1091 taken 100% (fallthrough)
+branch 1092 taken 0% (throw)
+call   1093 returned 100%
+call   1094 returned 100%
+branch 1095 taken 100% (fallthrough)
+branch 1096 taken 0% (throw)
+call   1097 returned 100%
+call   1098 returned 100%
+branch 1099 taken 100% (fallthrough)
+branch 1100 taken 0% (throw)
+call   1101 returned 100%
+call   1102 returned 100%
+branch 1103 taken 100% (fallthrough)
+branch 1104 taken 0% (throw)
+call   1105 returned 100%
+call   1106 returned 100%
+branch 1107 taken 100% (fallthrough)
+branch 1108 taken 0% (throw)
+call   1109 returned 100%
+call   1110 returned 100%
+branch 1111 taken 100% (fallthrough)
+branch 1112 taken 0% (throw)
+call   1113 returned 100%
+call   1114 returned 100%
+branch 1115 taken 100% (fallthrough)
+branch 1116 taken 0% (throw)
+call   1117 returned 100%
+call   1118 returned 100%
+branch 1119 taken 100% (fallthrough)
+branch 1120 taken 0% (throw)
+call   1121 returned 100%
+call   1122 returned 100%
+branch 1123 taken 100% (fallthrough)
+branch 1124 taken 0% (throw)
+call   1125 returned 100%
+call   1126 returned 100%
+branch 1127 taken 100% (fallthrough)
+branch 1128 taken 0% (throw)
+call   1129 returned 100%
+call   1130 returned 100%
+branch 1131 taken 100% (fallthrough)
+branch 1132 taken 0% (throw)
+call   1133 returned 100%
+call   1134 returned 100%
+branch 1135 taken 100% (fallthrough)
+branch 1136 taken 0% (throw)
+call   1137 returned 100%
+call   1138 returned 100%
+branch 1139 taken 100% (fallthrough)
+branch 1140 taken 0% (throw)
+call   1141 returned 100%
+call   1142 returned 100%
+branch 1143 taken 100% (fallthrough)
+branch 1144 taken 0% (throw)
+call   1145 returned 100%
+call   1146 returned 100%
+branch 1147 taken 100% (fallthrough)
+branch 1148 taken 0% (throw)
+call   1149 returned 100%
+call   1150 returned 100%
+branch 1151 taken 100% (fallthrough)
+branch 1152 taken 0% (throw)
+call   1153 returned 100%
+call   1154 returned 100%
+branch 1155 taken 100% (fallthrough)
+branch 1156 taken 0% (throw)
+call   1157 returned 100%
+call   1158 returned 100%
+branch 1159 taken 100% (fallthrough)
+branch 1160 taken 0% (throw)
+call   1161 returned 100%
+call   1162 returned 100%
+branch 1163 taken 100% (fallthrough)
+branch 1164 taken 0% (throw)
+call   1165 returned 100%
+call   1166 returned 100%
+branch 1167 taken 100% (fallthrough)
+branch 1168 taken 0% (throw)
+call   1169 returned 100%
+call   1170 returned 100%
+branch 1171 taken 100% (fallthrough)
+branch 1172 taken 0% (throw)
+call   1173 returned 100%
+call   1174 returned 100%
+branch 1175 taken 100% (fallthrough)
+branch 1176 taken 0% (throw)
+call   1177 returned 100%
+call   1178 returned 100%
+branch 1179 taken 100% (fallthrough)
+branch 1180 taken 0% (throw)
+call   1181 returned 100%
+call   1182 returned 100%
+branch 1183 taken 100% (fallthrough)
+branch 1184 taken 0% (throw)
+call   1185 returned 100%
+call   1186 returned 100%
+branch 1187 taken 100% (fallthrough)
+branch 1188 taken 0% (throw)
+call   1189 returned 100%
+call   1190 returned 100%
+branch 1191 taken 100% (fallthrough)
+branch 1192 taken 0% (throw)
+call   1193 returned 100%
+call   1194 returned 100%
+branch 1195 taken 100% (fallthrough)
+branch 1196 taken 0% (throw)
+call   1197 returned 100%
+call   1198 returned 100%
+branch 1199 taken 100% (fallthrough)
+branch 1200 taken 0% (throw)
+call   1201 returned 100%
+call   1202 returned 100%
+branch 1203 taken 100% (fallthrough)
+branch 1204 taken 0% (throw)
+call   1205 returned 100%
+call   1206 returned 100%
+branch 1207 taken 100% (fallthrough)
+branch 1208 taken 0% (throw)
+call   1209 returned 100%
+call   1210 returned 100%
+branch 1211 taken 100% (fallthrough)
+branch 1212 taken 0% (throw)
+call   1213 returned 100%
+call   1214 returned 100%
+branch 1215 taken 100% (fallthrough)
+branch 1216 taken 0% (throw)
+call   1217 returned 100%
+call   1218 returned 100%
+branch 1219 taken 100% (fallthrough)
+branch 1220 taken 0% (throw)
+call   1221 returned 100%
+call   1222 returned 100%
+branch 1223 taken 100% (fallthrough)
+branch 1224 taken 0% (throw)
+call   1225 returned 100%
+call   1226 returned 100%
+branch 1227 taken 100% (fallthrough)
+branch 1228 taken 0% (throw)
+call   1229 returned 100%
+call   1230 returned 100%
+branch 1231 taken 100% (fallthrough)
+branch 1232 taken 0% (throw)
+call   1233 returned 100%
+call   1234 returned 100%
+branch 1235 taken 100% (fallthrough)
+branch 1236 taken 0% (throw)
+call   1237 returned 100%
+call   1238 returned 100%
+branch 1239 taken 100% (fallthrough)
+branch 1240 taken 0% (throw)
+call   1241 returned 100%
+call   1242 returned 100%
+branch 1243 taken 100% (fallthrough)
+branch 1244 taken 0% (throw)
+call   1245 returned 100%
+call   1246 returned 100%
+branch 1247 taken 100% (fallthrough)
+branch 1248 taken 0% (throw)
+call   1249 returned 100%
+call   1250 returned 100%
+branch 1251 taken 100% (fallthrough)
+branch 1252 taken 0% (throw)
+call   1253 returned 100%
+call   1254 returned 100%
+branch 1255 taken 100% (fallthrough)
+branch 1256 taken 0% (throw)
+call   1257 returned 100%
+call   1258 returned 100%
+branch 1259 taken 100% (fallthrough)
+branch 1260 taken 0% (throw)
+call   1261 returned 100%
+call   1262 returned 100%
+branch 1263 taken 100% (fallthrough)
+branch 1264 taken 0% (throw)
+call   1265 returned 100%
+call   1266 returned 100%
+branch 1267 taken 100% (fallthrough)
+branch 1268 taken 0% (throw)
+call   1269 returned 100%
+call   1270 returned 100%
+branch 1271 taken 100% (fallthrough)
+branch 1272 taken 0% (throw)
+call   1273 returned 100%
+call   1274 returned 100%
+branch 1275 taken 100% (fallthrough)
+branch 1276 taken 0% (throw)
+call   1277 returned 100%
+call   1278 returned 100%
+branch 1279 taken 100% (fallthrough)
+branch 1280 taken 0% (throw)
+call   1281 returned 100%
+call   1282 returned 100%
+branch 1283 taken 100% (fallthrough)
+branch 1284 taken 0% (throw)
+call   1285 returned 100%
+call   1286 returned 100%
+branch 1287 taken 100% (fallthrough)
+branch 1288 taken 0% (throw)
+call   1289 returned 100%
+call   1290 returned 100%
+branch 1291 taken 100% (fallthrough)
+branch 1292 taken 0% (throw)
+call   1293 returned 100%
+call   1294 returned 100%
+branch 1295 taken 100% (fallthrough)
+branch 1296 taken 0% (throw)
+call   1297 returned 100%
+call   1298 returned 100%
+branch 1299 taken 100% (fallthrough)
+branch 1300 taken 0% (throw)
+call   1301 returned 100%
+call   1302 returned 100%
+branch 1303 taken 100% (fallthrough)
+branch 1304 taken 0% (throw)
+call   1305 returned 100%
+call   1306 returned 100%
+branch 1307 taken 100% (fallthrough)
+branch 1308 taken 0% (throw)
+call   1309 returned 100%
+call   1310 returned 100%
+branch 1311 taken 100% (fallthrough)
+branch 1312 taken 0% (throw)
+call   1313 returned 100%
+call   1314 returned 100%
+branch 1315 taken 100% (fallthrough)
+branch 1316 taken 0% (throw)
+call   1317 returned 100%
+call   1318 returned 100%
+branch 1319 taken 100% (fallthrough)
+branch 1320 taken 0% (throw)
+call   1321 returned 100%
+call   1322 returned 100%
+branch 1323 taken 100% (fallthrough)
+branch 1324 taken 0% (throw)
+call   1325 returned 100%
+call   1326 returned 100%
+branch 1327 taken 100% (fallthrough)
+branch 1328 taken 0% (throw)
+call   1329 returned 100%
+call   1330 returned 100%
+branch 1331 taken 100% (fallthrough)
+branch 1332 taken 0% (throw)
+call   1333 returned 100%
+call   1334 returned 100%
+branch 1335 taken 100% (fallthrough)
+branch 1336 taken 0% (throw)
+call   1337 returned 100%
+call   1338 returned 100%
+branch 1339 taken 100% (fallthrough)
+branch 1340 taken 0% (throw)
+call   1341 returned 100%
+call   1342 returned 100%
+branch 1343 taken 100% (fallthrough)
+branch 1344 taken 0% (throw)
+call   1345 returned 100%
+call   1346 returned 100%
+branch 1347 taken 100% (fallthrough)
+branch 1348 taken 0% (throw)
+call   1349 returned 100%
+call   1350 returned 100%
+branch 1351 taken 100% (fallthrough)
+branch 1352 taken 0% (throw)
+call   1353 returned 100%
+call   1354 returned 100%
+branch 1355 taken 100% (fallthrough)
+branch 1356 taken 0% (throw)
+call   1357 returned 100%
+call   1358 returned 100%
+branch 1359 taken 100% (fallthrough)
+branch 1360 taken 0% (throw)
+call   1361 returned 100%
+call   1362 returned 100%
+branch 1363 taken 100% (fallthrough)
+branch 1364 taken 0% (throw)
+call   1365 returned 100%
+call   1366 returned 100%
+branch 1367 taken 100% (fallthrough)
+branch 1368 taken 0% (throw)
+call   1369 returned 100%
+call   1370 returned 100%
+branch 1371 taken 100% (fallthrough)
+branch 1372 taken 0% (throw)
+call   1373 returned 100%
+call   1374 returned 100%
+branch 1375 taken 100% (fallthrough)
+branch 1376 taken 0% (throw)
+call   1377 returned 100%
+call   1378 returned 100%
+branch 1379 taken 100% (fallthrough)
+branch 1380 taken 0% (throw)
+call   1381 returned 100%
+call   1382 returned 100%
+branch 1383 taken 100% (fallthrough)
+branch 1384 taken 0% (throw)
+call   1385 returned 100%
+call   1386 returned 100%
+branch 1387 taken 100% (fallthrough)
+branch 1388 taken 0% (throw)
+call   1389 returned 100%
+call   1390 returned 100%
+branch 1391 taken 100% (fallthrough)
+branch 1392 taken 0% (throw)
+call   1393 returned 100%
+call   1394 returned 100%
+branch 1395 taken 100% (fallthrough)
+branch 1396 taken 0% (throw)
+call   1397 returned 100%
+call   1398 returned 100%
+branch 1399 taken 100% (fallthrough)
+branch 1400 taken 0% (throw)
+call   1401 returned 100%
+call   1402 returned 100%
+branch 1403 taken 100% (fallthrough)
+branch 1404 taken 0% (throw)
+call   1405 returned 100%
+call   1406 returned 100%
+branch 1407 taken 100% (fallthrough)
+branch 1408 taken 0% (throw)
+call   1409 returned 100%
+call   1410 returned 100%
+branch 1411 taken 100% (fallthrough)
+branch 1412 taken 0% (throw)
+call   1413 returned 100%
+call   1414 returned 100%
+branch 1415 taken 100% (fallthrough)
+branch 1416 taken 0% (throw)
+call   1417 returned 100%
+call   1418 returned 100%
+branch 1419 taken 100% (fallthrough)
+branch 1420 taken 0% (throw)
+call   1421 returned 100%
+call   1422 returned 100%
+branch 1423 taken 100% (fallthrough)
+branch 1424 taken 0% (throw)
+call   1425 returned 100%
+call   1426 returned 100%
+branch 1427 taken 100% (fallthrough)
+branch 1428 taken 0% (throw)
+call   1429 returned 100%
+call   1430 returned 100%
+branch 1431 taken 100% (fallthrough)
+branch 1432 taken 0% (throw)
+call   1433 returned 100%
+call   1434 returned 100%
+branch 1435 taken 100% (fallthrough)
+branch 1436 taken 0% (throw)
+call   1437 returned 100%
+call   1438 returned 100%
+branch 1439 taken 100% (fallthrough)
+branch 1440 taken 0% (throw)
+call   1441 returned 100%
+call   1442 returned 100%
+branch 1443 taken 100% (fallthrough)
+branch 1444 taken 0% (throw)
+call   1445 returned 100%
+call   1446 returned 100%
+branch 1447 taken 100% (fallthrough)
+branch 1448 taken 0% (throw)
+call   1449 returned 100%
+call   1450 returned 100%
+branch 1451 taken 100% (fallthrough)
+branch 1452 taken 0% (throw)
+call   1453 returned 100%
+call   1454 returned 100%
+branch 1455 taken 100% (fallthrough)
+branch 1456 taken 0% (throw)
+call   1457 returned 100%
+call   1458 returned 100%
+branch 1459 taken 100% (fallthrough)
+branch 1460 taken 0% (throw)
+call   1461 returned 100%
+call   1462 returned 100%
+branch 1463 taken 100% (fallthrough)
+branch 1464 taken 0% (throw)
+call   1465 returned 100%
+call   1466 returned 100%
+branch 1467 taken 100% (fallthrough)
+branch 1468 taken 0% (throw)
+call   1469 returned 100%
+call   1470 returned 100%
+branch 1471 taken 100% (fallthrough)
+branch 1472 taken 0% (throw)
+call   1473 returned 100%
+call   1474 returned 100%
+branch 1475 taken 100% (fallthrough)
+branch 1476 taken 0% (throw)
+call   1477 returned 100%
+call   1478 returned 100%
+branch 1479 taken 100% (fallthrough)
+branch 1480 taken 0% (throw)
+call   1481 returned 100%
+call   1482 returned 100%
+branch 1483 taken 100% (fallthrough)
+branch 1484 taken 0% (throw)
+call   1485 returned 100%
+call   1486 returned 100%
+branch 1487 taken 100% (fallthrough)
+branch 1488 taken 0% (throw)
+call   1489 returned 100%
+call   1490 returned 100%
+branch 1491 taken 100% (fallthrough)
+branch 1492 taken 0% (throw)
+call   1493 returned 100%
+call   1494 returned 100%
+branch 1495 taken 100% (fallthrough)
+branch 1496 taken 0% (throw)
+call   1497 returned 100%
+call   1498 returned 100%
+branch 1499 taken 100% (fallthrough)
+branch 1500 taken 0% (throw)
+call   1501 returned 100%
+call   1502 returned 100%
+branch 1503 taken 100% (fallthrough)
+branch 1504 taken 0% (throw)
+call   1505 returned 100%
+call   1506 returned 100%
+branch 1507 taken 100% (fallthrough)
+branch 1508 taken 0% (throw)
+call   1509 returned 100%
+call   1510 returned 100%
+branch 1511 taken 100% (fallthrough)
+branch 1512 taken 0% (throw)
+call   1513 returned 100%
+call   1514 returned 100%
+branch 1515 taken 100% (fallthrough)
+branch 1516 taken 0% (throw)
+call   1517 returned 100%
+call   1518 returned 100%
+branch 1519 taken 100% (fallthrough)
+branch 1520 taken 0% (throw)
+call   1521 returned 100%
+call   1522 returned 100%
+branch 1523 taken 100% (fallthrough)
+branch 1524 taken 0% (throw)
+call   1525 returned 100%
+call   1526 returned 100%
+branch 1527 taken 100% (fallthrough)
+branch 1528 taken 0% (throw)
+call   1529 returned 100%
+call   1530 returned 100%
+branch 1531 taken 100% (fallthrough)
+branch 1532 taken 0% (throw)
+call   1533 returned 100%
+call   1534 returned 100%
+branch 1535 taken 100% (fallthrough)
+branch 1536 taken 0% (throw)
+call   1537 returned 100%
+call   1538 returned 100%
+branch 1539 taken 100% (fallthrough)
+branch 1540 taken 0% (throw)
+call   1541 returned 100%
+call   1542 returned 100%
+branch 1543 taken 100% (fallthrough)
+branch 1544 taken 0% (throw)
+call   1545 returned 100%
+call   1546 returned 100%
+branch 1547 taken 100% (fallthrough)
+branch 1548 taken 0% (throw)
+call   1549 returned 100%
+call   1550 returned 100%
+branch 1551 taken 100% (fallthrough)
+branch 1552 taken 0% (throw)
+call   1553 returned 100%
+call   1554 returned 100%
+branch 1555 taken 100% (fallthrough)
+branch 1556 taken 0% (throw)
+call   1557 returned 100%
+call   1558 returned 100%
+branch 1559 taken 100% (fallthrough)
+branch 1560 taken 0% (throw)
+call   1561 returned 100%
+call   1562 returned 100%
+branch 1563 taken 100% (fallthrough)
+branch 1564 taken 0% (throw)
+call   1565 returned 100%
+call   1566 returned 100%
+branch 1567 taken 100% (fallthrough)
+branch 1568 taken 0% (throw)
+call   1569 returned 100%
+call   1570 returned 100%
+branch 1571 taken 100% (fallthrough)
+branch 1572 taken 0% (throw)
+call   1573 returned 100%
+call   1574 returned 100%
+branch 1575 taken 100% (fallthrough)
+branch 1576 taken 0% (throw)
+call   1577 returned 100%
+call   1578 returned 100%
+branch 1579 taken 100% (fallthrough)
+branch 1580 taken 0% (throw)
+call   1581 returned 100%
+call   1582 returned 100%
+branch 1583 taken 100% (fallthrough)
+branch 1584 taken 0% (throw)
+call   1585 returned 100%
+call   1586 returned 100%
+branch 1587 taken 100% (fallthrough)
+branch 1588 taken 0% (throw)
+call   1589 returned 100%
+call   1590 returned 100%
+branch 1591 taken 100% (fallthrough)
+branch 1592 taken 0% (throw)
+call   1593 returned 100%
+call   1594 returned 100%
+branch 1595 taken 100% (fallthrough)
+branch 1596 taken 0% (throw)
+call   1597 returned 100%
+call   1598 returned 100%
+branch 1599 taken 100% (fallthrough)
+branch 1600 taken 0% (throw)
+call   1601 returned 100%
+call   1602 returned 100%
+branch 1603 taken 100% (fallthrough)
+branch 1604 taken 0% (throw)
+call   1605 returned 100%
+call   1606 returned 100%
+branch 1607 taken 100% (fallthrough)
+branch 1608 taken 0% (throw)
+call   1609 returned 100%
+call   1610 returned 100%
+branch 1611 taken 100% (fallthrough)
+branch 1612 taken 0% (throw)
+call   1613 returned 100%
+call   1614 returned 100%
+branch 1615 taken 100% (fallthrough)
+branch 1616 taken 0% (throw)
+call   1617 returned 100%
+call   1618 returned 100%
+branch 1619 taken 100% (fallthrough)
+branch 1620 taken 0% (throw)
+call   1621 returned 100%
+call   1622 returned 100%
+branch 1623 taken 100% (fallthrough)
+branch 1624 taken 0% (throw)
+call   1625 returned 100%
+call   1626 returned 100%
+branch 1627 taken 100% (fallthrough)
+branch 1628 taken 0% (throw)
+call   1629 returned 100%
+call   1630 returned 100%
+branch 1631 taken 100% (fallthrough)
+branch 1632 taken 0% (throw)
+call   1633 returned 100%
+call   1634 returned 100%
+branch 1635 taken 100% (fallthrough)
+branch 1636 taken 0% (throw)
+call   1637 returned 100%
+call   1638 returned 100%
+branch 1639 taken 100% (fallthrough)
+branch 1640 taken 0% (throw)
+call   1641 returned 100%
+call   1642 returned 100%
+branch 1643 taken 100% (fallthrough)
+branch 1644 taken 0% (throw)
+call   1645 returned 100%
+call   1646 returned 100%
+branch 1647 taken 100% (fallthrough)
+branch 1648 taken 0% (throw)
+call   1649 returned 100%
+call   1650 returned 100%
+call   1651 returned 100%
+branch 1652 taken 100% (fallthrough)
+branch 1653 taken 1%
+call   1654 returned 100%
+call   1655 returned 100%
+call   1656 returned 100%
+call   1657 returned 100%
+call   1658 returned 100%
+call   1659 returned 100%
+call   1660 returned 100%
+call   1661 returned 100%
+call   1662 returned 100%
+call   1663 returned 100%
+call   1664 returned 100%
+call   1665 returned 100%
+call   1666 returned 100%
+call   1667 returned 100%
+call   1668 returned 100%
+call   1669 returned 100%
+call   1670 returned 100%
+call   1671 returned 100%
+call   1672 returned 100%
+call   1673 returned 100%
+call   1674 returned 100%
+call   1675 returned 100%
+call   1676 returned 100%
+call   1677 returned 100%
+call   1678 returned 100%
+call   1679 returned 100%
+call   1680 returned 100%
+call   1681 returned 100%
+call   1682 returned 100%
+call   1683 returned 100%
+call   1684 returned 100%
+call   1685 returned 100%
+call   1686 returned 100%
+call   1687 returned 100%
+call   1688 returned 100%
+call   1689 returned 100%
+call   1690 returned 100%
+call   1691 returned 100%
+call   1692 returned 100%
+call   1693 returned 100%
+call   1694 returned 100%
+call   1695 returned 100%
+call   1696 returned 100%
+call   1697 returned 100%
+call   1698 returned 100%
+call   1699 returned 100%
+call   1700 returned 100%
+call   1701 returned 100%
+call   1702 returned 100%
+call   1703 returned 100%
+call   1704 returned 100%
+call   1705 returned 100%
+call   1706 returned 100%
+call   1707 returned 100%
+call   1708 returned 100%
+call   1709 returned 100%
+call   1710 returned 100%
+call   1711 returned 100%
+call   1712 returned 100%
+call   1713 returned 100%
+call   1714 returned 100%
+call   1715 returned 100%
+call   1716 returned 100%
+call   1717 returned 100%
+call   1718 returned 100%
+call   1719 returned 100%
+call   1720 returned 100%
+call   1721 returned 100%
+call   1722 returned 100%
+call   1723 returned 100%
+call   1724 returned 100%
+call   1725 returned 100%
+call   1726 returned 100%
+call   1727 returned 100%
+call   1728 returned 100%
+call   1729 returned 100%
+call   1730 returned 100%
+call   1731 returned 100%
+call   1732 returned 100%
+call   1733 returned 100%
+call   1734 returned 100%
+call   1735 returned 100%
+call   1736 returned 100%
+call   1737 returned 100%
+call   1738 returned 100%
+call   1739 returned 100%
+call   1740 returned 100%
+call   1741 returned 100%
+call   1742 returned 100%
+call   1743 returned 100%
+call   1744 returned 100%
+call   1745 returned 100%
+call   1746 returned 100%
+call   1747 returned 100%
+call   1748 returned 100%
+call   1749 returned 100%
+call   1750 returned 100%
+call   1751 returned 100%
+call   1752 returned 100%
+call   1753 returned 100%
+call   1754 returned 100%
+call   1755 returned 100%
+call   1756 returned 100%
+call   1757 returned 100%
+call   1758 returned 100%
+call   1759 returned 100%
+call   1760 returned 100%
+call   1761 returned 100%
+call   1762 returned 100%
+call   1763 returned 100%
+call   1764 returned 100%
+call   1765 returned 100%
+call   1766 returned 100%
+call   1767 returned 100%
+call   1768 returned 100%
+call   1769 returned 100%
+call   1770 returned 100%
+call   1771 returned 100%
+call   1772 returned 100%
+call   1773 returned 100%
+call   1774 returned 100%
+call   1775 returned 100%
+call   1776 returned 100%
+call   1777 returned 100%
+call   1778 returned 100%
+call   1779 returned 100%
+call   1780 returned 100%
+call   1781 returned 100%
+call   1782 returned 100%
+call   1783 returned 100%
+call   1784 returned 100%
+call   1785 returned 100%
+call   1786 returned 100%
+call   1787 returned 100%
+call   1788 returned 100%
+call   1789 returned 100%
+call   1790 returned 100%
+call   1791 returned 100%
+call   1792 returned 100%
+call   1793 returned 100%
+call   1794 returned 100%
+call   1795 returned 100%
+call   1796 returned 100%
+call   1797 returned 100%
+call   1798 returned 100%
+call   1799 returned 100%
+call   1800 returned 100%
+call   1801 returned 100%
+call   1802 returned 100%
+call   1803 returned 100%
+call   1804 returned 100%
+call   1805 returned 100%
+call   1806 returned 100%
+call   1807 returned 100%
+call   1808 returned 100%
+call   1809 returned 100%
+call   1810 returned 100%
+call   1811 returned 100%
+call   1812 returned 100%
+call   1813 returned 100%
+call   1814 returned 100%
+call   1815 returned 100%
+call   1816 returned 100%
+call   1817 returned 100%
+call   1818 returned 100%
+call   1819 returned 100%
+call   1820 returned 100%
+call   1821 returned 100%
+call   1822 returned 100%
+call   1823 returned 100%
+call   1824 returned 100%
+call   1825 returned 100%
+call   1826 returned 100%
+call   1827 returned 100%
+call   1828 returned 100%
+call   1829 returned 100%
+call   1830 returned 100%
+call   1831 returned 100%
+call   1832 returned 100%
+call   1833 returned 100%
+call   1834 returned 100%
+call   1835 returned 100%
+call   1836 returned 100%
+call   1837 returned 100%
+call   1838 returned 100%
+call   1839 returned 100%
+call   1840 returned 100%
+call   1841 returned 100%
+call   1842 returned 100%
+call   1843 returned 100%
+call   1844 returned 100%
+call   1845 returned 100%
+call   1846 returned 100%
+call   1847 returned 100%
+call   1848 returned 100%
+call   1849 returned 100%
+call   1850 returned 100%
+call   1851 returned 100%
+call   1852 returned 100%
+call   1853 returned 100%
+call   1854 returned 100%
+call   1855 returned 100%
+call   1856 returned 100%
+call   1857 returned 100%
+call   1858 returned 100%
+call   1859 returned 100%
+call   1860 returned 100%
+call   1861 returned 100%
+call   1862 returned 100%
+call   1863 returned 100%
+call   1864 returned 100%
+call   1865 returned 100%
+call   1866 returned 100%
+call   1867 returned 100%
+call   1868 returned 100%
+call   1869 returned 100%
+call   1870 returned 100%
+call   1871 returned 100%
+call   1872 returned 100%
+call   1873 returned 100%
+call   1874 returned 100%
+call   1875 returned 100%
+call   1876 returned 100%
+call   1877 returned 100%
+call   1878 returned 100%
+call   1879 returned 100%
+call   1880 returned 100%
+call   1881 returned 100%
+call   1882 returned 100%
+call   1883 returned 100%
+call   1884 returned 100%
+call   1885 returned 100%
+call   1886 returned 100%
+call   1887 returned 100%
+call   1888 returned 100%
+call   1889 returned 100%
+call   1890 returned 100%
+call   1891 returned 100%
+call   1892 returned 100%
+call   1893 returned 100%
+call   1894 returned 100%
+call   1895 returned 100%
+call   1896 returned 100%
+call   1897 returned 100%
+call   1898 returned 100%
+call   1899 returned 100%
+call   1900 returned 100%
+call   1901 returned 100%
+call   1902 returned 100%
+call   1903 returned 100%
+call   1904 returned 100%
+call   1905 returned 100%
+call   1906 returned 100%
+call   1907 returned 100%
+call   1908 returned 100%
+call   1909 returned 100%
+call   1910 returned 100%
+call   1911 returned 100%
+call   1912 returned 100%
+call   1913 returned 100%
+call   1914 returned 100%
+call   1915 returned 100%
+call   1916 returned 100%
+call   1917 returned 100%
+call   1918 returned 100%
+call   1919 returned 100%
+call   1920 returned 100%
+call   1921 returned 100%
+call   1922 returned 100%
+call   1923 returned 100%
+call   1924 returned 100%
+call   1925 returned 100%
+call   1926 returned 100%
+call   1927 returned 100%
+call   1928 returned 100%
+call   1929 returned 100%
+call   1930 returned 100%
+call   1931 returned 100%
+call   1932 returned 100%
+call   1933 returned 100%
+call   1934 returned 100%
+call   1935 returned 100%
+call   1936 returned 100%
+call   1937 returned 100%
+call   1938 returned 100%
+call   1939 returned 100%
+call   1940 returned 100%
+call   1941 returned 100%
+call   1942 returned 100%
+call   1943 returned 100%
+call   1944 returned 100%
+call   1945 returned 100%
+call   1946 returned 100%
+call   1947 returned 100%
+call   1948 returned 100%
+call   1949 returned 100%
+call   1950 returned 100%
+call   1951 returned 100%
+call   1952 returned 100%
+call   1953 returned 100%
+call   1954 returned 100%
+call   1955 returned 100%
+call   1956 returned 100%
+call   1957 returned 100%
+call   1958 returned 100%
+call   1959 returned 100%
+call   1960 returned 100%
+call   1961 returned 100%
+call   1962 returned 100%
+call   1963 returned 100%
+call   1964 returned 100%
+call   1965 returned 100%
+call   1966 returned 100%
+call   1967 returned 100%
+call   1968 returned 100%
+call   1969 returned 100%
+call   1970 returned 100%
+call   1971 returned 100%
+call   1972 returned 100%
+call   1973 returned 100%
+call   1974 returned 100%
+call   1975 returned 100%
+call   1976 returned 100%
+call   1977 returned 100%
+call   1978 returned 100%
+call   1979 returned 100%
+call   1980 returned 100%
+call   1981 returned 100%
+call   1982 returned 100%
+call   1983 returned 100%
+call   1984 returned 100%
+call   1985 returned 100%
+call   1986 returned 100%
+call   1987 returned 100%
+call   1988 returned 100%
+call   1989 returned 100%
+call   1990 returned 100%
+call   1991 returned 100%
+call   1992 returned 100%
+call   1993 returned 100%
+call   1994 returned 100%
+call   1995 returned 100%
+call   1996 returned 100%
+call   1997 returned 100%
+call   1998 returned 100%
+call   1999 returned 100%
+call   2000 returned 100%
+call   2001 returned 100%
+call   2002 returned 100%
+call   2003 returned 100%
+call   2004 returned 100%
+call   2005 returned 100%
+call   2006 returned 100%
+call   2007 returned 100%
+call   2008 returned 100%
+call   2009 returned 100%
+call   2010 returned 100%
+call   2011 returned 100%
+call   2012 returned 100%
+call   2013 returned 100%
+call   2014 returned 100%
+call   2015 returned 100%
+call   2016 returned 100%
+call   2017 returned 100%
+call   2018 returned 100%
+call   2019 returned 100%
+call   2020 returned 100%
+call   2021 returned 100%
+call   2022 returned 100%
+call   2023 returned 100%
+call   2024 returned 100%
+call   2025 returned 100%
+call   2026 returned 100%
+call   2027 returned 100%
+call   2028 returned 100%
+call   2029 returned 100%
+call   2030 returned 100%
+call   2031 returned 100%
+call   2032 returned 100%
+call   2033 returned 100%
+call   2034 returned 100%
+call   2035 returned 100%
+call   2036 returned 100%
+call   2037 returned 100%
+call   2038 returned 100%
+call   2039 returned 100%
+call   2040 returned 100%
+call   2041 returned 100%
+call   2042 returned 100%
+call   2043 returned 100%
+call   2044 returned 100%
+call   2045 returned 100%
+call   2046 returned 100%
+call   2047 returned 100%
+call   2048 returned 100%
+call   2049 returned 100%
+call   2050 returned 100%
+call   2051 returned 100%
+call   2052 returned 100%
+call   2053 returned 100%
+call   2054 returned 100%
+call   2055 returned 100%
+call   2056 returned 100%
+call   2057 returned 100%
+call   2058 returned 100%
+call   2059 returned 100%
+call   2060 returned 100%
+call   2061 returned 100%
+call   2062 returned 100%
+call   2063 returned 100%
+call   2064 returned 100%
+call   2065 never executed
+branch 2066 never executed
+branch 2067 never executed
+call   2068 never executed
+call   2069 never executed
+call   2070 never executed
+call   2071 never executed
+call   2072 never executed
+call   2073 never executed
+call   2074 never executed
+call   2075 never executed
+call   2076 never executed
+call   2077 never executed
+call   2078 never executed
+call   2079 never executed
+call   2080 never executed
+call   2081 never executed
+call   2082 never executed
+call   2083 never executed
+call   2084 never executed
+call   2085 never executed
+call   2086 never executed
+call   2087 never executed
+call   2088 never executed
+call   2089 never executed
+call   2090 never executed
+call   2091 never executed
+call   2092 never executed
+call   2093 never executed
+call   2094 never executed
+call   2095 never executed
+call   2096 never executed
+call   2097 never executed
+call   2098 never executed
+call   2099 never executed
+call   2100 never executed
+call   2101 never executed
+call   2102 never executed
+call   2103 never executed
+call   2104 never executed
+call   2105 never executed
+call   2106 never executed
+call   2107 never executed
+call   2108 never executed
+call   2109 never executed
+call   2110 never executed
+call   2111 never executed
+call   2112 never executed
+call   2113 never executed
+call   2114 never executed
+call   2115 never executed
+call   2116 never executed
+call   2117 never executed
+call   2118 never executed
+call   2119 never executed
+call   2120 never executed
+call   2121 never executed
+call   2122 never executed
+call   2123 never executed
+call   2124 never executed
+call   2125 never executed
+call   2126 never executed
+call   2127 never executed
+call   2128 never executed
+call   2129 never executed
+call   2130 never executed
+call   2131 never executed
+call   2132 never executed
+call   2133 never executed
+call   2134 never executed
+call   2135 never executed
+call   2136 never executed
+call   2137 never executed
+call   2138 never executed
+call   2139 never executed
+call   2140 never executed
+call   2141 never executed
+call   2142 never executed
+call   2143 never executed
+call   2144 never executed
+call   2145 never executed
+call   2146 never executed
+call   2147 never executed
+call   2148 never executed
+call   2149 never executed
+call   2150 never executed
+call   2151 never executed
+call   2152 never executed
+call   2153 never executed
+call   2154 never executed
+call   2155 never executed
+call   2156 never executed
+call   2157 never executed
+call   2158 never executed
+call   2159 never executed
+call   2160 never executed
+call   2161 never executed
+call   2162 never executed
+call   2163 never executed
+call   2164 never executed
+call   2165 never executed
+call   2166 never executed
+call   2167 never executed
+call   2168 never executed
+call   2169 never executed
+call   2170 never executed
+call   2171 never executed
+call   2172 never executed
+call   2173 never executed
+call   2174 never executed
+call   2175 never executed
+call   2176 never executed
+call   2177 never executed
+call   2178 never executed
+call   2179 never executed
+call   2180 never executed
+call   2181 never executed
+call   2182 never executed
+call   2183 never executed
+call   2184 never executed
+call   2185 never executed
+call   2186 never executed
+call   2187 never executed
+call   2188 never executed
+call   2189 never executed
+call   2190 never executed
+call   2191 never executed
+call   2192 never executed
+call   2193 never executed
+call   2194 never executed
+call   2195 never executed
+call   2196 never executed
+call   2197 never executed
+call   2198 never executed
+call   2199 never executed
+call   2200 never executed
+call   2201 never executed
+call   2202 never executed
+call   2203 never executed
+call   2204 never executed
+call   2205 never executed
+call   2206 never executed
+call   2207 never executed
+call   2208 never executed
+call   2209 never executed
+call   2210 never executed
+call   2211 never executed
+call   2212 never executed
+call   2213 never executed
+call   2214 never executed
+call   2215 never executed
+call   2216 never executed
+call   2217 never executed
+call   2218 never executed
+call   2219 never executed
+call   2220 never executed
+call   2221 never executed
+call   2222 never executed
+call   2223 never executed
+call   2224 never executed
+call   2225 never executed
+call   2226 never executed
+call   2227 never executed
+call   2228 never executed
+call   2229 never executed
+call   2230 never executed
+call   2231 never executed
+call   2232 never executed
+call   2233 never executed
+call   2234 never executed
+call   2235 never executed
+call   2236 never executed
+call   2237 never executed
+call   2238 never executed
+call   2239 never executed
+call   2240 never executed
+call   2241 never executed
+call   2242 never executed
+call   2243 never executed
+call   2244 never executed
+call   2245 never executed
+call   2246 never executed
+call   2247 never executed
+call   2248 never executed
+call   2249 never executed
+call   2250 never executed
+call   2251 never executed
+call   2252 never executed
+call   2253 never executed
+call   2254 never executed
+call   2255 never executed
+call   2256 never executed
+call   2257 never executed
+call   2258 never executed
+call   2259 never executed
+call   2260 never executed
+call   2261 never executed
+call   2262 never executed
+call   2263 never executed
+call   2264 never executed
+call   2265 never executed
+call   2266 never executed
+call   2267 never executed
+call   2268 never executed
+call   2269 never executed
+call   2270 never executed
+call   2271 never executed
+call   2272 never executed
+call   2273 never executed
+call   2274 never executed
+call   2275 never executed
+call   2276 never executed
+call   2277 never executed
+call   2278 never executed
+call   2279 never executed
+call   2280 never executed
+call   2281 never executed
+call   2282 never executed
+call   2283 never executed
+call   2284 never executed
+call   2285 never executed
+call   2286 never executed
+call   2287 never executed
+call   2288 never executed
+call   2289 never executed
+call   2290 never executed
+call   2291 never executed
+call   2292 never executed
+call   2293 never executed
+call   2294 never executed
+call   2295 never executed
+call   2296 never executed
+call   2297 never executed
+call   2298 never executed
+call   2299 never executed
+call   2300 never executed
+call   2301 never executed
+call   2302 never executed
+call   2303 never executed
+call   2304 never executed
+call   2305 never executed
+call   2306 never executed
+call   2307 never executed
+call   2308 never executed
+call   2309 never executed
+call   2310 never executed
+call   2311 never executed
+call   2312 never executed
+call   2313 never executed
+call   2314 never executed
+call   2315 never executed
+call   2316 never executed
+call   2317 never executed
+call   2318 never executed
+call   2319 never executed
+call   2320 never executed
+call   2321 never executed
+call   2322 never executed
+call   2323 never executed
+call   2324 never executed
+call   2325 never executed
+call   2326 never executed
+call   2327 never executed
+call   2328 never executed
+call   2329 never executed
+call   2330 never executed
+call   2331 never executed
+call   2332 never executed
+call   2333 never executed
+call   2334 never executed
+call   2335 never executed
+call   2336 never executed
+call   2337 never executed
+call   2338 never executed
+call   2339 never executed
+call   2340 never executed
+call   2341 never executed
+call   2342 never executed
+call   2343 never executed
+call   2344 never executed
+call   2345 never executed
+call   2346 never executed
+call   2347 never executed
+call   2348 never executed
+call   2349 never executed
+call   2350 never executed
+call   2351 never executed
+call   2352 never executed
+call   2353 never executed
+call   2354 never executed
+call   2355 never executed
+call   2356 never executed
+call   2357 never executed
+call   2358 never executed
+call   2359 never executed
+call   2360 never executed
+call   2361 never executed
+call   2362 never executed
+call   2363 never executed
+call   2364 never executed
+call   2365 never executed
+call   2366 never executed
+call   2367 never executed
+call   2368 never executed
+call   2369 never executed
+call   2370 never executed
+call   2371 never executed
+call   2372 never executed
+call   2373 never executed
+call   2374 never executed
+call   2375 never executed
+call   2376 never executed
+call   2377 never executed
+call   2378 never executed
+call   2379 never executed
+call   2380 never executed
+call   2381 never executed
+call   2382 never executed
+call   2383 never executed
+call   2384 never executed
+call   2385 never executed
+call   2386 never executed
+call   2387 never executed
+call   2388 never executed
+call   2389 never executed
+call   2390 never executed
+call   2391 never executed
+call   2392 never executed
+call   2393 never executed
+call   2394 never executed
+call   2395 never executed
+call   2396 never executed
+call   2397 never executed
+call   2398 never executed
+call   2399 never executed
+call   2400 never executed
+call   2401 never executed
+call   2402 never executed
+call   2403 never executed
+call   2404 never executed
+call   2405 never executed
+call   2406 never executed
+call   2407 never executed
+call   2408 never executed
+call   2409 never executed
+call   2410 never executed
+call   2411 never executed
+call   2412 never executed
+call   2413 never executed
+call   2414 never executed
+call   2415 never executed
+call   2416 never executed
+call   2417 never executed
+call   2418 never executed
+call   2419 never executed
+call   2420 never executed
+call   2421 never executed
+call   2422 never executed
+call   2423 never executed
+call   2424 never executed
+call   2425 never executed
+call   2426 never executed
+call   2427 never executed
+call   2428 never executed
+call   2429 never executed
+call   2430 never executed
+call   2431 never executed
+call   2432 never executed
+call   2433 never executed
+call   2434 never executed
+call   2435 never executed
+call   2436 never executed
+call   2437 never executed
+call   2438 never executed
+call   2439 never executed
+call   2440 never executed
+call   2441 never executed
+call   2442 never executed
+call   2443 never executed
+call   2444 never executed
+call   2445 never executed
+call   2446 never executed
+call   2447 never executed
+call   2448 never executed
+call   2449 never executed
+call   2450 never executed
+call   2451 never executed
+call   2452 never executed
+call   2453 never executed
+call   2454 never executed
+call   2455 never executed
+call   2456 never executed
+call   2457 never executed
+call   2458 never executed
+call   2459 never executed
+call   2460 never executed
+call   2461 never executed
+call   2462 never executed
+call   2463 never executed
+call   2464 never executed
+call   2465 never executed
+call   2466 never executed
+call   2467 never executed
+call   2468 never executed
+call   2469 never executed
+call   2470 never executed
+call   2471 never executed
+call   2472 never executed
+call   2473 never executed
+call   2474 never executed
+call   2475 never executed
+call   2476 never executed
+call   2477 never executed
+call   2478 never executed
+branch 2479 never executed
+branch 2480 never executed
+call   2481 never executed
+       29:  315:    return syllables;
+        -:  316:}
+        -:  317:
+        -:  318:// DP-based 最优拼音分词：最小化音节数量（偏好长音节匹配）
+function _ZN10pinyin_ime17dp_pinyin_segmentERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 11 returned 100% blocks executed 75%
+       11:  319:inline std::vector<std::string> dp_pinyin_segment(const std::string& input) {
+       11:  320:    int n = (int)input.size();
+call    0 returned 100%
+       11:  321:    if (n == 0) return {};
+branch  0 taken 9% (fallthrough)
+branch  1 taken 91%
+call    2 returned 100%
+        -:  322:
+       10:  323:    const auto& syllables = valid_pinyin_syllables();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       10:  324:    const int INF = 1e9;
+        -:  325:
+        -:  326:    // dp[i] = 从位置i到末尾的最小音节数（覆盖全部字符）
+        -:  327:    // choice[i] = 最优切分中位置i选的音节长度
+       10:  328:    std::vector<int> dp(n + 1, INF);
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+       10:  329:    std::vector<int> choice(n + 1, 0);
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+       10:  330:    dp[n] = 0;  // 空串=0个音节
+call    0 returned 100%
+        -:  331:
+        -:  332:    // 从后往前DP
+      169:  333:    for (int i = n - 1; i >= 0; --i) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+        -:  334:        // 尝试所有可能的音节长度（1-6），优先长音节
+     1113:  335:        for (int len = 6; len >= 1; --len) {
+branch  0 taken 86%
+branch  1 taken 14% (fallthrough)
+      954:  336:            if (i + len > n) continue;
+branch  0 taken 15% (fallthrough)
+branch  1 taken 85%
+      814:  337:            std::string syllable = input.substr(i, len);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+      814:  338:            if (syllables.count(syllable) && dp[i + len] < INF) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 18% (fallthrough)
+branch  4 taken 82%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0%
+branch  8 taken 18% (fallthrough)
+branch  9 taken 82%
+      145:  339:                int score = 1 + dp[i + len];
+call    0 returned 100%
+      145:  340:                if (score < dp[i]) {
+call    0 returned 100%
+branch  1 taken 66% (fallthrough)
+branch  2 taken 34%
+       96:  341:                    dp[i] = score;
+call    0 returned 100%
+       96:  342:                    choice[i] = len;
+call    0 returned 100%
+        -:  343:                }
+        -:  344:            }
+      814:  345:        }
+call    0 returned 100%
+call    1 never executed
+        -:  346:        // 单字符回退：如果无法匹配任何音节，跳过一个字符
+      159:  347:        if (dp[i] >= INF && dp[i + 1] < INF) {
+call    0 returned 100%
+branch  1 taken 40% (fallthrough)
+branch  2 taken 60%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+branch  6 taken 40% (fallthrough)
+branch  7 taken 60%
+       63:  348:            dp[i] = 1 + dp[i + 1];  // 作为1个无效音节
+call    0 returned 100%
+call    1 returned 100%
+       63:  349:            choice[i] = 1;
+call    0 returned 100%
+        -:  350:        }
+        -:  351:    }
+        -:  352:
+        -:  353:    // 回溯构造分词结果
+       10:  354:    std::vector<std::string> result;
+call    0 returned 100%
+       10:  355:    int i = 0;
+       63:  356:    while (i < n) {
+branch  0 taken 84%
+branch  1 taken 16% (fallthrough)
+       53:  357:        int len = choice[i];
+call    0 returned 100%
+      53*:  358:        if (len <= 0) break;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+       53:  359:        result.push_back(input.substr(i, len));
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+       53:  360:        i += len;
+        -:  361:    }
+        -:  362:
+       10:  363:    return result;
+call    0 returned 100%
+       10:  364:}
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 never executed
+call    4 never executed
+call    5 never executed
+        -:  365:
+        -:  366:// v0.9.146 带分隔符的DP分词结果
+        -:  367:// v0.9.179：判断整串能否被有效音节**完整覆盖**（零残字）。
+        -:  368:// 与 dp_pinyin_segment 的差别：后者允许"单字符残段回退"（用于提示分词，不判合法性），
+        -:  369:// 且以音节数最少为目标——`guangxuershiwunian…` 会被切成长音节 `xue`，多出来的 'r' 变成残段，
+        -:  370:// 于是合法拼音被误判成非法，CLI 便把它当英文原样回显。
+        -:  371:// 这里只做可达性判断：每个位置都必须落在某个有效音节边界上。
+function _ZN10pinyin_ime24pinyin_fully_segmentableERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 19 returned 100% blocks executed 75%
+       19:  372:inline bool pinyin_fully_segmentable(const std::string& input) {
+       19:  373:    if (input.empty()) return false;
+call    0 returned 100%
+branch  1 taken 5% (fallthrough)
+branch  2 taken 95%
+       18:  374:    const auto& syl = valid_pinyin_syllables();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       18:  375:    const size_t n = input.size();
+call    0 returned 100%
+       18:  376:    std::vector<char> can(n + 1, 0);
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+       18:  377:    can[0] = 1;  // 起点可达
+call    0 returned 100%
+      175:  378:    for (size_t i = 0; i < n; ++i) {
+branch  0 taken 90%
+branch  1 taken 10% (fallthrough)
+      157:  379:        if (!can[i]) continue;
+call    0 returned 100%
+branch  1 taken 39% (fallthrough)
+branch  2 taken 61%
+       96:  380:        const size_t maxLen = std::min<size_t>(6, n - i);
+call    0 returned 100%
+      538:  381:        for (size_t len = 1; len <= maxLen; ++len) {
+branch  0 taken 82%
+branch  1 taken 18% (fallthrough)
+      442:  382:            if (syl.count(input.substr(i, len))) can[i + len] = 1;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 27% (fallthrough)
+branch  8 taken 73%
+call    9 returned 100%
+call   10 never executed
+        -:  383:        }
+        -:  384:    }
+       18:  385:    return can[n] != 0;
+call    0 returned 100%
+       18:  386:}
+call    0 returned 100%
+call    1 never executed
+        -:  387:
+function _ZN10pinyin_ime22dp_pinyin_segment_hintERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 1 returned 100% blocks executed 78%
+        1:  388:inline std::string dp_pinyin_segment_hint(const std::string& input) {
+        1:  389:    auto segments = dp_pinyin_segment(input);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       1*:  390:    if (segments.empty()) return {};
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+call    3 never executed
+        -:  391:
+        1:  392:    std::string result;
+call    0 returned 100%
+        3:  393:    for (size_t i = 0; i < segments.size(); ++i) {
+call    0 returned 100%
+branch  1 taken 67%
+branch  2 taken 33% (fallthrough)
+        2:  394:        if (i > 0) result += "'";
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        2:  395:        result += segments[i];
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        -:  396:    }
+        1:  397:    return result;
+call    0 returned 100%
+        1:  398:}
+call    0 returned 100%
+call    1 returned 100%
+call    2 never executed
+call    3 never executed
+        -:  399:
+        -:  400:// v0.9.146 增强长句分割（使用DP分词）
+function _ZN10pinyin_ime22long_sentence_split_v2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 1 returned 100% blocks executed 79%
+        1:  401:inline std::vector<std::string> long_sentence_split_v2(const std::string& input) {
+       1*:  402:    if (input.size() < 4) return {};
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+call    3 never executed
+        -:  403:
+        1:  404:    auto segments = dp_pinyin_segment(input);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       1*:  405:    if (segments.size() < 2) return {};
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+call    3 never executed
+        -:  406:
+        -:  407:    // 按常见词长分组（2-4音节一组）
+        1:  408:    std::vector<std::string> groups;
+call    0 returned 100%
+        1:  409:    size_t i = 0;
+        3:  410:    while (i < segments.size()) {
+call    0 returned 100%
+branch  1 taken 67%
+branch  2 taken 33% (fallthrough)
+        -:  411:        // 尝试2-4音节一组
+        2:  412:        std::string group;
+call    0 returned 100%
+        2:  413:        int take = 0;
+        -:  414:
+        -:  415:        // 优先尝试4音节，然后3，然后2
+        6:  416:        for (int try_take : {4, 3, 2}) {
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 83%
+branch  3 taken 17% (fallthrough)
+        5:  417:            if (i + try_take <= segments.size()) {
+call    0 returned 100%
+branch  1 taken 40% (fallthrough)
+branch  2 taken 60%
+        2:  418:                std::string candidate;
+call    0 returned 100%
+        9:  419:                for (int j = 0; j < try_take; ++j) {
+branch  0 taken 78%
+branch  1 taken 22% (fallthrough)
+        7:  420:                    candidate += segments[i + j];
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        -:  421:                }
+        -:  422:                // 简单启发式：如果组合后长度合理（6-12字符），采用
+        2:  423:                if (candidate.size() >= 4 && candidate.size() <= 12) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 50% (fallthrough)
+branch  5 taken 50%
+branch  6 taken 50% (fallthrough)
+branch  7 taken 50%
+        1:  424:                    group = candidate;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        1:  425:                    take = try_take;
+        1:  426:                    break;
+        -:  427:                }
+        2:  428:            }
+call    0 returned 100%
+branch  1 taken 50% (fallthrough)
+branch  2 taken 50%
+call    3 never executed
+        -:  429:        }
+        -:  430:
+        2:  431:        if (take == 0) {
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+        1:  432:            group = segments[i];
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        1:  433:            take = 1;
+        -:  434:        }
+        -:  435:
+        2:  436:        groups.push_back(group);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        2:  437:        i += take;
+        2:  438:    }
+call    0 returned 100%
+call    1 never executed
+        -:  439:
+        1:  440:    return groups;
+call    0 returned 100%
+        1:  441:}
+call    0 returned 100%
+call    1 returned 100%
+call    2 never executed
+call    3 never executed
+        -:  442:
+        -:  443:// ── v0.9.147 增强皮肤系统 ──────────────────────────────────
+        -:  444:// 扩展皮肤属性：字体大小/候选窗样式/间距/边框等
+        -:  445:struct SkinConfig {
+        -:  446:    std::string name;
+        -:  447:    std::string description;
+        -:  448:    // 颜色（ANSI转义码）
+        -:  449:    std::string preedit_color;
+        -:  450:    std::string candidate_color;
+        -:  451:    std::string focus_color;
+        -:  452:    std::string index_color;
+        -:  453:    std::string hint_color;
+        -:  454:    std::string reset_color;
+        -:  455:    // 候选窗样式
+        -:  456:    int font_size = 14;
+        -:  457:    int candidate_spacing = 2;      // 候选词间距
+        -:  458:    int max_candidates_per_page = 5;
+        -:  459:    bool show_index = true;          // 显示序号
+        -:  460:    bool show_pinyin = true;         // 显示拼音
+        -:  461:    bool highlight_first = true;     // 高亮首选
+        -:  462:    std::string window_style = "horizontal";  // horizontal/vertical
+        -:  463:    std::string border_style = "none";        // none/ascii/unicode
+        -:  464:    std::string background_color = "";
+        -:  465:    // 动画
+        -:  466:    bool enable_animation = false;
+        -:  467:    int animation_speed_ms = 100;
+        -:  468:};
+        -:  469:
+        -:  470:// 内置皮肤列表
+function _ZN10pinyin_ime8get_skinERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 17 returned 100% blocks executed 39%
+       17:  471:inline SkinConfig get_skin(const std::string& name) {
+       17:  472:    if (name == "sogou" || name == "搜狗") {
+call    0 returned 100%
+branch  1 taken 53% (fallthrough)
+branch  2 taken 47%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 47% (fallthrough)
+branch  7 taken 53%
+        -:  473:        return {"sogou", "搜狗经典皮肤",
+        -:  474:                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+        8:  475:                14, 3, 5, true, true, true, "horizontal", "unicode", "[44m", true, 80};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+        9:  476:    } else if (name == "dark" || name == "暗色") {
+call    0 returned 100%
+branch  1 taken 78% (fallthrough)
+branch  2 taken 22%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 22% (fallthrough)
+branch  7 taken 78%
+        -:  477:        return {"dark", "暗色主题",
+        -:  478:                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+        2:  479:                14, 2, 5, true, true, true, "horizontal", "none", "", false, 0};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+        7:  480:    } else if (name == "high" || name == "高对比") {
+call    0 returned 100%
+branch  1 taken 86% (fallthrough)
+branch  2 taken 14%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 14% (fallthrough)
+branch  7 taken 86%
+        -:  481:        return {"high", "高对比度主题",
+        -:  482:                "[1;37m", "[1;37m", "[1;31m", "[1;36m", "[1;35m", "[0m",
+        1:  483:                16, 3, 5, true, true, true, "horizontal", "ascii", "[40m", false, 0};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+       6*:  484:    } else if (name == "retro" || name == "复古") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 0% (fallthrough)
+branch  7 taken 100%
+        -:  485:        return {"retro", "复古主题",
+        -:  486:                "[33m", "[32m", "[1;33m", "[35m", "[36m", "[0m",
+    #####:  487:                12, 2, 5, true, false, true, "horizontal", "ascii", "", false, 0};
+call    0 never executed
+call    1 never executed
+branch  2 never executed
+branch  3 never executed
+call    4 never executed
+call    5 never executed
+branch  6 never executed
+branch  7 never executed
+call    8 never executed
+call    9 never executed
+branch 10 never executed
+branch 11 never executed
+call   12 never executed
+call   13 never executed
+branch 14 never executed
+branch 15 never executed
+call   16 never executed
+call   17 never executed
+branch 18 never executed
+branch 19 never executed
+call   20 never executed
+call   21 never executed
+branch 22 never executed
+branch 23 never executed
+call   24 never executed
+call   25 never executed
+branch 26 never executed
+branch 27 never executed
+call   28 never executed
+call   29 never executed
+branch 30 never executed
+branch 31 never executed
+call   32 never executed
+call   33 never executed
+branch 34 never executed
+branch 35 never executed
+call   36 never executed
+call   37 never executed
+branch 38 never executed
+branch 39 never executed
+call   40 never executed
+call   41 never executed
+branch 42 never executed
+branch 43 never executed
+call   44 never executed
+call   45 never executed
+call   46 never executed
+call   47 never executed
+call   48 never executed
+call   49 never executed
+call   50 never executed
+call   51 never executed
+call   52 never executed
+call   53 never executed
+call   54 never executed
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+        6:  488:    } else if (name == "matrix" || name == "黑客") {
+call    0 returned 100%
+branch  1 taken 83% (fallthrough)
+branch  2 taken 17%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 17% (fallthrough)
+branch  7 taken 83%
+        -:  489:        return {"matrix", "黑客帝国主题",
+        -:  490:                "[32m", "[32m", "[1;32m", "[90m", "[32m", "[0m",
+        1:  491:                14, 2, 5, true, true, true, "horizontal", "none", "[40m", true, 50};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+       5*:  492:    } else if (name == "ocean" || name == "海洋") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 0% (fallthrough)
+branch  7 taken 100%
+        -:  493:        return {"ocean", "海洋主题",
+        -:  494:                "[34m", "[36m", "[1;34m", "[90m", "[35m", "[0m",
+    #####:  495:                14, 2, 5, true, true, true, "horizontal", "unicode", "[44;1m", false, 0};
+call    0 never executed
+call    1 never executed
+branch  2 never executed
+branch  3 never executed
+call    4 never executed
+call    5 never executed
+branch  6 never executed
+branch  7 never executed
+call    8 never executed
+call    9 never executed
+branch 10 never executed
+branch 11 never executed
+call   12 never executed
+call   13 never executed
+branch 14 never executed
+branch 15 never executed
+call   16 never executed
+call   17 never executed
+branch 18 never executed
+branch 19 never executed
+call   20 never executed
+call   21 never executed
+branch 22 never executed
+branch 23 never executed
+call   24 never executed
+call   25 never executed
+branch 26 never executed
+branch 27 never executed
+call   28 never executed
+call   29 never executed
+branch 30 never executed
+branch 31 never executed
+call   32 never executed
+call   33 never executed
+branch 34 never executed
+branch 35 never executed
+call   36 never executed
+call   37 never executed
+branch 38 never executed
+branch 39 never executed
+call   40 never executed
+call   41 never executed
+branch 42 never executed
+branch 43 never executed
+call   44 never executed
+call   45 never executed
+call   46 never executed
+call   47 never executed
+call   48 never executed
+call   49 never executed
+call   50 never executed
+call   51 never executed
+call   52 never executed
+call   53 never executed
+call   54 never executed
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+       5*:  496:    } else if (name == "solar" || name == "日光") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 0% (fallthrough)
+branch  7 taken 100%
+        -:  497:        return {"solar", "日光主题",
+        -:  498:                "[33m", "[37m", "[1;31m", "[33m", "[35m", "[0m",
+    #####:  499:                14, 2, 5, true, true, true, "horizontal", "none", "[43m", false, 0};
+call    0 never executed
+call    1 never executed
+branch  2 never executed
+branch  3 never executed
+call    4 never executed
+call    5 never executed
+branch  6 never executed
+branch  7 never executed
+call    8 never executed
+call    9 never executed
+branch 10 never executed
+branch 11 never executed
+call   12 never executed
+call   13 never executed
+branch 14 never executed
+branch 15 never executed
+call   16 never executed
+call   17 never executed
+branch 18 never executed
+branch 19 never executed
+call   20 never executed
+call   21 never executed
+branch 22 never executed
+branch 23 never executed
+call   24 never executed
+call   25 never executed
+branch 26 never executed
+branch 27 never executed
+call   28 never executed
+call   29 never executed
+branch 30 never executed
+branch 31 never executed
+call   32 never executed
+call   33 never executed
+branch 34 never executed
+branch 35 never executed
+call   36 never executed
+call   37 never executed
+branch 38 never executed
+branch 39 never executed
+call   40 never executed
+call   41 never executed
+branch 42 never executed
+branch 43 never executed
+call   44 never executed
+call   45 never executed
+call   46 never executed
+call   47 never executed
+call   48 never executed
+call   49 never executed
+call   50 never executed
+call   51 never executed
+call   52 never executed
+call   53 never executed
+call   54 never executed
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+        5:  500:    } else if (name == "vertical" || name == "竖排") {
+call    0 returned 100%
+branch  1 taken 60% (fallthrough)
+branch  2 taken 40%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+branch  6 taken 40% (fallthrough)
+branch  7 taken 60%
+        -:  501:        return {"vertical", "竖排候选窗",
+        -:  502:                "[36m", "[37m", "[1;33m", "[90m", "[90m", "[0m",
+        2:  503:                14, 1, 9, true, true, true, "vertical", "unicode", "", false, 0};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+call   66 never executed
+        -:  504:    }
+        -:  505:    // 默认皮肤
+        -:  506:    return {"default", "默认皮肤",
+        -:  507:            "", "", "", "", "", "",
+        3:  508:            14, 2, 5, true, true, true, "horizontal", "none", "", false, 0};
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 returned 100%
+branch 14 taken 100% (fallthrough)
+branch 15 taken 0% (throw)
+call   16 returned 100%
+call   17 returned 100%
+branch 18 taken 100% (fallthrough)
+branch 19 taken 0% (throw)
+call   20 returned 100%
+call   21 returned 100%
+branch 22 taken 100% (fallthrough)
+branch 23 taken 0% (throw)
+call   24 returned 100%
+call   25 returned 100%
+branch 26 taken 100% (fallthrough)
+branch 27 taken 0% (throw)
+call   28 returned 100%
+call   29 returned 100%
+branch 30 taken 100% (fallthrough)
+branch 31 taken 0% (throw)
+call   32 returned 100%
+call   33 returned 100%
+branch 34 taken 100% (fallthrough)
+branch 35 taken 0% (throw)
+call   36 returned 100%
+call   37 returned 100%
+branch 38 taken 100% (fallthrough)
+branch 39 taken 0% (throw)
+call   40 returned 100%
+call   41 returned 100%
+branch 42 taken 100% (fallthrough)
+branch 43 taken 0% (throw)
+call   44 returned 100%
+call   45 returned 100%
+call   46 returned 100%
+call   47 returned 100%
+call   48 returned 100%
+call   49 returned 100%
+call   50 returned 100%
+call   51 returned 100%
+call   52 returned 100%
+call   53 returned 100%
+call   54 returned 100%
+call   55 never executed
+call   56 never executed
+call   57 never executed
+call   58 never executed
+call   59 never executed
+call   60 never executed
+call   61 never executed
+call   62 never executed
+call   63 never executed
+call   64 never executed
+call   65 never executed
+        -:  509:}
+        -:  510:
+        -:  511:// 列出所有内置皮肤
+function _ZN10pinyin_ime10list_skinsB5cxx11Ev called 1 returned 100% blocks executed 72%
+        1:  512:inline std::vector<std::pair<std::string, std::string>> list_skins() {
+        -:  513:    return {
+        -:  514:        {"default", "默认皮肤"},
+        -:  515:        {"sogou", "搜狗经典皮肤"},
+        -:  516:        {"dark", "暗色主题"},
+        -:  517:        {"high", "高对比度主题"},
+        -:  518:        {"retro", "复古主题"},
+        -:  519:        {"matrix", "黑客帝国主题"},
+        -:  520:        {"ocean", "海洋主题"},
+        -:  521:        {"solar", "日光主题"},
+        -:  522:        {"vertical", "竖排候选窗"},
+       10:  523:    };
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+call    5 returned 100%
+call    6 returned 100%
+call    7 returned 100%
+call    8 returned 100%
+call    9 returned 100%
+call   10 returned 100%
+branch 11 taken 100% (fallthrough)
+branch 12 taken 0% (throw)
+call   13 returned 100%
+branch 14 taken 90% (fallthrough)
+branch 15 taken 10%
+call   16 returned 100%
+call   17 never executed
+branch 18 never executed
+branch 19 never executed
+call   20 never executed
+        -:  524:}
+        -:  525:
+        -:  526:// 从文件加载自定义皮肤
+        -:  527:// 格式：key=value 每行一个属性
+function _ZN10pinyin_ime19load_skin_from_fileERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 1 returned 100% blocks executed 76%
+        1:  528:inline SkinConfig load_skin_from_file(const std::string& path) {
+        1:  529:    FILE* fp = std::fopen(path.c_str(), "r");
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+       1*:  530:    if (!fp) return get_skin("default");
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+call    2 never executed
+call    3 never executed
+branch  4 never executed
+branch  5 never executed
+call    6 never executed
+branch  7 never executed
+branch  8 never executed
+call    9 never executed
+call   10 never executed
+call   11 never executed
+call   12 never executed
+        -:  531:
+        2:  532:    SkinConfig skin = get_skin("default");
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+        -:  533:    char line[512];
+       20:  534:    while (std::fgets(line, sizeof(line), fp)) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 95%
+branch  4 taken 5% (fallthrough)
+       19:  535:        std::string s(line);
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+       38:  536:        while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+call    4 returned 100%
+branch  5 taken 50% (fallthrough)
+branch  6 taken 50%
+call    7 returned 100%
+branch  8 taken 0% (fallthrough)
+branch  9 taken 100%
+branch 10 taken 50%
+branch 11 taken 50% (fallthrough)
+       19:  537:        if (s.empty() || s[0] == '#') continue;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+branch  6 taken 5% (fallthrough)
+branch  7 taken 95%
+branch  8 taken 5% (fallthrough)
+branch  9 taken 95%
+        -:  538:
+       18:  539:        size_t eq = s.find('=');
+call    0 returned 100%
+      18*:  540:        if (eq == std::string::npos) continue;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+       18:  541:        std::string key = s.substr(0, eq);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       18:  542:        std::string val = s.substr(eq + 1);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  543:
+       18:  544:        if (key == "name") skin.name = val;
+call    0 returned 100%
+branch  1 taken 6% (fallthrough)
+branch  2 taken 94%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       17:  545:        else if (key == "description") skin.description = val;
+call    0 returned 100%
+branch  1 taken 6% (fallthrough)
+branch  2 taken 94%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       16:  546:        else if (key == "preedit_color") skin.preedit_color = val;
+call    0 returned 100%
+branch  1 taken 6% (fallthrough)
+branch  2 taken 94%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       15:  547:        else if (key == "candidate_color") skin.candidate_color = val;
+call    0 returned 100%
+branch  1 taken 7% (fallthrough)
+branch  2 taken 93%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       14:  548:        else if (key == "focus_color") skin.focus_color = val;
+call    0 returned 100%
+branch  1 taken 7% (fallthrough)
+branch  2 taken 93%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       13:  549:        else if (key == "index_color") skin.index_color = val;
+call    0 returned 100%
+branch  1 taken 8% (fallthrough)
+branch  2 taken 92%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       12:  550:        else if (key == "hint_color") skin.hint_color = val;
+call    0 returned 100%
+branch  1 taken 8% (fallthrough)
+branch  2 taken 92%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       11:  551:        else if (key == "font_size") skin.font_size = std::stoi(val);
+call    0 returned 100%
+branch  1 taken 9% (fallthrough)
+branch  2 taken 91%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       10:  552:        else if (key == "candidate_spacing") skin.candidate_spacing = std::stoi(val);
+call    0 returned 100%
+branch  1 taken 10% (fallthrough)
+branch  2 taken 90%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        9:  553:        else if (key == "max_candidates_per_page") skin.max_candidates_per_page = std::stoi(val);
+call    0 returned 100%
+branch  1 taken 11% (fallthrough)
+branch  2 taken 89%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       8*:  554:        else if (key == "show_index") skin.show_index = (val == "true" || val == "1");
+call    0 returned 100%
+branch  1 taken 12% (fallthrough)
+branch  2 taken 88%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+call    6 returned 100%
+branch  7 taken 0% (fallthrough)
+branch  8 taken 100%
+       7*:  555:        else if (key == "show_pinyin") skin.show_pinyin = (val == "true" || val == "1");
+call    0 returned 100%
+branch  1 taken 14% (fallthrough)
+branch  2 taken 86%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+call    6 never executed
+branch  7 never executed
+branch  8 never executed
+       6*:  556:        else if (key == "highlight_first") skin.highlight_first = (val == "true" || val == "1");
+call    0 returned 100%
+branch  1 taken 17% (fallthrough)
+branch  2 taken 83%
+call    3 returned 100%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+call    6 never executed
+branch  7 never executed
+branch  8 never executed
+        5:  557:        else if (key == "window_style") skin.window_style = val;
+call    0 returned 100%
+branch  1 taken 20% (fallthrough)
+branch  2 taken 80%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        4:  558:        else if (key == "border_style") skin.border_style = val;
+call    0 returned 100%
+branch  1 taken 25% (fallthrough)
+branch  2 taken 75%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        3:  559:        else if (key == "background_color") skin.background_color = val;
+call    0 returned 100%
+branch  1 taken 33% (fallthrough)
+branch  2 taken 67%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       2*:  560:        else if (key == "enable_animation") skin.enable_animation = (val == "true" || val == "1");
+call    0 returned 100%
+branch  1 taken 50% (fallthrough)
+branch  2 taken 50%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0%
+call    6 returned 100%
+branch  7 taken 0% (fallthrough)
+branch  8 taken 100%
+        1:  561:        else if (key == "animation_speed_ms") skin.animation_speed_ms = std::stoi(val);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+       19:  562:    }
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 95% (fallthrough)
+branch  4 taken 5%
+call    5 never executed
+call    6 never executed
+call    7 never executed
+        1:  563:    std::fclose(fp);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        1:  564:    return skin;
+call    0 returned 100%
+        1:  565:}
+call    0 returned 100%
+call    1 never executed
+        -:  566:
+        -:  567:// 保存皮肤到文件
+function _ZN10pinyin_ime17save_skin_to_fileERKNS_10SkinConfigERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 1 returned 100% blocks executed 90%
+        1:  568:inline bool save_skin_to_file(const SkinConfig& skin, const std::string& path) {
+        1:  569:    FILE* fp = std::fopen(path.c_str(), "w");
+call    0 returned 100%
+call    1 returned 100%
+       1*:  570:    if (!fp) return false;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        1:  571:    std::fprintf(fp, "# pinyin-ime skin file\n");
+call    0 returned 100%
+        1:  572:    std::fprintf(fp, "name=%s\n", skin.name.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  573:    std::fprintf(fp, "description=%s\n", skin.description.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  574:    std::fprintf(fp, "preedit_color=%s\n", skin.preedit_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  575:    std::fprintf(fp, "candidate_color=%s\n", skin.candidate_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  576:    std::fprintf(fp, "focus_color=%s\n", skin.focus_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  577:    std::fprintf(fp, "index_color=%s\n", skin.index_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  578:    std::fprintf(fp, "hint_color=%s\n", skin.hint_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  579:    std::fprintf(fp, "font_size=%d\n", skin.font_size);
+call    0 returned 100%
+        1:  580:    std::fprintf(fp, "candidate_spacing=%d\n", skin.candidate_spacing);
+call    0 returned 100%
+        1:  581:    std::fprintf(fp, "max_candidates_per_page=%d\n", skin.max_candidates_per_page);
+call    0 returned 100%
+       1*:  582:    std::fprintf(fp, "show_index=%s\n", skin.show_index ? "true" : "false");
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+call    2 returned 100%
+       1*:  583:    std::fprintf(fp, "show_pinyin=%s\n", skin.show_pinyin ? "true" : "false");
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+       1*:  584:    std::fprintf(fp, "highlight_first=%s\n", skin.highlight_first ? "true" : "false");
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+        1:  585:    std::fprintf(fp, "window_style=%s\n", skin.window_style.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  586:    std::fprintf(fp, "border_style=%s\n", skin.border_style.c_str());
+call    0 returned 100%
+call    1 returned 100%
+        1:  587:    std::fprintf(fp, "background_color=%s\n", skin.background_color.c_str());
+call    0 returned 100%
+call    1 returned 100%
+       1*:  588:    std::fprintf(fp, "enable_animation=%s\n", skin.enable_animation ? "true" : "false");
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+call    2 returned 100%
+        1:  589:    std::fprintf(fp, "animation_speed_ms=%d\n", skin.animation_speed_ms);
+call    0 returned 100%
+        1:  590:    std::fclose(fp);
+call    0 returned 100%
+        1:  591:    return true;
+        -:  592:}
+        -:  593:
+        -:  594:// 用皮肤渲染候选窗
+function _ZN10pinyin_ime33render_candidate_window_with_skinERKSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS6_EERKS6_RKNS_10SkinConfigEi called 2 returned 100% blocks executed 63%
+        2:  595:inline std::string render_candidate_window_with_skin(
+        -:  596:        const std::vector<std::string>& candidates,
+        -:  597:        const std::string& preedit,
+        -:  598:        const SkinConfig& skin,
+        -:  599:        int page = 0) {
+        2:  600:    if (candidates.empty()) return "";
+call    0 returned 100%
+branch  1 taken 50% (fallthrough)
+branch  2 taken 50%
+call    3 returned 100%
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+call    8 never executed
+        -:  601:
+        1:  602:    std::string result;
+call    0 returned 100%
+        1:  603:    int per_page = skin.max_candidates_per_page;
+        1:  604:    int start = page * per_page;
+        1:  605:    int end = std::min(start + per_page, (int)candidates.size());
+call    0 returned 100%
+call    1 returned 100%
+        -:  606:
+        -:  607:    // 边框
+        1:  608:    if (skin.border_style == "unicode") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+        1:  609:        result += "\xe2\x94\x8c";  // ┌
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       41:  610:        for (int i = 0; i < 40; ++i) result += "\xe2\x94\x80";  // ─
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 98%
+branch  4 taken 2% (fallthrough)
+        1:  611:        result += "\xe2\x94\x90\n";  // ┐
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+    #####:  612:    } else if (skin.border_style == "ascii") {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  613:        result += "+";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  614:        for (int i = 0; i < 40; ++i) result += "-";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+    #####:  615:        result += "+\n";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+        -:  616:    }
+        -:  617:
+        -:  618:    // 拼音预编辑区
+       1*:  619:    if (skin.show_pinyin && !preedit.empty()) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0%
+        1:  620:        if (!skin.background_color.empty()) result += skin.background_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        1:  621:        result += skin.preedit_color + preedit + skin.reset_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+call   10 returned 100%
+call   11 never executed
+call   12 never executed
+        1:  622:        if (!skin.background_color.empty()) result += skin.reset_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        1:  623:        result += "\n";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  624:    }
+        -:  625:
+        -:  626:    // 候选词
+        4:  627:    for (int i = start; i < end; ++i) {
+branch  0 taken 75%
+branch  1 taken 25% (fallthrough)
+        3:  628:        if (!skin.background_color.empty()) result += skin.background_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        -:  629:        // 序号
+        3:  630:        if (skin.show_index) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+        3:  631:            result += skin.index_color + std::to_string(i - start + 1) + "." + skin.reset_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+call   16 returned 100%
+call   17 returned 100%
+call   18 returned 100%
+call   19 never executed
+call   20 never executed
+call   21 never executed
+call   22 never executed
+       12:  632:            for (int s = 0; s < skin.candidate_spacing; ++s) result += " ";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 75%
+branch  4 taken 25% (fallthrough)
+        -:  633:        }
+        -:  634:        // 候选词
+        3:  635:        if (i == 0 && skin.highlight_first) {
+branch  0 taken 33% (fallthrough)
+branch  1 taken 67%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+        1:  636:            result += skin.focus_color + candidates[i] + skin.reset_color;
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0% (throw)
+call   10 returned 100%
+call   11 returned 100%
+call   12 never executed
+call   13 never executed
+        -:  637:        } else {
+        2:  638:            result += skin.candidate_color + candidates[i] + skin.reset_color;
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0% (throw)
+call   10 returned 100%
+call   11 returned 100%
+call   12 never executed
+call   13 never executed
+        -:  639:        }
+        3:  640:        if (!skin.background_color.empty()) result += skin.reset_color;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        -:  641:
+        3:  642:        if (skin.window_style == "vertical") {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  643:            result += "\n";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+        -:  644:        } else {
+       12:  645:            for (int s = 0; s < skin.candidate_spacing; ++s) result += " ";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 75%
+branch  4 taken 25% (fallthrough)
+        -:  646:        }
+        -:  647:    }
+        -:  648:
+        -:  649:    // 底部边框
+        1:  650:    if (skin.border_style == "unicode") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+        1:  651:        result += "\n\xe2\x94\x94";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       41:  652:        for (int i = 0; i < 40; ++i) result += "\xe2\x94\x80";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 98%
+branch  4 taken 2% (fallthrough)
+        1:  653:        result += "\xe2\x94\x98";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+    #####:  654:    } else if (skin.border_style == "ascii") {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  655:        result += "\n+";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  656:        for (int i = 0; i < 40; ++i) result += "-";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+    #####:  657:        result += "+";
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+        -:  658:    }
+        -:  659:
+        1:  660:    return result;
+call    0 returned 100%
+        1:  661:}
+call    0 returned 100%
+call    1 never executed
