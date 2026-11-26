@@ -45,3 +45,70 @@ jobs:
 
       - name: Build, test and evaluate
         run: bash scripts/ci_build.sh
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            g++ \
+            libboost-dev \
+            libcurl4-openssl-dev \
+            libfcitx5config-dev \
+            libfcitx5core-dev \
+            libfcitx5utils-dev \
+            libime-bin \
+            libime-data \
+            libime-data-language-model \
+            libimecore-dev \
+            libimepinyin-dev \
+            pkg-config \
+            python3 \
+            rpm
+
+      - name: Build packages
+        run: bash scripts/ci_package.sh
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinyin-ime-${{ github.sha }}
+          path: |
+            dist/pinyin-ime_*_amd64.deb
+            dist/pinyin-ime-*-1.x86_64.rpm
+            dist/pinyin-ime-runtime-*-x86_64.tar.gz
+            dist/SHA256SUMS_v*
+          if-no-files-found: error
+
+  install-matrix:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install package tools and libime data
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            rpm \
+            libime-bin \
+            libime-data \
+            libime-data-language-model
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: pinyin-ime-${{ github.sha }}
+          path: dist
+
+      - name: Run install matrix
+        run: sudo bash scripts/test_install.sh --skip-build
