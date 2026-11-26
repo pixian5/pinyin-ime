@@ -14,7 +14,7 @@
 #   pinyin-ime-<version>-1.aarch64.rpm
 #   pinyin-ime_<version>_arm64.deb
 #
-# 打包内容:
+# 打包内容（rpm/deb）:
 #   /usr/bin/pinyin_ime_cli                  CLI 测试工具
 #   /usr/lib64/fcitx5/libpinyinime.so        fcitx5 addon（deb 布局为 /usr/lib/aarch64-linux-gnu/fcitx5/）
 #   /usr/share/fcitx5/addon/pinyinime.conf   addon 描述（版本与 VERSION 同步）
@@ -22,8 +22,11 @@
 #   /usr/share/doc/pinyin-ime/README.md      说明文档
 #
 # 说明:
-#   - 数据文件（zh_CN.lm/sc.dict）不随包分发：addon 自动搜索 libime 数据包的
-#     标准安装路径，或由 conf 里的 DataDir 指定（见 spec 内说明）。
+#   - v0.9.190 起 rpm/deb **不再自带** zh_CN.lm/sc.dict（改由 Depends/Requires
+#     libime-data 提供）：自带副本会与发行版 libime-data 撞 /usr/share/libime/sc.dict，
+#     正常 dpkg -i 直接被拒。体积从 22.7MB 降到约 1.4MB，且数据版本与系统一致。
+#   - runtime 包仍保持自包含（BUILD-INFO 的 data 字段标注），用于没有 libime-data
+#     的容器/云桌面；需要强制自包含 rpm/deb 时设 BUNDLE_DATA=1。
 #   - 沙箱适配：/usr 只读无法安装 rpm-build 时，自动使用 $NB/rpmtools 下解出的
 #     rpmbuild + rpm 脚本资源（scripts/setup_rpmtools.sh 准备）。
 #   - deb 由 scripts/make_deb.py（纯 Python）组装；沙箱无 dpkg 也可构建/自检。
@@ -75,13 +78,35 @@ if [ -z "$LM" ]; then
     done
 fi
 
-for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE" "$LM" "$DICT"; do
+for f in "$ADDON_SO" "$ADDON_CONF" "$CONF_TPL" "$INPUTMETHOD" "$CLI" "$README_FILE"; do
     [ -f "$f" ] || { echo "!! 缺文件: $f（先编译 addon/CLI；数据文件用 DATA_DIR 或 LM/DICT 指定）"; exit 1; }
 done
+# v0.9.190：数据文件仅在「自带数据」的模式（runtime，或 BUNDLE_DATA=1）下必需。
+# rpm/deb 改为依赖发行版 libime-data，避免与 /usr/share/libime/sc.dict 撞文件。
+BUNDLE_RPM_DEB="${BUNDLE_DATA:-0}"
+need_data() { [ "$1" = 1 ]; }
+if need_data "$BUNDLE_RPM_DEB"; then
+    for f in "$LM" "$DICT"; do
+        [ -f "$f" ] || { echo "!! 缺数据文件: $f（BUNDLE_DATA=1 时需要 LM/DICT）"; exit 1; }
+    done
+fi
 mkdir -p "$DIST"
 
 # 发布前硬校验：v0.9.118 的 RPM 曾把 Library 写成 libpinyinime.so，fcitx5 会再追加
 # 一次后缀导致 addon 加载失败。这里直接拒绝错误产物，避免再次发布坏包。
+# v0.9.190：CLI 二进制版本必须与 VERSION 一致。曾出现改了 VERSION 但没重编 CLI，
+# 装完 --version 仍报旧版本（包新、二进制旧）。交叉打包（二进制跑不起来）时跳过。
+validate_cli_version() {
+    local out
+    if ! out=$("$CLI" --version 2>/dev/null | head -1); then
+        log "跳过 CLI 版本校验（二进制无法在当前机器执行，可能是交叉打包）"
+        return 0
+    fi
+    case "$out" in
+        *"$VERSION"*) : ;;
+        *) echo "!! $CLI 版本为 \"$out\"，与 VERSION=$VERSION 不一致（先重编 CLI）"; exit 1 ;;
+    esac
+}
 validate_addon_conf() {
     grep -qx 'Library=libpinyinime' "$ADDON_CONF" ||
         { echo "!! $ADDON_CONF 的 Library 必须是 libpinyinime（不能带 .so）"; exit 1; }
@@ -91,17 +116,21 @@ validate_addon_conf() {
         { echo "!! $ADDON_CONF 的 Version 与 VERSION=$VERSION 不一致"; exit 1; }
 }
 validate_addon_conf
+validate_cli_version
 
 # 组装安装树 rootfs：$1=目标目录 $2=addon 安装目录（rpm/deb 布局不同）
+# $3=是否自带数据文件（1=自带，0=依赖 libime-data）
 stage_rootfs() {
-    local root="$1" addon_dir="$2"
+    local root="$1" addon_dir="$2" with_data="${3:-0}"
     rm -rf "$root"
     install -D -m755 "$ADDON_SO"   "$root$addon_dir/libpinyinime.so"
     install -D -m644 "$ADDON_CONF" "$root/usr/share/fcitx5/addon/pinyinime.conf"
     install -D -m644 "$CONF_TPL"   "$root/usr/share/fcitx5/conf/pinyinime.conf"
     install -D -m644 "$INPUTMETHOD" "$root/usr/share/fcitx5/inputmethod/pinyinime.inputmethod"
-    install -D -m644 "$LM"         "$root/usr/share/libime/zh_CN.lm"
-    install -D -m644 "$DICT"       "$root/usr/share/libime/sc.dict"
+    if [ "$with_data" = 1 ]; then
+        install -D -m644 "$LM"     "$root/usr/share/libime/zh_CN.lm"
+        install -D -m644 "$DICT"   "$root/usr/share/libime/sc.dict"
+    fi
     install -D -m644 "$README_FILE" "$root/usr/share/doc/pinyin-ime/README.md"
     install -D -m755 "$CLI"        "$root/usr/bin/pinyin_ime_cli"
 }
@@ -111,7 +140,7 @@ build_rpm() {
     local top="$WORK/rpmbuild"
     rm -rf "$top"; mkdir -p "$top"/{SPECS,SOURCES,BUILD,RPMS,SRPMS,BUILDROOT}
     local stage="$WORK/stage-rpm/pinyin-ime-$VERSION"
-    stage_rootfs "$stage" "/usr/lib64/fcitx5"
+    stage_rootfs "$stage" "/usr/lib64/fcitx5" "$BUNDLE_RPM_DEB"
     tar czf "$top/SOURCES/pinyin-ime-$VERSION.tar.gz" \
         -C "$WORK/stage-rpm" "pinyin-ime-$VERSION"
     # v0.9.187：spec 里的架构改成占位符，按本机（或 ARCH_RPM 覆盖）替换。
@@ -158,17 +187,17 @@ build_rpm() {
 build_deb() {
     log "构建 DEB v$VERSION ..."
     local stage="$WORK/stage-deb"
-    stage_rootfs "$stage" "$FCITX5_LIBDIR"
+    stage_rootfs "$stage" "$FCITX5_LIBDIR" "$BUNDLE_RPM_DEB"
     python3 scripts/make_deb.py \
         --rootfs "$stage" \
         --output "$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb" \
         --name pinyin-ime --version "$VERSION" --arch "$ARCH_DEB" \
-        --depends "fcitx5, libime" \
+        --depends "fcitx5, libime, libime-data" \
         --maintainer "laotongtian <laotongtian@gitcode.com>" \
         --short-desc "Pinyin input method for Linux based on libime (fcitx5 addon)" \
         --long-desc "pinyin-ime 是基于 libime 引擎的 Linux 拼音输入法（fcitx5 addon）。
  功能：全拼/简拼/整句解码、拼写纠错、模糊音按对开关、双拼、用户词典与自学习。
- 数据文件 zh_CN.lm / sc.dict 随包安装到 /usr/share/libime，开箱即用。"
+ 语言模型与词典由依赖 libime-data 提供（不随包重复安装，避免文件冲突）。"
 }
 
 # v0.9.189：便携运行时包。给「不能装 rpm/deb，但能解压到 /usr 或 $prefix」的场景
@@ -177,26 +206,63 @@ build_runtime() {
     log "构建 runtime tar.gz v$VERSION ..."
     local name="pinyin-ime-runtime-$VERSION-$ARCH_RPM"
     local root="$WORK/runtime/$name"
-    stage_rootfs "$root" "$FCITX5_LIBDIR"
+    for f in "$LM" "$DICT"; do
+        [ -f "$f" ] || { echo "!! runtime 包需要自带数据: 缺 $f"; exit 1; }
+    done
+    stage_rootfs "$root" "$FCITX5_LIBDIR" 1
 
     cat > "$root/install.sh" <<'EOF'
 #!/bin/sh
-# 把本目录的 usr/ 树覆盖安装到 /usr（需要 root）。卸载：按清单反向删除即可。
+# 把本目录的 usr/ 树覆盖安装到 /usr（需要 root）。卸载用同目录的 uninstall.sh。
 set -e
 cd "$(dirname "$0")"
 [ "$(id -u)" = 0 ] || { echo "请用 root 运行：sudo sh install.sh"; exit 1; }
 tar cf - usr | tar xf - -C /
+# 记录本次安装的文件，供 uninstall.sh 精确删除（不删系统自带的同名文件）
+mkdir -p /usr/share/doc/pinyin-ime
+find usr -type f | sed 's#^usr/#/#' > /usr/share/doc/pinyin-ime/installed-files.txt
 fcitx5 -r 2>/dev/null || true
 echo "安装完成。若 fcitx5 正在运行，请重启输入法（fcitx5 -r）后添加 pinyin-ime。"
 EOF
     chmod +x "$root/install.sh"
+
+    # v0.9.190：便携包此前只能覆盖安装、卸载靠手工删。这里生成带清单的卸载脚本。
+    cat > "$root/uninstall.sh" <<'EOF'
+#!/bin/sh
+# 按 install.sh 记录的清单反向删除，再清掉空目录（需要 root）。
+set -e
+[ "$(id -u)" = 0 ] || { echo "请用 root 运行：sudo sh uninstall.sh"; exit 1; }
+LIST=/usr/share/doc/pinyin-ime/installed-files.txt
+[ -f "$LIST" ] || { echo "找不到安装清单 $LIST，可能未用本包安装"; exit 1; }
+# 先删文件再删清单本身（清单也在 usr/ 树里，但 find 时还未生成，故单独处理）
+skipped=0
+while read -r f; do
+    [ -f "$f" ] || continue
+    # 任何被 dpkg/rpm 系统包占用的文件（如 libime-data 的 sc.dict、发行版自带的
+    # pinyin-ime）都不动：便携包卸载绝不能让系统文件消失。
+    if command -v dpkg >/dev/null 2>&1 && dpkg -S "$f" >/dev/null 2>&1; then
+        skipped=$((skipped+1)); continue
+    fi
+    if command -v rpm >/dev/null 2>&1 && rpm -qf "$f" >/dev/null 2>&1; then
+        skipped=$((skipped+1)); continue
+    fi
+    rm -f "$f"
+done < "$LIST"
+[ "$skipped" -gt 0 ] && echo "跳过 $skipped 个由系统包管理的文件（未删除）"
+rm -f "$LIST"
+rmdir /usr/share/doc/pinyin-ime /usr/share/fcitx5/addon /usr/share/fcitx5/conf       /usr/share/fcitx5/inputmethod /usr/share/libime 2>/dev/null || true
+fcitx5 -r 2>/dev/null || true
+echo "已卸载 pinyin-ime（runtime 包安装的文件）。"
+EOF
+    chmod +x "$root/uninstall.sh"
 
     cat > "$root/BUILD-INFO.txt" <<EOF
 version=$VERSION
 arch=$ARCH_RPM
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 addon_dir=$FCITX5_LIBDIR
-data=usr/share/libime/{zh_CN.lm,sc.dict}
+data=usr/share/libime/{zh_CN.lm,sc.dict} (self-contained)
+uninstall=uninstall.sh
 EOF
 
     tar czf "$DIST/$name.tar.gz" -C "$WORK/runtime" "$name"

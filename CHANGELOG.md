@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.190 (2026-11-26)
+
+### 数据文件归属重构 + 可卸载 runtime
+- **rpm/deb 不再自带 LM/词典**：`Requires/Depends: libime-data`，避免与发行版 `/usr/share/libime/sc.dict` 撞文件；包体积 22.7MB → 约 1MB。runtime 包仍自包含（容器场景），可用 `BUNDLE_DATA=1` 强制 rpm/deb 自带。
+- runtime 包新增 `uninstall.sh`：按 `installed-files.txt` 清单卸载，并跳过 dpkg/rpm 管理的文件（不会误删 `libime-data` 的数据）。
+- `build_packages.sh` 增加打包前 CLI 版本校验（`$CLI --version` 必须等于 `VERSION`；交叉打包自动跳过），修掉「包新、二进制旧」。
+- 实测：deb 正常 `dpkg -i`（无 force）通过、`Depends` 含 libime-data；rpm `rpm -i`/`rpm -e` 往返干净；runtime 装→卸往返后 `sc.dict` 保留；三项 SHA256 全 OK。
+- **升级风险**：0.9.189 → 0.9.190 升级会删掉 `libime-data` 的 `sc.dict`（旧包曾覆盖它），需 `apt-get install --reinstall libime-data` 修复。
+
 ## v0.9.189 (2026-11-26)
 
 ### 便携运行时包 + 端到端安装验证

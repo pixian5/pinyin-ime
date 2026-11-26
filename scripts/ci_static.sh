@@ -66,7 +66,7 @@ check "ip.txt 未入库" bash -c '! git ls-files --error-unmatch ip.txt >/dev/nu
 
 echo "=== 打包配置 ==="
 check "spec 包含 inputmethod" grep -q 'pinyinime.inputmethod' packaging/pinyin-ime.spec
-check "spec 包含 LM" grep -q 'zh_CN.lm' packaging/pinyin-ime.spec
+check "spec 说明数据由 libime-data 提供" grep -q 'libime-data 提供' packaging/pinyin-ime.spec
 check "build_packages 校验 Library" grep -q 'Library=libpinyinime' scripts/build_packages.sh
 check "build_packages 校验 Version" grep -q 'Version=\$VERSION' scripts/build_packages.sh
 
@@ -81,6 +81,17 @@ check "deb addon 目录可覆盖（FCITX5_LIBDIR）" grep -q 'FCITX5_LIBDIR' scr
 check "打包产出 SHA256SUMS_v\$VERSION" grep -q 'SHA256SUMS_v$VERSION' scripts/build_packages.sh
 check "build_packages 支持 runtime 模式" grep -q 'build_runtime' scripts/build_packages.sh
 check "build_release 标为历史脚本" grep -q '历史脚本' scripts/build_release.sh
+
+echo "=== 数据文件归属守卫（v0.9.190）==="
+# rpm/deb 自带 sc.dict 会与发行版 libime-data 撞文件，dpkg -i 直接被拒；
+# 因此只有 runtime 允许自带数据，rpm/deb 必须走 Requires/Depends: libime-data。
+check "spec 依赖 libime-data" grep -q '^Requires:       libime-data' packaging/pinyin-ime.spec
+check "spec 不再打包 zh_CN.lm" bash -c '! grep -q "^/usr/share/libime/zh_CN.lm" packaging/pinyin-ime.spec'
+check "spec 不再打包 sc.dict" bash -c '! grep -q "^/usr/share/libime/sc.dict" packaging/pinyin-ime.spec'
+check "deb 依赖 libime-data" grep -q 'fcitx5, libime, libime-data' scripts/build_packages.sh
+check "stage_rootfs 支持不带数据" grep -q 'with_data' scripts/build_packages.sh
+check "runtime 包生成 uninstall.sh" grep -q 'uninstall.sh' scripts/build_packages.sh
+check "打包前校验 CLI 版本与 VERSION 一致" grep -q 'validate_cli_version' scripts/build_packages.sh
 
 echo "=== 文档 ==="
 check "README 存在" test -s README.md
