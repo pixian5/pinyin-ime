@@ -1,6 +1,14 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.196 (2026-11-26)
+
+### 移除不可用的远端 CI，保留本地门禁
+- 实测 GitCode 与 AtomGit 是同一平台、两个网址；`https://gitcode.com/laotongtian/pinyin-ime/actions` 与 `https://atomgit.com/laotongtian/pinyin-ime/actions` 都不存在。此前 5 条记录只是后端 YAML 校验失败（`VALIDATION_ERROR`），没有 runner 执行；修 YAML 字段无法改变这一事实。
+- 删除 `.gitcode/workflows/ci.yml`，不再维护永远不跑的远端配置；`scripts/ci_build.sh` 保留为本地 / 任意 Ubuntu 24.04 环境的一条命令门禁（编译、单测、警告、快照、fuzz、1200 句评测）。
+- `scripts/ci_static.sh` 移除 workflow 存在性断言，改为校验本地 `ci_build.sh` 可执行、包含真实编译与评测，并确认不再残留 `.gitcode/workflows/ci.yml`。
+- 已知限制：项目当前**没有远端 CI**。发版前必须手动执行 `bash scripts/ci_build.sh`；若以后平台开放 Actions 入口，可从提交 `0cabf54` 取回已修正的 workflow 再启用。
+
 ## v0.9.195 (2026-11-26)
 
 ### 把 v0.9.194 的「剩余缺口」一次补完

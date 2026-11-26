@@ -119,10 +119,9 @@ check "runtime install/uninstall 的 fcitx5 -r 都有显示环境守卫" bash -c
 check "运行时脚本含 GTK 真实上屏断言" grep -q '真实按键上屏' scripts/test_runtime_fcitx5.sh
 check "升级矩阵含 rpm 降级路径" grep -q 'rpm -Uvh --oldpackage' scripts/test_upgrade_matrix.sh
 check "升级矩阵断言 RPM 数据不被改动" grep -q 'RPM 降级未改动 libime 数据' scripts/test_upgrade_matrix.sh
-check "CI 构建脚本存在" test -x scripts/ci_build.sh
-check "CI workflow 存在" test -s .gitcode/workflows/ci.yml
-check "CI workflow 调用 ci_build.sh" grep -q 'scripts/ci_build.sh' .gitcode/workflows/ci.yml
-check "CI 有真实编译+评测 job" grep -q 'build-eval' .gitcode/workflows/ci.yml
+check "本地 CI 构建脚本存在且可执行" test -x scripts/ci_build.sh
+check "本地 CI 构建脚本包含真实编译+评测" grep -q 'bench/eval.py' scripts/ci_build.sh
+check "不再保留无法运行的 AtomGit workflow" bash -c '! test -e .gitcode/workflows/ci.yml'
 # 覆盖率调试产物绝不能入库（v0.9.192 曾误提交 71 个 .gcov）
 check "无 .gcov 入库" bash -c '! git ls-files | grep -q "\.gcov$"'
 check ".gitignore 忽略 gcov 产物" grep -q '^\*\.gcov$' .gitignore
