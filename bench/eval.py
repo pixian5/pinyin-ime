@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """统一评测入口（D1）：对真实 CLI 批量管线跑 holdout，出可比较的准确率报告。
 
-只测一种东西：`pinyin_ime_cli --batch --top1` 的首选输出，也就是用户实际会得到的结果。
+只测一种东西：`pinyin_ime_cli --batch --top-k` 的候选列表（Top1 即用户实际首选）。
 不测 Python 包装（`pinyin_ime_smart.py`）、不测 bench/run_bench.py 的整句接口。
+除句级/字级外，还输出 Top1/3/5/10、MRR 与“命中后平均按键/翻页率”的保守估算。
 
 用法：
     # 自检（不依赖编译产物，验证指标/门禁逻辑）
@@ -13,7 +14,7 @@
         --cli cpp/build/pinyin_ime_cli \
         --lm /usr/lib/x86_64-linux-gnu/libime/zh_CN.lm \
         --dict /usr/share/libime/sc.dict \
-        --out bench/results/0.9.177
+        --nbest 10 --out bench/results/0.9.199
 
     # 与冻结基线比对（回退超阈值即失败）
     python3 bench/eval.py --engine cli ... --baseline bench/baseline.json
@@ -71,6 +72,49 @@ def score_pairs(pairs: list[tuple[str, str]]) -> dict:
     }
 
 
+def rank_metrics(cand_lists: list[list[str]], refs: list[str],
+                 page_size: int = 5) -> dict:
+    """候选排名 / 交互成本指标（只做可复现的保守估算）。
+
+    - Top-k：参考句是否进入前 k 个候选；k=1/3/5/10。
+    - MRR：命中排名的倒数平均，未命中记 0。
+    - 平均按键：首选/2-5 名按 1 次数字键或空格；第 6 名起每页 5 个，
+      估算为 1 次翻页 + 1 次选择；这是 CLI 5 候选/页的近似，不代表 addon 皮肤。
+    """
+    n = len(refs)
+    top_counts = {k: 0 for k in (1, 3, 5, 10)}
+    reciprocal = 0.0
+    found_ranks: list[int] = []
+    keys = 0.0
+    pages = 0
+    for cands, ref in zip(cand_lists, refs):
+        rank = next((i for i, c in enumerate(cands) if c == ref), None)
+        if rank is None:
+            continue
+        found_ranks.append(rank + 1)
+        for k in top_counts:
+            if rank < k:
+                top_counts[k] += 1
+        reciprocal += 1.0 / (rank + 1)
+        page_turns = rank // max(page_size, 1)
+        pages += page_turns
+        keys += 1 + page_turns
+    found = len(found_ranks)
+    return {
+        "sentences": n,
+        "top1": round(top_counts[1] / n * 100, 2) if n else 0.0,
+        "top3": round(top_counts[3] / n * 100, 2) if n else 0.0,
+        "top5": round(top_counts[5] / n * 100, 2) if n else 0.0,
+        "top10": round(top_counts[10] / n * 100, 2) if n else 0.0,
+        "mrr": round(reciprocal / n, 3) if n else 0.0,
+        "mean_rank": round(sum(found_ranks) / found, 2) if found else 0.0,
+        "avg_keys": round(keys / found, 2) if found else 0.0,
+        "page_rate": round(pages / found * 100, 2) if found else 0.0,
+        "not_found": n - found,
+        "page_size": page_size,
+    }
+
+
 def load_holdout(path: Path) -> dict[str, list[tuple[str, str]]]:
     domains: dict[str, list[tuple[str, str]]] = {}
     for tsv in sorted(path.glob("*.tsv")):
@@ -87,23 +131,28 @@ def load_holdout(path: Path) -> dict[str, list[tuple[str, str]]]:
     return domains
 
 
-def run_cli(args, rows: list[tuple[str, str]]) -> list[str]:
-    """调用 CLI 批量模式，返回与输入等长的首选串列表。"""
+def run_cli(args, rows: list[tuple[str, str]]) -> list[list[str]]:
+    """调用 CLI 批量模式，返回与输入等长的候选列表（每行按 Top-k 输出）。"""
     with tempfile.TemporaryDirectory(prefix="pinyin-eval-") as tmp:
         batch = Path(tmp) / "input.txt"
         batch.write_text("\n".join(py for py, _ in rows) + "\n", encoding="utf-8")
-        cmd = [str(args.cli), str(args.lm), str(args.dict),
-               "--batch", str(batch), "--top1", "--user-data", str(Path(tmp) / "user")]
+        topk = max(10, args.nbest)
+        cmd = [str(args.cli), str(args.lm), str(args.dict), str(args.nbest),
+               "--batch", str(batch), "--top-k", str(topk),
+               "--user-data", str(Path(tmp) / "user")]
         env = dict(os.environ)
         if args.lib_path:
             env["LD_LIBRARY_PATH"] = f"{args.lib_path}:{env.get('LD_LIBRARY_PATH', '')}"
         proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if proc.returncode != 0:
             raise RuntimeError(f"CLI 退出码 {proc.returncode}: {proc.stderr[-500:]}")
-        lines = [l for l in proc.stdout.splitlines()]
+        lines = proc.stdout.splitlines()
         if len(lines) != len(rows):
             raise RuntimeError(f"CLI 输出 {len(lines)} 行，输入 {len(rows)} 行，无法对齐")
-        return lines
+        out: list[list[str]] = []
+        for line in lines:
+            out.append([c for c in line.split("\t") if c != ""])
+        return out
 
 
 def git_commit(repo: Path) -> str:
@@ -127,7 +176,16 @@ def selftest() -> int:
     if score_pairs([])["sentences"] != 0:
         print("❌ 空输入处理错误", file=sys.stderr)
         return 1
-    print("✅ 指标 / 空输入 / 门禁阈值逻辑自检通过")
+    cands = [["你好"], ["中过", "中国"], ["输入法"]]
+    rank = rank_metrics(cands, refs)
+    if (rank["top1"], rank["top3"], rank["top10"], rank["mrr"],
+            rank["mean_rank"], rank["avg_keys"]) != (66.67, 100.0, 100.0, 0.833, 1.33, 1.0):
+        print(f"❌ 排名指标不符：{rank}", file=sys.stderr)
+        return 1
+    if rank_metrics([], [])["sentences"] != 0:
+        print("❌ 空排名输入处理错误", file=sys.stderr)
+        return 1
+    print("✅ 指标 / 排名 / 空输入 / 门禁阈值逻辑自检通过")
     return 0
 
 
@@ -162,6 +220,8 @@ def main() -> int:
     ap.add_argument("--holdout", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--baseline", type=Path, default=None)
+    ap.add_argument("--nbest", type=int, default=10,
+                    help="传给 CLI 的候选池大小（默认 10；Top-k 固定输出前 10）")
     args = ap.parse_args()
 
     if args.selftest:
@@ -176,6 +236,9 @@ def main() -> int:
     if not (args.cli and args.lm and args.dict):
         print("--engine cli 需要 --cli / --lm / --dict", file=sys.stderr)
         return 2
+    if args.nbest < 1:
+        print("--nbest 必须 >= 1", file=sys.stderr)
+        return 2
 
     rows_by_domain = load_holdout(holdout)
     if not rows_by_domain:
@@ -185,28 +248,36 @@ def main() -> int:
     summary = {
         "version": (repo / "VERSION").read_text().strip() if (repo / "VERSION").exists() else "unknown",
         "commit": git_commit(repo),
-        "engine": "cli-batch-top1",
+        "engine": "cli-batch-topk",
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "domains": {},
         "overall": {},
     }
     all_pairs: list[tuple[str, str]] = []
+    all_cands: list[list[str]] = []
+    all_refs: list[str] = []
     errors: list[str] = []
 
     for domain, rows in rows_by_domain.items():
         t0 = time.time()
-        hyps = run_cli(args, rows)
+        cands = run_cli(args, rows)
         elapsed = time.time() - t0
-        pairs = list(zip(hyps, [ref for _, ref in rows]))
+        hyps = [c[0] if c else "" for c in cands]
+        refs = [ref for _, ref in rows]
+        pairs = list(zip(hyps, refs))
         stats = score_pairs(pairs)
+        stats["rank"] = rank_metrics(cands, refs)
         stats["p50_ms"] = round(elapsed / max(len(rows), 1) * 1000, 2)
         summary["domains"][domain] = stats
         all_pairs.extend(pairs)
+        all_cands.extend(cands)
+        all_refs.extend(refs)
         for (py, ref), hyp in zip(rows, hyps):
             if hyp != ref:
                 errors.append(f"{domain}\t{py}\t期望 {ref}\t实际 {hyp}")
 
     summary["overall"] = score_pairs(all_pairs)
+    summary["overall"]["rank"] = rank_metrics(all_cands, all_refs)
 
     out.mkdir(parents=True, exist_ok=True)
     (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -218,6 +289,14 @@ def main() -> int:
         md.append(f"| {d} | {s['sentences']} | {s['sent_acc']}% | {s['char_acc']}% | {s['p50_ms']}ms |")
     o = summary["overall"]
     md.append(f"| **合计** | {o['sentences']} | {o['sent_acc']}% | {o['char_acc']}% | — |")
+    md += ["", "## 候选排名与交互成本（Top-k，候选窗每页 5 个）", "",
+           "| 域 | Top1 | Top3 | Top5 | Top10 | MRR | 命中平均排名 | 命中平均按键 | 翻页率 |",
+           "|---|---|---|---|---|---|---|---|---|"]
+    for d, s in summary["domains"].items():
+        r = s["rank"]
+        md.append(f"| {d} | {r['top1']}% | {r['top3']}% | {r['top5']}% | {r['top10']}% | {r['mrr']} | {r['mean_rank']} | {r['avg_keys']} | {r['page_rate']}% |")
+    r = o["rank"]
+    md.append(f"| **合计** | {r['top1']}% | {r['top3']}% | {r['top5']}% | {r['top10']}% | {r['mrr']} | {r['mean_rank']} | {r['avg_keys']} | {r['page_rate']}% |")
     md += ["", "## 错例（最多 20 条）", ""] + [f"- {e}" for e in errors[:20]]
     (out / "report.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 

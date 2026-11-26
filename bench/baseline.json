@@ -1,5 +1,5 @@
 {
-  "_说明": "基线随版本前移：当前为 v0.9.198（clean_corpus exact+5gram 近似去重、alpha=0.25）。eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
+  "_说明": "基线随版本前移：冻结值为 v0.9.198（clean_corpus exact+5gram 近似去重、alpha=0.25）。v0.9.199 起 eval 改 Top-k 输出，但句级/字级口径不变；eval.py --baseline 按域比对，句级掉 >1.0pp 或字级掉 >0.5pp 即退出码 2。",
   "_环境": {
     "rootfs": "ubuntu-base-24.04.3-base-amd64",
     "libime": "1.1.5-1",

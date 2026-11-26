@@ -66,6 +66,6 @@ LM="$LM" DICT="$DICT" bash scripts/cli_snapshot_test.sh
 
 echo "== holdout 评测（基线门禁）=="
 python3 bench/eval.py --engine cli --cli cpp/build/pinyin_ime_cli \
-    --lm "$LM" --dict "$DICT" --baseline bench/baseline.json | tail -8
+    --lm "$LM" --dict "$DICT" --nbest 10 --baseline bench/baseline.json | tail -8
 
 echo "CI 构建与评测全部通过 ✅"
