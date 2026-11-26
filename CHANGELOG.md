@@ -1,6 +1,16 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.177 (2026-11-26)
+
+### 评测可信化（D1 第一步）：零泄漏 holdout + 唯一评测入口 + 门禁
+- `bench/make_holdout.py`：从 `bench/corpus` 生成 **1200 句**（news / wiki / baike / recent 各 300），逐句过滤后转连续拼音，产物 `bench/holdout/*.tsv` + `manifest.json`（含 sha256、过滤统计、已知局限）。
+- `bench/leakcheck.py`：泄漏判定的**唯一实现**——扫描 `cpp/*.h`、`cpp/*.cpp` 的 1982 条中文字面量、1025 条模板、390 条预设、625 条旧评测语料文本；生成与复核共用同一套规则，避免自证。
+- `bench/check_leakage.py`：独立读盘复核 holdout，零泄漏 + 格式自检（纯汉字 / 纯 ASCII 拼音 / 跨域不重复），CI 每次跑。
+- `bench/eval.py`：唯一评测入口，只测 `pinyin_ime_cli --batch --top1`（用户实际得到的首选）；输出 `summary.json` + `report.md`（含错例）；`--baseline` 门禁：句级下降 >1.0pp 或字级 >0.5pp 退出码 2；`--selftest` 无需编译产物即可验证指标与门禁逻辑。
+- CI `unit` job 增加两步：`python3 bench/check_leakage.py`、`python3 bench/eval.py --selftest`。
+- 已知局限（写入 manifest）：未对 LM 训练语料去重、多音字按 pypinyin 默认读音，故只用于版本间回归对比，不对外宣称绝对准确率。
+
 ## v0.9.176 (2026-11-24)
 
 ### 可信化修复：版本单一来源 + 仓库卫生 + CI 门禁

@@ -254,3 +254,41 @@ libime 在 Debian 12 上的路径全是"非标准"的，第一次构建会连撞
 - 维基语料偏书面、专有名词多，和日常聊天有分布差异；后续应补新闻 / 口语 / 技术三类
 - 首词命中率目前只在「完美全拼、无模糊音、无用户词库」条件下测，未覆盖模糊音/简拼场景
 - 评测不启用模糊音，也不加载用户词库——保证结果可复现
+
+---
+
+## 真实产品管线评测（v0.9.177 新增，替代 `run_bench.py` 做发布判断）
+
+`run_bench.py` 测的是 `libime_bench`（一次整句、无 boost/切分/纠错），**不是用户实际用的管线**。
+`eval.py` 只测 `pinyin_ime_cli --batch --top1`，即真实 CLI 的首选输出。
+
+```sh
+# 语料生成（一次性，需要 pypinyin；产物已入库，正常不需要重跑）
+python3 bench/make_holdout.py --per-domain 300 --seed 42
+
+# 零泄漏复核（CI 每次跑）
+python3 bench/check_leakage.py
+
+# 指标/门禁逻辑自检（不需要编译产物）
+python3 bench/eval.py --selftest
+
+# 真实评测（Linux，已编译 CLI）
+python3 bench/eval.py --engine cli \
+    --cli cpp/build/pinyin_ime_cli \
+    --lm /usr/lib/x86_64-linux-gnu/libime/zh_CN.lm \
+    --dict /usr/share/libime/sc.dict \
+    --out bench/results/$(cat VERSION)
+
+# 与冻结基线比对，回退超 1.0pp(句级)/0.5pp(字级) 即退出码 2
+python3 bench/eval.py --engine cli ... --baseline bench/baseline.json
+```
+
+语料约束（由 `leakcheck.py` 判定，`make_holdout.py` 生成时执行同一套规则）：
+
+- 与 `abbr_presets.h` 的 390 条预设**零交集**（拼音键 → 答案不得直接命中）
+- 与 `cpp/*.h`、`cpp/*.cpp` 里 1982 条中文字符串字面量（模板/联想/长句预测）**零包含关系**
+- 与 `cpp/eval_corpus.txt`、`cpp/eval_sentences.txt` 两份旧语料**零重叠**
+- 纯汉字、6–40 字、跨域拼音与文本均不重复
+
+已知局限（写进 `bench/holdout/manifest.json`）：未对 LM 训练语料去重，多音字按 pypinyin 默认读音。
+因此该语料只用于**版本间回归对比**，不能对外宣称绝对准确率。

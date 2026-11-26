@@ -26,3 +26,7 @@ jobs:
         run: g++ -std=c++17 -O1 -I cpp cpp/quick_input_test.cpp -o /tmp/quick_input_test
       - name: Run
         run: /tmp/quick_input_test
+      - name: Holdout leakage audit (zero overlap with presets/templates)
+        run: python3 bench/check_leakage.py
+      - name: Eval metrics/gate selftest
+        run: python3 bench/eval.py --selftest

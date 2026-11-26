@@ -1,0 +1,41 @@
+{
+  "seed": 42,
+  "per_domain": 300,
+  "domains": {
+    "news": {
+      "label": "新闻",
+      "source": "bench/corpus/news.txt",
+      "candidates_after_dedup": 1918,
+      "accepted": 300,
+      "rejected": {},
+      "sha256": "1c1c78a5647a9058aefda75a4b0046fa889210b487442db828410d1067af0c49"
+    },
+    "wiki": {
+      "label": "百科",
+      "source": "bench/corpus/wiki.txt",
+      "candidates_after_dedup": 1904,
+      "accepted": 300,
+      "rejected": {},
+      "sha256": "0db39c9e6669f8035c557d1f162fbe6f52113f1ef79e1ca9c5b03b2a1749c0b2"
+    },
+    "baike": {
+      "label": "词条",
+      "source": "bench/corpus/baike.txt",
+      "candidates_after_dedup": 6034,
+      "accepted": 300,
+      "rejected": {},
+      "sha256": "ee3ba6e3ed95adadf35c864dd57a1b45626c093491489e97fac0fdcdb91adce9"
+    },
+    "recent": {
+      "label": "近期",
+      "source": "bench/corpus/recent.txt",
+      "candidates_after_dedup": 3891,
+      "accepted": 300,
+      "rejected": {},
+      "sha256": "4a63c68745656f35debe6b38054cb85f27c00487e7b5c51f8b422485ddc9673c"
+    }
+  },
+  "filters": "len 6-40，纯汉字，去重，与预设/模板/旧评测语料零交集",
+  "caveat": "未对 LM 训练语料做去重，只能用于版本间回归对比，不能对外宣称绝对准确率；多音字按 pypinyin 默认读音，未人工校验（少量句子可能因此判错）",
+  "total": 1200
+}
