@@ -1,6 +1,15 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.191 (2026-11-26)
+
+### 测试门禁与安装矩阵脚本化
+- 新增 `scripts/test_install.sh`：deb/rpm/runtime 三条安装路径 25 项断言（状态/版本/依赖/不含数据文件/无参数解码/卸载干净/sc.dict 不误删）。
+- 新增 `scripts/cli_snapshot_test.sh` + `bench/snapshots/`：42 例固定输入逐条比对 top1，文件头记录 LM/dict md5，支持 `--update`。
+- 新增 `scripts/release_check.sh`：VERSION↔CHANGELOG↔README↔文档索引↔二进制↔addon 配置一致性 + 静态检查 + 单测 + 快照，`--full` 加安装矩阵与准确率。
+- 新增方案文档 `docs/20261126-1920-测试开发升级方案-豆包.md`（L0–L4 分层、P0–P4 阶段计划）。
+- 实测：安装矩阵 25/25；快照 42/42 且篡改期望值可按预期失败。
+
 ## v0.9.190 (2026-11-26)
 
 ### 数据文件归属重构 + 可卸载 runtime

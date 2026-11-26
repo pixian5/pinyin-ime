@@ -93,6 +93,14 @@ check "stage_rootfs 支持不带数据" grep -q 'with_data' scripts/build_packag
 check "runtime 包生成 uninstall.sh" grep -q 'uninstall.sh' scripts/build_packages.sh
 check "打包前校验 CLI 版本与 VERSION 一致" grep -q 'validate_cli_version' scripts/build_packages.sh
 
+echo "=== 测试基础设施守卫（v0.9.191）==="
+check "安装矩阵脚本存在" test -x scripts/test_install.sh
+check "发布门禁脚本存在" test -x scripts/release_check.sh
+check "CLI 快照脚本存在" test -x scripts/cli_snapshot_test.sh
+check "快照用例非空" test -s bench/snapshots/cli_cases.txt
+check "快照期望含数据指纹" grep -q '^# lm_md5=' bench/snapshots/cli_expected.tsv
+check "快照期望含当前版本" grep -q "^# cli snapshot v$version" bench/snapshots/cli_expected.tsv
+
 echo "=== 文档 ==="
 check "README 存在" test -s README.md
 check "CHANGELOG 存在" test -s CHANGELOG.md
