@@ -9,9 +9,10 @@ on:
 jobs:
   static:
     name: Static checks
-    runs-on: euleros-2.10.1
+    runs-on: ubuntu-latest
     steps:
-      - uses: checkout-action@0.0.1
+      - name: Checkout
+        uses: checkout
       - name: Shell / version / packaging checks
         run: bash scripts/ci_static.sh
 
@@ -19,9 +20,10 @@ jobs:
   # 目的：让 quick_input_test（600+ 用例）从“本机手工跑”变成“每次提交必跑”。
   unit:
     name: Unit tests (quick_input_test)
-    runs-on: euleros-2.10.1
+    runs-on: ubuntu-latest
     steps:
-      - uses: checkout-action@0.0.1
+      - name: Checkout
+        uses: checkout
       - name: Build
         run: g++ -std=c++20 -O1 -I cpp cpp/quick_input_test.cpp -o /tmp/quick_input_test
       - name: Run
@@ -34,10 +36,11 @@ jobs:
   # 真正编译 CLI/addon 并跑 holdout 评测的 job（v0.9.194）。
   # 之前 CI 只有静态检查和不依赖 libime 的单测，编译失败/准确率退化都发现不了。
   build-eval:
-    name: Build + eval (Ubuntu 24.04)
+    name: Build and eval (Ubuntu 24.04)
     runs-on: ubuntu-latest
     steps:
-      - uses: checkout-action@0.0.1
+      - name: Checkout
+        uses: checkout
       - name: Install build dependencies
         run: |
           sudo apt-get update
