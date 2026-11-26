@@ -79,6 +79,8 @@ check "build_packages 无写死 aarch64" bash -c '! grep -q "ARCH_RPM=aarch64" s
 check "spec 架构用 @ARCH@ 占位" grep -q 'BuildArch:      @ARCH@' packaging/pinyin-ime.spec
 check "deb addon 目录可覆盖（FCITX5_LIBDIR）" grep -q 'FCITX5_LIBDIR' scripts/build_packages.sh
 check "打包产出 SHA256SUMS_v\$VERSION" grep -q 'SHA256SUMS_v$VERSION' scripts/build_packages.sh
+check "build_packages 支持 runtime 模式" grep -q 'build_runtime' scripts/build_packages.sh
+check "build_release 标为历史脚本" grep -q '历史脚本' scripts/build_release.sh
 
 echo "=== 文档 ==="
 check "README 存在" test -s README.md

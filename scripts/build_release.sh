@@ -1,4 +1,11 @@
 #!/bin/bash
+# ⚠️ 历史脚本（v0.9.189 起不再作为发布入口）：
+#   本脚本依赖旧沙箱布局（/workspace、$DEPLOY/opt、deploy/pinyin-ime-v0.9.84a 等），
+#   且把架构/版本写死为 aarch64。生产打包请用：
+#       bash scripts/build_packages.sh all      # rpm + deb + runtime + SHA256SUMS
+#   runtime 包已内置 install.sh，安装到 /usr 即可。
+#   保留本文件仅用于追溯旧 aarch64 沙箱的 bundle 组装方式。
+#
 # build_release.sh — 构建可发布的 pinyin-ime 产物：
 #   dist/pinyin-ime-<ver>-1.aarch64.rpm
 #   dist/pinyin-ime_<ver>_arm64.deb

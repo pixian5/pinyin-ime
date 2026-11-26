@@ -5,6 +5,8 @@
 #   bash scripts/build_packages.sh          # 构建 rpm + deb 并校验
 #   bash scripts/build_packages.sh rpm      # 只构建 rpm
 #   bash scripts/build_packages.sh deb      # 只构建 deb
+#   bash scripts/build_packages.sh runtime  # 只构建便携运行时 tar.gz（安装到 /usr 的目录树）
+#   bash scripts/build_packages.sh all      # rpm + deb + runtime（默认）
 #   ARCH_RPM=x86_64 ARCH_DEB=amd64 FCITX5_LIBDIR=/usr/lib/x86_64-linux-gnu/fcitx5 bash scripts/build_packages.sh
 #                                           # 覆盖架构/安装目录（默认按 uname -m 自动判断）
 #
@@ -169,6 +171,37 @@ build_deb() {
  数据文件 zh_CN.lm / sc.dict 随包安装到 /usr/share/libime，开箱即用。"
 }
 
+# v0.9.189：便携运行时包。给「不能装 rpm/deb，但能解压到 /usr 或 $prefix」的场景
+# （容器、云桌面、只读 rootfs 外挂）用。内容与 deb 完全同一棵安装树，附带 install.sh。
+build_runtime() {
+    log "构建 runtime tar.gz v$VERSION ..."
+    local name="pinyin-ime-runtime-$VERSION-$ARCH_RPM"
+    local root="$WORK/runtime/$name"
+    stage_rootfs "$root" "$FCITX5_LIBDIR"
+
+    cat > "$root/install.sh" <<'EOF'
+#!/bin/sh
+# 把本目录的 usr/ 树覆盖安装到 /usr（需要 root）。卸载：按清单反向删除即可。
+set -e
+cd "$(dirname "$0")"
+[ "$(id -u)" = 0 ] || { echo "请用 root 运行：sudo sh install.sh"; exit 1; }
+tar cf - usr | tar xf - -C /
+fcitx5 -r 2>/dev/null || true
+echo "安装完成。若 fcitx5 正在运行，请重启输入法（fcitx5 -r）后添加 pinyin-ime。"
+EOF
+    chmod +x "$root/install.sh"
+
+    cat > "$root/BUILD-INFO.txt" <<EOF
+version=$VERSION
+arch=$ARCH_RPM
+built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+addon_dir=$FCITX5_LIBDIR
+data=usr/share/libime/{zh_CN.lm,sc.dict}
+EOF
+
+    tar czf "$DIST/$name.tar.gz" -C "$WORK/runtime" "$name"
+}
+
 # ---------- 校验 ----------
 verify_rpm() {
     local f="$DIST/pinyin-ime-${VERSION}-${RELEASE}.${ARCH_RPM}.rpm"
@@ -224,6 +257,10 @@ write_checksums() {
     if [ "$MODE" = "deb" ] || [ "$MODE" = "all" ]; then
         if [ -f "$debf" ]; then names+=("$(basename "$debf")"); fi
     fi
+    local rtf="$DIST/pinyin-ime-runtime-$VERSION-$ARCH_RPM.tar.gz"
+    if [ "$MODE" = "runtime" ] || [ "$MODE" = "all" ]; then
+        if [ -f "$rtf" ]; then names+=("$(basename "$rtf")"); fi
+    fi
     if [ "${#names[@]}" -eq 0 ]; then
         log "!! 没有可写校验清单的产物"; return 1
     fi
@@ -233,10 +270,11 @@ write_checksums() {
 }
 
 case "$MODE" in
-    rpm)  build_rpm; verify_rpm; write_checksums ;;
-    deb)  build_deb; verify_deb; write_checksums ;;
-    all)  build_rpm; build_deb; verify_rpm; verify_deb; write_checksums ;;
-    *)    echo "用法: bash scripts/build_packages.sh [all|rpm|deb]"; exit 2 ;;
+    rpm)     build_rpm; verify_rpm; write_checksums ;;
+    deb)     build_deb; verify_deb; write_checksums ;;
+    runtime) build_runtime; write_checksums ;;
+    all)     build_rpm; build_deb; verify_rpm; verify_deb; build_runtime; write_checksums ;;
+    *)       echo "用法: bash scripts/build_packages.sh [all|rpm|deb|runtime]"; exit 2 ;;
 esac
 
 log "完成。产物："

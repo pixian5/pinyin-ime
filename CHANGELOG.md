@@ -1,6 +1,14 @@
 # pinyin-ime 发布说明
 
 
+## v0.9.189 (2026-11-26)
+
+### 便携运行时包 + 端到端安装验证
+- `build_packages.sh` 新增 `runtime` 模式（`all` 默认包含）：产出 `pinyin-ime-runtime-<ver>-<arch>.tar.gz`，内含完整 `usr/` 安装树、`install.sh`、`BUILD-INFO.txt`；`SHA256SUMS` 同步含三条。
+- `build_release.sh` 标注为历史脚本（依赖旧 `/workspace` 沙箱与 aarch64），生产入口统一为 `build_packages.sh`。
+- 实测：runtime 包解压执行 `install.sh` 后，CLI/addon/LM 就位，`pinyinime.conf` 的 `Version=0.9.189`；**不传 `--lm/--dict`** 直接解码 `nihao→你好`、`woaibeijing→我爱北京`；`dpkg -i` 安装后 `pinyin_ime_cli --version` 输出 0.9.189。`sha256sum -c` 三项全 OK。
+- **发现待决策问题**：包内自带 `sc.dict` 与发行版 `libime-data` 撞文件（dpkg 需 `--force-overwrite`）。建议改为 `Depends: libime, libime-data`、不再自带数据（体积 22.7MB→约 1.4MB），或保留自包含但补 `Conflicts/Replaces: libime-data`。
+
 ## v0.9.188 (2026-11-26)
 
 ### 发布产物校验清单
