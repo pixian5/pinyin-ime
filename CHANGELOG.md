@@ -1,5 +1,12 @@
 # pinyin-ime 发布说明
 
+## v0.9.202 (2026-11-27)
+
+### addon 全量真机上屏评测
+- 新增 `scripts/eval_addon_batch.py` / `.sh`：独立 Xvfb + dbus + fcitx5 + GTK3，逐键敲 1200 句 holdout，空格提交后从 Entry 读整句。
+- 结果：addon 真实上屏 **28.00% / 80.31%**；baike 26.33/71.22、news 36.33/88.86、recent 33.33/85.69、wiki 16.00/75.46；p50 505.4ms、p95 754.3ms、p99 1757.2ms。
+- 发现 CLI `--batch` 与逐键输入不是同一路径：同句 batch 首选“文献多见”，CLI 交互与 addon 都首选“文戏安多”；28/80 是真实逐键基线，30/86 仅作 batch 回归基线。
+- 保留 `PINYINIME_EVAL_KEEP=1` 现场调试开关；本轮不改产品解码/排序代码。
 ## v0.9.201 (2026-11-27)
 
 ### 修 deb 不可满足依赖
