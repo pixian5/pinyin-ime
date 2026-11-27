@@ -9,3 +9,4 @@
 - **addon 的“真实路径”与 CLI batch 不同**：addon 每键刷新候选，libime 的增量切分可能与整串解码不同；不要拿 batch 结果直接判断 addon 排序 bug。
 - **安装依赖要按发行版包名写**：Ubuntu 24.04 没有名为 `libime` 的包；deb 应依赖 `fcitx5, libimecore0, libimepinyin0, libime-data`。`--ignore-depends` 只能验证文件布局，不能证明普通用户能装。
 - **配置默认值要核对**：`NBest=45`、`PageSize=9`、`EnableFuzzy=False`、`EnableCorrect=False`、`DataDir=/usr/share/libime`；CLI 评测默认 nbest=10，比较前先固定口径。
+- **评测转储要绕开 UI 分页，但不能绕开显示索引**：直接 `ctx.candidatesToCursor()` 是 libime 原始池，空格实际选的是 `displayToRaw_[0]`/boost 后的候选；按显示顺序生成列表，Top1 才能和上屏结果一致。

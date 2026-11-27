@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -56,6 +57,25 @@ bool fileExists(const std::string &path) {
     }
     std::error_code ec;
     return std::filesystem::is_regular_file(path, ec);
+}
+
+// v0.9.204：评测专用候选转储。只有设置 PINYINIME_EVAL_CAND 时才写文件，
+// 正常用户路径零 I/O。每次空格提交前把完整候选列表（含翻页池）写盘，
+// 供 scripts/eval_addon_batch.py 统计 top-k / MRR，而不是只看 top1。
+void dumpEvalCandidates(const std::string &raw,
+                        const std::vector<std::string> &candidates) {
+    const char *path = std::getenv("PINYINIME_EVAL_CAND");
+    if (path == nullptr || *path == '\0') {
+        return;
+    }
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) {
+        return;
+    }
+    out << "RAW\t" << raw << "\n";
+    for (const auto &candidate : candidates) {
+        out << "CAND\t" << candidate << "\n";
+    }
 }
 
 // 从候选里找第一个存在的文件；找不到返回空串并告警（列出试过的路径）。
@@ -1738,6 +1758,38 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                 state->reset();
                 event.filterAndAccept();
                 return;
+            }
+            // v0.9.204：只在评测环境变量存在时导出候选，正常输入不增加 I/O。
+            // 必须按「显示顺序」导出：重排/简拼 boost 后，实际空格选的是
+            // displayToRaw_[index]，直接倒原始候选会让 top1 对不上上屏结果。
+            {
+                const auto &rawCands = ctx.candidatesToCursor();
+                std::vector<std::string> evalCands;
+                evalCands.reserve(20);
+                if (!state->boostInsertWord_.empty() && state->page_ == 0) {
+                    evalCands.push_back(state->boostInsertWord_);
+                }
+                std::vector<size_t> order;
+                if (state->rerankActive_ &&
+                    state->displayToRaw_.size() == rawCands.size()) {
+                    order = state->displayToRaw_;
+                } else {
+                    order.resize(rawCands.size());
+                    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+                    if (state->boostSwap_ > 0 && state->page_ == 0) {
+                        std::swap(order[0], order[state->boostSwap_]);
+                    }
+                }
+                for (size_t i = 0; i < order.size() && evalCands.size() < 20; ++i) {
+                    evalCands.push_back(rawCands[order[i]].toString());
+                }
+                if (state->page_ == 0) {
+                    for (const auto &word : state->cloudWords_) {
+                        if (evalCands.size() >= 20) break;
+                        evalCands.push_back(word);
+                    }
+                }
+                dumpEvalCandidates(compactRaw, evalCands);
             }
             state->selectCandidate(
                                    state->page_ * state->pageSize() + state->candFocus_);
