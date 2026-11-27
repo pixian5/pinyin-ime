@@ -1,5 +1,14 @@
 # pinyin-ime 发布说明
 
+## v0.9.207 (2026-11-27)
+
+### 字符 4-gram 重排落地
+- `CharLM` 模型格式升级到 v2：`PICL` + version=2，保留 v1 兼容；新增 `quadCtx_` / `quadEntry_` 与 `logQuadProb()`，`score()` 按 stupid backoff 计算，v1 文件自动走原 trigram。
+- `scripts/train_char_lm.py` 同步训练并写出 4-gram；边界 `<s>` 三连上下文、句末 `</s>` 计数与 Python 离线实验一致。
+- `data/char_trigram.bin` 重训为 v2：词表 3929、bigram 107229、trigram 203674；4-gram 只保留 count>=2，上下文 10,734、条目 13,842，体积 2.9MB→3.17MB（仅 +0.2MB）。
+- CLI nbest=45 全量 1200 句 Top1 **31.58%**（v0.9.206 为 30.33%），字级 86.40%；分域 baike 31.33、news 41.00、recent 34.67、wiki 19.33。
+- addon 1200 句：未剪枝 30.08% / 86.39%，剪枝 **30.17% / 86.42%**；相对 v0.9.204 的 30.25% 为 -0.08pp（1 句，噪声级），Top5 45.92%、MRR 0.3707 略升。CLI 增益未完整传导到逐键路径。
+
 ## v0.9.206 (2026-11-27)
 
 ### 夜间 CI GTK 启动超时修复

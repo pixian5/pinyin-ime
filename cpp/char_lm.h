@@ -65,6 +65,21 @@ public:
         uint16_t ch;
         uint16_t count;
     };
+    // v0.9.207：4-gram 上下文/条目；v1 模型没有这两段，加载后为空，
+    // score() 自动回退到原 trigram 插值。
+    struct QuadCtx {
+        uint16_t p3;
+        uint16_t p2;
+        uint16_t p1;
+        uint16_t total;
+    };
+    struct QuadEntry {
+        uint16_t p3;
+        uint16_t p2;
+        uint16_t p1;
+        uint16_t ch;
+        uint16_t count;
+    };
 
     // 加载失败返回 nullptr，并在 err（非空）里写明原因；不抛异常。
     static std::unique_ptr<CharLM> load(const std::string &path,
@@ -73,7 +88,9 @@ public:
     // 按固定顺序查找默认模型；全部不存在时返回 nullptr。
     static std::unique_ptr<CharLM> findDefault(const std::string &argv0 = "");
 
-    // 整句字符 trigram 对数概率（越高越好，通常为负）。
+    // 整句字符 4-gram（v2）/trigram（v1）对数概率（越高越好，通常为负）。
+    // v2 使用 stupid backoff：4-gram 命中用 log(c4/t4)，退回 3/2/1-gram
+    // 时乘 0.4；与 scripts/train_char_lm.py 的计数口径一致。
     float score(std::string_view utf8) const;
 
     // 重排权重：候选最终分 = libime 原分 + alpha * score()。
@@ -87,6 +104,8 @@ public:
 
 private:
     float logProb(uint16_t c2, uint16_t c1, uint16_t ch) const;
+    float logQuadProb(uint16_t p3, uint16_t p2, uint16_t p1,
+                      uint16_t ch) const;
     uint16_t idOf(std::string_view ch) const;
 
     std::string path_;
@@ -98,6 +117,9 @@ private:
     std::vector<BiEntry> biEntry_;
     std::vector<TriCtx> triCtx_;
     std::vector<TriEntry> triEntry_;
+    uint16_t version_ = 1;
+    std::vector<QuadCtx> quadCtx_;
+    std::vector<QuadEntry> quadEntry_;
 };
 
 }  // namespace pinyin_ime

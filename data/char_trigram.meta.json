@@ -1,11 +1,11 @@
 {
-  "kind": "pinyin-ime-char-trigram-v1",
-  "version": "0.9.198",
+  "kind": "pinyin-ime-char-4gram-v2",
+  "version": "0.9.207",
   "alpha": 0.25,
-  "built_at": "2026-11-26T17:35:29.351589+00:00",
+  "built_at": "2026-11-27T07:35:50.369384+00:00",
   "model": "char_trigram.bin",
-  "model_sha256": "f6a3653cde8cb8939755820b9cc381bd9092c9a62615d877a4c46122c414ef76",
-  "model_bytes": 2945931,
+  "model_sha256": "27ea488c85cb01ebc87a4153d170fdc87fc11e3c1c2a06ad454cecd05996fe3f",
+  "model_bytes": 3170231,
   "corpus": "bench/corpus（clean_corpus.py --near-dup-threshold 2；排除 lccc_eval/daily/dialogue）",
   "files": [
     {
@@ -45,9 +45,9 @@
     "exact_removed": 1201,
     "near_dup_removed": 798,
     "eval_only_skipped": [
-      "lccc_eval.txt",
       "daily.txt",
-      "dialogue.txt"
+      "dialogue.txt",
+      "lccc_eval.txt"
     ],
     "caveat": "句子级 + 5-gram 近似去重，不是文档级 split；同文档剩余句子仍可能残留风格泄漏"
   }

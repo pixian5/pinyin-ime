@@ -10,4 +10,5 @@
 - **安装依赖要按发行版包名写**：Ubuntu 24.04 没有名为 `libime` 的包；deb 应依赖 `fcitx5, libimecore0, libimepinyin0, libime-data`。`--ignore-depends` 只能验证文件布局，不能证明普通用户能装。
 - **配置默认值要核对**：`NBest=45`、`PageSize=9`、`EnableFuzzy=False`、`EnableCorrect=False`、`DataDir=/usr/share/libime`；CLI 评测默认 nbest=10，比较前先固定口径。
 - **评测转储要绕开 UI 分页，但不能绕开显示索引**：直接 `ctx.candidatesToCursor()` 是 libime 原始池，空格实际选的是 `displayToRaw_[0]`/boost 后的候选；按显示顺序生成列表，Top1 才能和上屏结果一致。
+- **addon 评测必须确认模型真的加载了**：`findDefault()` 会先找当前目录 `data/char_trigram.bin`，再找 `/usr/share/pinyin-ime/`；评测日志出现 `char_trigram.bin not found, rerank disabled` 时，结果只是无重排基线。全量前先 `PINYINIME_CHAR_LM=/usr/share/pinyin-ime/char_trigram.bin` 固定路径，或看启动日志的 `char rerank model=`。
 - **夜间 job 要复用 package 产物**：独立 schedule run 没有上一次 push 的 artifact，必须在同一 workflow 里 `needs: package`，再下载 `pinyin-ime-${{ github.sha }}` 安装，否则会误以为缺包。

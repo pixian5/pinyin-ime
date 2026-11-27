@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""train_char_lm.py — 从 bench/corpus 训练字符 trigram，生成 pinyin-ime 重排序模型。
+"""train_char_lm.py — 从 bench/corpus 训练字符 4-gram，生成 pinyin-ime 重排序模型。
 
 为什么需要：系统自带的 zh_CN.lm 在同音歧义上的区分力不足，首选句级只有
 27.83%；而 nbest=10 的召回上限是 46.08%。本模型不解码、不换词典，只在
@@ -9,9 +9,9 @@ nbest 候选之间按「这个字串像不像正常中文」重排，把潜力�
     python3 scripts/train_char_lm.py [--out data/char_trigram.bin]
     python3 scripts/train_char_lm.py --corpus bench/corpus --out /tmp/x.bin
 
-输出二进制格式（小端，固定版本 v1）：
+输出二进制格式（小端，版本 v2；v1 旧模型仍可加载，回退 trigram）：
     magic  4s  "PICL"
-    version u16 = 1
+    version u16 = 2
     vocab_n u16
     for each vocab: len u8 + utf8 bytes
     unigram_total u32
@@ -20,6 +20,8 @@ nbest 候选之间按「这个字串像不像正常中文」重排，把潜力�
     bigram_entry_n u32; each: prev u16, ch u16, count u16
     trigram_ctx_n u32; each: p2 u16, p1 u16, total u16
     trigram_entry_n u32; each: p2 u16, p1 u16, ch u16, count u16
+    quadgram_ctx_n u32; each: p3 u16, p2 u16, p1 u16, total u16
+    quadgram_entry_n u32; each: p3 u16, p2 u16, p1 u16, ch u16, count u16
 
 计数均 < 65536（本语料实测最大 16178），因此统一用 u16 压缩；语料若超过
 该上限会在写文件前报错，避免静默截断。
@@ -36,7 +38,10 @@ from collections import defaultdict
 from pathlib import Path
 
 MAGIC = b"PICL"
-VERSION = 1
+VERSION = 2
+# 4-gram 只保留出现 >=2 次的条目：离线扫描 1200 句候选池，Top1 31.58%
+# 与全量一致，但 4-gram 上下文从 19.7 万降到约 1.07 万，模型只增约 0.2MB。
+QUAD_MIN_COUNT = 2
 SPECIALS = ["<s>", "</s>", "<unk>"]
 
 
@@ -44,23 +49,26 @@ def read_corpus(corpus: Path):
     uni = defaultdict(int)
     bi = defaultdict(lambda: defaultdict(int))
     tri = defaultdict(lambda: defaultdict(int))
+    quad = defaultdict(lambda: defaultdict(int))
     for f in sorted(corpus.glob("*.txt")):
         for line in f.read_text(encoding="utf-8", errors="ignore").splitlines():
             line = line.strip()
             if not line:
                 continue
-            p2 = p = "<s>"
+            p3 = p2 = p = "<s>"
             for ch in line:
                 if ch.isspace():
-                    p2 = p = "<s>"
+                    p3 = p2 = p = "<s>"
                     continue
                 uni[ch] += 1
                 bi[p][ch] += 1
                 tri[(p2, p)][ch] += 1
-                p2, p = p, ch
+                quad[(p3, p2, p)][ch] += 1
+                p3, p2, p = p2, p, ch
             bi[p]["</s>"] += 1
             tri[(p2, p)]["</s>"] += 1
-    return uni, bi, tri
+            quad[(p3, p2, p)]["</s>"] += 1
+    return uni, bi, tri, quad
 
 
 def build_vocab(uni):
@@ -71,16 +79,18 @@ def build_vocab(uni):
     return vocab
 
 
-def write_model(path: Path, vocab, uni, bi, tri):
+def write_model(path: Path, vocab, uni, bi, tri, quad):
     ids = {ch: i for i, ch in enumerate(vocab)}
     max_count = max(
         [max(uni.values())]
         + [max(v.values()) for v in bi.values()]
         + [max(v.values()) for v in tri.values()]
+        + [max(v.values()) for v in quad.values()]
     )
     max_total = max(
         [sum(v.values()) for v in bi.values()]
         + [sum(v.values()) for v in tri.values()]
+        + [sum(v.values()) for v in quad.values()]
     )
     if max_count > 65535 or max_total > 65535:
         raise SystemExit(f"计数超出 u16：max_count={max_count} max_total={max_total}")
@@ -125,6 +135,24 @@ def write_model(path: Path, vocab, uni, bi, tri):
             trigram_entries.append((ids[p2], ids[p1], ids[ch], count))
     trigram_entries.sort()
 
+    quadgram_ctx = []
+    quadgram_entries = []
+    for (p3, p2, p1), nxt in quad.items():
+        if p3 not in ids or p2 not in ids or p1 not in ids:
+            continue
+        kept = [(ch, count) for ch, count in nxt.items()
+                if ch in ids and count >= QUAD_MIN_COUNT]
+        if not kept:
+            continue
+        total = sum(nxt.values())
+        if total > 65535:
+            raise SystemExit(f"4-gram 上下文总数溢出：{p3},{p2},{p1} {total}")
+        quadgram_ctx.append((ids[p3], ids[p2], ids[p1], total))
+        for ch, count in kept:
+            quadgram_entries.append((ids[p3], ids[p2], ids[p1], ids[ch], count))
+    quadgram_ctx.sort()
+    quadgram_entries.sort()
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as f:
         f.write(MAGIC)
@@ -151,6 +179,12 @@ def write_model(path: Path, vocab, uni, bi, tri):
         f.write(struct.pack("<I", len(trigram_entries)))
         for p2, p1, ch, count in trigram_entries:
             f.write(struct.pack("<HHHH", p2, p1, ch, count))
+        f.write(struct.pack("<I", len(quadgram_ctx)))
+        for p3, p2, p1, total in quadgram_ctx:
+            f.write(struct.pack("<HHHH", p3, p2, p1, total))
+        f.write(struct.pack("<I", len(quadgram_entries)))
+        for p3, p2, p1, ch, count in quadgram_entries:
+            f.write(struct.pack("<HHHHH", p3, p2, p1, ch, count))
 
     print(
         f"已写入 {path}：词表 {len(vocab)}，bigram {len(bigram_entries)} 条，"
@@ -180,7 +214,7 @@ def write_metadata(path: Path, corpus: Path, model: Path, alpha: float) -> None:
     version_file = Path(__file__).resolve().parent.parent / "VERSION"
     version = version_file.read_text(encoding="utf-8").strip() if version_file.exists() else "unknown"
     meta = {
-        "kind": "pinyin-ime-char-trigram-v1",
+        "kind": "pinyin-ime-char-4gram-v2",
         "version": version,
         "alpha": alpha,
         "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -210,12 +244,12 @@ def main() -> int:
     if not args.corpus.is_dir():
         print(f"找不到语料目录：{args.corpus}", file=sys.stderr)
         return 2
-    uni, bi, tri = read_corpus(args.corpus)
+    uni, bi, tri, quad = read_corpus(args.corpus)
     if not uni:
         print("语料为空", file=sys.stderr)
         return 2
     vocab = build_vocab(uni)
-    write_model(args.out, vocab, uni, bi, tri)
+    write_model(args.out, vocab, uni, bi, tri, quad)
     if args.meta_out:
         write_metadata(args.meta_out, args.corpus, args.out, args.alpha)
     return 0
