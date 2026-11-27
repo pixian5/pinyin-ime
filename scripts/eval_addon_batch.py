@@ -290,9 +290,11 @@ def main() -> int:
                 app_q.put(line.rstrip("\n"))
 
         threading.Thread(target=read_app, daemon=True).start()
+        # GitHub runner 首次加载 GTK im module 比本地 chroot 慢；首行可能
+        # 超过 5s 才出现 READY。放宽首个等待，之后仍用短超时。
         wid_line = ""
-        for _ in range(5):
-            line = read_line(app_q, 5)
+        for attempt in range(10):
+            line = read_line(app_q, 20 if attempt == 0 else 5)
             if line.startswith("WID="):
                 wid_line = line
                 break
