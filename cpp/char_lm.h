@@ -97,6 +97,9 @@ public:
     // 0.25 来自 clean_corpus（exact + 5-gram 近似去重）上的 dev 调参；
     // 文档级 split 尚未完成，不能把该值当成最终最优。
     static constexpr float kAlpha = 0.25f;
+    // 实验：4-gram 只允许在原 libime 分数接近的候选之间换位；原分差超过
+    // 该门限的候选保持后排，避免把原本高置信的 top1 无条件换掉。
+    static constexpr float kRerankBaseGate = 1.0f;
 
     bool empty() const { return vocab_.empty(); }
     size_t vocabSize() const { return vocab_.size(); }

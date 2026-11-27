@@ -508,6 +508,7 @@ void PinyinIMEState::updateUI() {
             pinyin_ime::compactPinyin(context_.preedit());
         struct Item {
             size_t raw;
+            float base;
             float score;
             size_t order;
         };
@@ -530,11 +531,20 @@ void PinyinIMEState::updateUI() {
             }
             if (raw == cands.size()) continue;
             used[raw] = true;
-            items.push_back({raw,
-                             full[i].score() +
-                                 pinyin_ime::CharLM::kAlpha *
-                                     engine_->charLM()->score(text),
-                             i});
+            float base = full[i].score();
+            float score = base +
+                          pinyin_ime::CharLM::kAlpha *
+                              engine_->charLM()->score(text);
+            items.push_back({raw, base, score, i});
+        }
+        // 短候选不套门限，保持原 top1/短词规则。
+        if (!items.empty() && full[items[0].order].toString().size() >= 18) {
+            float baseTop = items[0].base;
+            for (const auto &item : items) baseTop = std::max(baseTop, item.base);
+            for (auto &item : items) {
+                if (item.base < baseTop - pinyin_ime::CharLM::kRerankBaseGate)
+                    item.score -= 100.0f;
+            }
         }
         std::stable_sort(items.begin(), items.end(),
                          [](const Item &a, const Item &b) {

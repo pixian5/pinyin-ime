@@ -202,6 +202,7 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
     } else {
         struct Item {
             std::string text;
+            float base;
             float score;
             size_t order;
         };
@@ -220,11 +221,22 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
             if (pinyin_ime::is_full_pinyin_input(compactPreedit) &&
                 compactCand.size() != compactPreedit.size())
                 continue;
-            float score = full[i].score();
+            float base = full[i].score();
+            float score = base;
             if (g_charLM) {
                 score += pinyin_ime::CharLM::kAlpha * g_charLM->score(text);
             }
-            items.push_back({std::move(text), score, i});
+            items.push_back({std::move(text), base, score, i});
+        }
+        // 短候选不套门限：4 字母缩写等由原 top1/短词规则处理，避免把
+        // “加入什么”换成“敬若神明”这类短词回归。
+        if (!items.empty() && items[0].text.size() >= 18) {
+            float baseTop = items[0].base;
+            for (const auto &item : items) baseTop = std::max(baseTop, item.base);
+            for (auto &item : items) {
+                if (item.base < baseTop - pinyin_ime::CharLM::kRerankBaseGate)
+                    item.score -= 100.0f;
+            }
         }
         std::stable_sort(items.begin(), items.end(),
                          [](const Item &a, const Item &b) {
