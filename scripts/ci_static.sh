@@ -88,7 +88,9 @@ echo "=== 数据文件归属守卫（v0.9.190）==="
 check "spec 依赖 libime-data" grep -q '^Requires:       libime-data' packaging/pinyin-ime.spec
 check "spec 不再打包 zh_CN.lm" bash -c '! grep -q "^/usr/share/libime/zh_CN.lm" packaging/pinyin-ime.spec'
 check "spec 不再打包 sc.dict" bash -c '! grep -q "^/usr/share/libime/sc.dict" packaging/pinyin-ime.spec'
-check "deb 依赖 libime-data" grep -q 'fcitx5, libime, libime-data' scripts/build_packages.sh
+check "deb 依赖 libime-data" grep -q 'libime-data' scripts/build_packages.sh
+check "deb 不依赖不存在的 libime meta 包" bash -c '! grep -q "fcitx5, libime, libime-data" scripts/build_packages.sh'
+check "deb 依赖 libime 实现库" grep -q 'libimecore0, libimepinyin0' scripts/build_packages.sh
 check "stage_rootfs 支持不带数据" grep -q 'with_data' scripts/build_packages.sh
 check "runtime 包生成 uninstall.sh" grep -q 'uninstall.sh' scripts/build_packages.sh
 check "打包前校验 CLI 版本与 VERSION 一致" grep -q 'validate_cli_version' scripts/build_packages.sh

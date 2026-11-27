@@ -195,7 +195,7 @@ build_deb() {
         --rootfs "$stage" \
         --output "$DIST/pinyin-ime_${VERSION}_${ARCH_DEB}.deb" \
         --name pinyin-ime --version "$VERSION" --arch "$ARCH_DEB" \
-        --depends "fcitx5, libime, libime-data" \
+        --depends "fcitx5, libimecore0, libimepinyin0, libime-data" \
         --maintainer "laotongtian <laotongtian@gitcode.com>" \
         --short-desc "Pinyin input method for Linux based on libime (fcitx5 addon)" \
         --long-desc "pinyin-ime 是基于 libime 引擎的 Linux 拼音输入法（fcitx5 addon）。

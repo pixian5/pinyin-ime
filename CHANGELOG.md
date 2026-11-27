@@ -1,5 +1,13 @@
 # pinyin-ime 发布说明
 
+## v0.9.201 (2026-11-27)
+
+### 修 deb 不可满足依赖
+- GitHub Actions 的 `addon-acceptance` 首次运行发现：deb 声明 `Depends: fcitx5, libime, libime-data`，但 Ubuntu 24.04 没有名为 `libime` 的包，正常 `dpkg -i` 无法配置；旧安装矩阵一直用 `--ignore-depends` 掩盖了这个问题。
+- 改为 `fcitx5, libimecore0, libimepinyin0, libime-data`，与 `packaging/debian/control` 一致；`libime-bin` 会拉起 core/pinyin 库。
+- `ci_static.sh` 增加守卫：禁止再出现 `fcitx5, libime, libime-data`，并要求 `libimecore0, libimepinyin0` 存在。
+- CI `addon-acceptance` job 保留正常 `dpkg -i` 路径，后续不再用 ignore-deps 掩盖依赖错误。
+
 ## v0.9.200 (2026-11-27)
 
 ### addon 多短语真实上屏验收

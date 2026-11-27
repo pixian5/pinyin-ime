@@ -3,7 +3,7 @@
 
 ## 【当前开发进度】【下一步待实现】
 
-- 当前源码版本：`0.9.200`（唯一来源见 `VERSION`）。
+- 当前源码版本：`0.9.201`（唯一来源见 `VERSION`）。
 - **准确率口径（2026-11-27 更正）**：v0.9.197 的 **42.67% 句级 / 88.88% 字级是训练集泄漏复现值**，不能作为真实水平。1200 句 holdout 原文 100% 出现在 `bench/corpus`，字符 trigram 又用同一语料训练。v0.9.198 已用 `clean_corpus.py`（exact + 5-gram 近似去重、排除 eval-only 文件）重训并把 alpha 从 2.0 降到 0.25，clean 过渡基线为 **30.00% / 86.05%**；不启用字符重排为 **27.83% / 84.81%**。这仍是句子级/近似去重，不是文档级 split，不能对外宣称绝对准确率。详见 **[字符模型去泄漏与 clean 基线](docs/20261127-0144-字符模型去泄漏与clean基线-豆包.md)**、**[项目整体分析与下一步开发建议](docs/20261127-0111-项目整体分析与下一步开发建议-豆包.md)**。
 - 详细分析与方案：**[20261103-0013-项目全面分析与下一步开发方案](docs/20261103-0013-项目全面分析与下一步开发方案-deepseek-4.1-flash.md)**。
 - 现状体检（2026-11-24）：**[项目现状分析与问题清单](docs/20261124-1346-项目现状分析与问题清单-豆包.md)** —— 当时的评测自证、版本漂移、二进制入库、文档索引缺漏已在 v0.9.176～v0.9.185 逐项关闭；当时留下的「CI 里没有真实编译+评测 job」在 v0.9.195 曾尝试补 `build-eval`，但 v0.9.196 确认 GitCode/AtomGit 的 Actions 页不存在，已移除远端 workflow，只保留本地 `scripts/ci_build.sh`。
@@ -14,6 +14,7 @@
 - **v0.9.198 CI 发布链**：GitHub Actions 新增 `package`（deb/rpm/runtime + SHA256）与 `install-matrix`（30 项安装/卸载断言）两个 job；本地入口 `scripts/ci_package.sh`，三件套校验通过。
 - **v0.9.199 Top-k 评测**：`bench/eval.py` 从只看首选扩到 `--top-k 10`，输出 Top1/3/5/10、MRR、命中平均排名/按键与翻页率；nbest=10 合计 **30.00% / 86.04%**、Top10 46.08%、MRR 0.358；nbest=45 首选 **30.33% / 86.24%**、Top10 48.92%，但命中后翻页率升到 39.04%。详见 **[Top-k 评测与交互成本](docs/20261127-0237-Topk评测与交互成本-豆包.md)**。
 - **v0.9.200 addon 多短语验收**：把 `test_runtime_fcitx5.sh` 的真实敲键短语参数化，新增 `test_addon_phrases.sh` 覆盖 `nihao/shijian/zhongguo/beifang/xianzai/zhongguorenmin/jintiantianqihenhao/qinghuadaxue` 八句，本地 chroot **8/8** 上屏正确；GitHub Actions 新增 `addon-acceptance` job，装 deb 后在 Xvfb + fcitx5 + GTK3 里真实按键验收。详见 **[addon 多短语真实上屏验收](docs/20261127-1016-addon多短语真实上屏验收-豆包.md)**。
+- **v0.9.201 修 deb 依赖**：CI `addon-acceptance` 首次跑出 deb `Depends: libime` 在 Ubuntu 24.04 无对应包、正常 `dpkg -i` 直接失败；改为 `fcitx5, libimecore0, libimepinyin0, libime-data`，与 `packaging/debian/control` 一致，并加静态守卫。详见 **[deb 依赖修复与 addon CI 转绿](docs/20261127-1040-deb依赖修复与addonCI转绿-豆包.md)**。
 - **本轮（v0.9.197）准确率主线突破（后经复检为训练集泄漏，见顶部更正）**：用字符 trigram 重排序（不换 LM、不扩词典），CLI 1200 句从 **27.83% / 84.81%** 提升到 **42.67% / 88.88%**（+14.84pp / +4.07pp），已接近 recall@10 的 46.08% 句级上限。addon 同步接入 `displayToRaw_` 显示→原始索引映射；真实 fcitx5 5.1.7 + GTK3 敲 `nihao`+空格上屏「你好」，运行时冒烟 **6/6**。期间修掉「短候选被排到首位导致空格只选一个字」的真 bug。发布包新增 `/usr/share/pinyin-ime/char_trigram.bin`，deb/rpm 约 2.7MB；安装矩阵 **30/30**，并修掉 runtime 卸载清单缺 `usr`、误删 `sc.dict` 两个 bug。详见 [20261126-2349-字符trigram重排序上线](docs/20261126-2349-字符trigram重排序上线-豆包.md)；进度与下一步见 [当前开发进度](docs/20261126-2349-当前开发进度-豆包.md)、[下一步待实现](docs/20261126-2349-下一步待实现-豆包.md)。
 - 本轮（v0.9.195）把 .194 的**剩余缺口**补完：运行时冒烟增加 GTK3 输入框真实敲 `nihao`+空格上屏「你好」（**6/6**）；升级矩阵扩到 **rpm**（`-Uvh` 升级 / `--oldpackage` 降级 / `-e` 卸载，deb+rpm **30/30**）；新增 `scripts/ci_build.sh`（曾配 `build-eval` job，v0.9.196 已随 Actions 入口不存在一并移除），在 Ubuntu 24.04 真实编译 CLI/addon 并跑单测、警告、快照、fuzz、1200 句评测（本地实测 27.83% / 84.81%）。详见 [20261126-2055-运行时冒烟与升级矩阵](docs/20261126-2055-运行时冒烟与升级矩阵-豆包.md)。
 - 本轮（v0.9.194）补上**运行时与 deb 升级验证**：addon 在真实 fcitx5 5.1.7（私有 Xvfb + dbus 会话）里加载/注册/切换 **5/5**；deb 旧版→当前→回滚→卸载 **16/16**；并修掉 runtime 包 `install.sh`/`uninstall.sh` 在 headless 里被 `fcitx5 -r` 卡死的问题。
