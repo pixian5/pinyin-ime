@@ -190,9 +190,14 @@ void usage(const char *prog) {
 // v0.9.197：字符 trigram 重排序模型；nullptr 表示未加载，行为退回 v0.9.196。
 static std::unique_ptr<pinyin_ime::CharLM> g_charLM;
 
+// v0.9.211：CLI 长句重排池扩到 60。默认 CLI 1200 句 377→383（+6 句）；
+// NBest=60/70 固定扩大为 386，但会改短句首选；addon 侧 50/60/70 反而回退
+// （30.83/30.83/30.75）——所以只对 CLI 长句动态放宽，addon 保持 45 不变。
+static constexpr size_t kCliRerankPool = 60;
+
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
-// 先取 libime 的整句候选前 10 个做重排（池子固定 10，保证 --top1/nbest=5
-// 也能吃到 recall@10 的潜力），再补上光标处的词级候选；没有模型时与原逻辑一致。
+// 短输入重排前 10 个整句候选，长输入（>=54 字母）扩到 60，再补光标词级候选；
+// 没有字符模型时与原逻辑一致。
 std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
     std::vector<std::string> cands;
     const auto &full = ctx.candidates();
@@ -206,11 +211,17 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
             float score;
             size_t order;
         };
-        size_t pool = std::min(full.size(), std::max<size_t>(max, 10));
         // 与 addon 同一规则：只重排覆盖整段拼音的候选。libime 的 candidates()
         // 可能混入只覆盖首音节的短候选，短候选排到首位会让首选只上屏一个字。
         std::string compactPreedit =
             pinyin_ime::compactPinyin(ctx.preedit());
+        // v0.9.211：只有长输入（>=54 个字母，约 18 个音节）才扩池到 60；
+        // 短输入保持 v0.9.210 的 10 候选池，避免 `e` 这类单键输入被顶掉。
+        const bool longInput = compactPreedit.size() >= 54;
+        const size_t rerankPool =
+            (g_charLM && longInput) ? kCliRerankPool : 10;
+        size_t pool = std::min(full.size(),
+                               std::max<size_t>(max, rerankPool));
         std::vector<Item> items;
         items.reserve(pool);
         for (size_t i = 0; i < pool; ++i) {
@@ -1326,8 +1337,8 @@ int main(int argc, char **argv) {
             std::cerr << "字符重排序模型: " << g_charLM->path() << "\n";
         }
     }
-    // 重排池固定看前 10 个整句候选；只解码 nbest 个会浪费 recall@10 的潜力。
-    ime.setNBest(g_charLM ? std::max<size_t>(nbest, 10)
+    // 默认按 45 个候选解码；批处理遇到长句时再动态扩到 kCliRerankPool。
+    ime.setNBest(g_charLM ? std::max<size_t>(nbest, 45)
                           : static_cast<size_t>(nbest));
     // v0.9.90: 音节分隔显示
     ime.setPreeditMode(PinyinPreeditMode::Pinyin);
@@ -2013,6 +2024,8 @@ int main(int argc, char **argv) {
             return 2;
         }
         std::string line;
+        size_t currentNBest = g_charLM ? std::max<size_t>(nbest, 45)
+                                       : static_cast<size_t>(nbest);
         while (std::getline(bf, line)) {
             if (line.empty() || line[0] == '#') {
                 if (jsonOutput) std::cout << "[]\n";
@@ -2020,6 +2033,20 @@ int main(int argc, char **argv) {
                 continue;
             }
             ctx.clear();
+            // v0.9.211：只有长句（>=54 个拼音字母）把解码池扩到 60；短句保持 45，
+            // 避免 `e` 这类单键输入因候选池变化被更远的候选顶掉。
+            {
+                size_t letters = 0;
+                for (char c : line)
+                    if (is_pinyin_char(c) && c != '\'') ++letters;
+                const size_t wantNBest = g_charLM
+                    ? std::max<size_t>(nbest, letters >= 54 ? kCliRerankPool : 45)
+                    : static_cast<size_t>(nbest);
+                if (wantNBest != currentNBest) {
+                    ime.setNBest(wantNBest);
+                    currentNBest = wantNBest;
+                }
+            }
             // v0.9.47: 数字→字母预处理（手机键盘误触）
             if (correctPinyin) {
                 for (char &c : line) {
