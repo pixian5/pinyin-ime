@@ -511,6 +511,7 @@ void PinyinIMEState::updateUI() {
             float base;
             float score;
             size_t order;
+            std::string text;
         };
         std::vector<Item> items;
         std::vector<bool> used(cands.size(), false);
@@ -535,15 +536,15 @@ void PinyinIMEState::updateUI() {
             float score = base +
                           pinyin_ime::CharLM::kAlpha *
                               engine_->charLM()->score(text);
-            items.push_back({raw, base, score, i});
+            items.push_back({raw, base, score, i, text});
         }
         // 短候选不套门限，保持原 top1/短词规则。
-        if (!items.empty() && full[items[0].order].toString().size() >= 18) {
+        if (!items.empty() && items[0].text.size() >= 18) {
             float baseTop = items[0].base;
             for (const auto &item : items) baseTop = std::max(baseTop, item.base);
             for (auto &item : items) {
                 if (item.base < baseTop - pinyin_ime::CharLM::kRerankBaseGate)
-                    item.score -= 100.0f;
+                    item.score -= pinyin_ime::CharLM::kRerankBasePenalty;
             }
         }
         std::stable_sort(items.begin(), items.end(),

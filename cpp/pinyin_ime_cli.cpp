@@ -235,7 +235,7 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
             for (const auto &item : items) baseTop = std::max(baseTop, item.base);
             for (auto &item : items) {
                 if (item.base < baseTop - pinyin_ime::CharLM::kRerankBaseGate)
-                    item.score -= 100.0f;
+                    item.score -= pinyin_ime::CharLM::kRerankBasePenalty;
             }
         }
         std::stable_sort(items.begin(), items.end(),

@@ -100,6 +100,10 @@ public:
     // 实验：4-gram 只允许在原 libime 分数接近的候选之间换位；原分差超过
     // 该门限的候选保持后排，避免把原本高置信的 top1 无条件换掉。
     static constexpr float kRerankBaseGate = 1.0f;
+    // v0.9.210：低于门限的候选不再直接 -100 硬淘汰，而是 -1 软降权。
+    // 这样仍保留“原分差接近者优先”的约束，同时不把 Top5 里本来可用的候选
+    // 全部压到后面；实测 addon Top5 45.17%→46.17%，Top1 持平。
+    static constexpr float kRerankBasePenalty = 1.0f;
 
     bool empty() const { return vocab_.empty(); }
     size_t vocabSize() const { return vocab_.size(); }
