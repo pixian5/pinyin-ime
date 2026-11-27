@@ -194,6 +194,11 @@ static std::unique_ptr<pinyin_ime::CharLM> g_charLM;
 // NBest=60/70 固定扩大为 386，但会改短句首选；addon 侧 50/60/70 反而回退
 // （30.83/30.83/30.75）——所以只对 CLI 长句动态放宽，addon 保持 45 不变。
 static constexpr size_t kCliRerankPool = 60;
+// v0.9.212：CLI 重排的单字词奖励。libime 遇到 OOV 专名时倾向强行合并
+// 多字词，单字词更多的候选往往更接近逐字转写；每有一个单字词加 0.4。
+// 只用于 CLI 评测/批量路径，addon 侧实测无收益（0.2 仅 +1 句、0.4 回退），
+// 因此不进入真实上屏链路。
+static constexpr float kCliSingleCharBonus = 0.4f;
 
 // 采集当前「整句首选 + 去重后的后续候选」到 cands（cands[0] 恒为首选）。
 // 短输入重排前 10 个整句候选，长输入（>=54 字母）扩到 60，再补光标词级候选；
@@ -210,6 +215,7 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
             float base;
             float score;
             size_t order;
+            size_t singleChars;
         };
         // 与 addon 同一规则：只重排覆盖整段拼音的候选。libime 的 candidates()
         // 可能混入只覆盖首音节的短候选，短候选排到首位会让首选只上屏一个字。
@@ -234,10 +240,18 @@ std::vector<std::string> collect_candidates(PinyinContext &ctx, size_t max) {
                 continue;
             float base = full[i].score();
             float score = base;
+            // v0.9.212：统计候选分词里的单字词数量；只对 3 字节的单个
+            // 汉字计数（libime 的 word() 为 UTF-8）。
+            size_t singleChars = 0;
+            for (const auto *node : full[i].sentence()) {
+                if (node && node->word().size() == 3) ++singleChars;
+            }
             if (g_charLM) {
                 score += pinyin_ime::CharLM::kAlpha * g_charLM->score(text);
+                score += kCliSingleCharBonus *
+                         static_cast<float>(singleChars);
             }
-            items.push_back({std::move(text), base, score, i});
+            items.push_back({std::move(text), base, score, i, singleChars});
         }
         // 短候选不套门限：4 字母缩写等由原 top1/短词规则处理，避免把
         // “加入什么”换成“敬若神明”这类短词回归。
