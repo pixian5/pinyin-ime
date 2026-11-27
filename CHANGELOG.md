@@ -5,7 +5,7 @@
 ### GitHub Actions 依赖安装修复
 - GitHub runner 自带 `packages.microsoft.com/ubuntu/24.04/prod` 源返回 403，`build-eval` 的 `apt-get update` 直接退出 100；这不是代码失败。
 - workflow 在 `build-eval` / `package` 的依赖安装前移除 `microsoft-prod.list` / `.sources`，避免无关源阻断 Ubuntu 官方包。
-- v0.9.207 的 `package`、`install-matrix`、`addon-acceptance` 已通过；`build-eval` 待本次修复后重跑。
+- v0.9.207 的 `package`、`install-matrix`、`addon-acceptance` 已通过；v0.9.208 修复后 run `45962224342` 五 job 全绿，三件套校验 OK。
 
 ## v0.9.207 (2026-11-27)
 

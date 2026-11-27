@@ -4,7 +4,7 @@
 ## 【当前开发进度】【下一步待实现】
 
 - 当前源码版本：`0.9.208`（唯一来源见 `VERSION`）。
-- **v0.9.208 GitHub Actions 微软源 403 修复**：runner 自带 `packages.microsoft.com` apt 源返回 403，`build-eval` 在装依赖阶段失败；workflow 在 `apt-get update` 前移除该无关源。v0.9.207 的 package/install-matrix/addon-acceptance 均已通过。详见 **[微软源 403 修复](docs/20261127-1605-GitHubActions微软源403修复-豆包.md)**。
+- **v0.9.208 GitHub Actions 微软源 403 修复**：runner 自带 `packages.microsoft.com` apt 源返回 403，`build-eval` 在装依赖阶段失败；workflow 在 `apt-get update` 前移除该无关源。v0.9.207 的 package/install-matrix/addon-acceptance 均已通过；v0.9.208 修复后五 job 全绿。详见 **[微软源 403 修复](docs/20261127-1605-GitHubActions微软源403修复-豆包.md)**。
 - **v0.9.207 字符 4-gram 重排落地**：把 v1 trigram（0.55/0.30/0.15 插值）升级为 v2 4-gram + stupid backoff（命中 4-gram 用 `log(c4/t4)`，回退 3/2/1-gram 乘 0.4）；CLI nbest=45 全量 1200 句 Top1 从 **30.33%** 提升到 **31.58%**，字级 86.40%；addon 1200 句 30.17%，相对 30.25% 基本持平（-0.08pp，1 句）。模型 v1 仍兼容；v2 经低频剪枝后 3.17MB（原 2.9MB，仅 +0.2MB）；`ci_build.sh` 全门禁已通过。详见 **[字符 4-gram 重排落地](docs/20261127-1540-字符4gram重排落地-豆包.md)**。
 - **v0.9.206 夜间 CI 启动超时修复**：GitHub runner 上 GTK harness 首行 5s 超时，v0.9.205 的 `addon-full-eval` 启动失败；首次等待放宽到 20s；已手动触发验证 1200 句全量成功，耗时 8m49s，Top1 30.25%。详见 **[夜间 CI 启动超时修复](docs/20261127-1430-夜间CI启动超时修复-豆包.md)**。
 - **v0.9.205 addon 夜间全量 CI**：GitHub Actions 新增 `addon-full-eval`，每周/手动在真实 fcitx5 + Xvfb + GTK3 环境跑 1200 句 addon 上屏评测，上传 `report.md`/`summary.json`；push 常规 CI 仍只跑 8 句验收。详见 **[addon 夜间全量 CI](docs/20261127-1422-addon夜间全量CI-豆包.md)**。
