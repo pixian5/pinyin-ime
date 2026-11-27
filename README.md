@@ -4,7 +4,7 @@
 ## 【当前开发进度】【下一步待实现】
 
 - 当前源码版本：`0.9.206`（唯一来源见 `VERSION`）。
-- **v0.9.206 夜间 CI 启动超时修复**：GitHub runner 上 GTK harness 首行 5s 超时，v0.9.205 的 `addon-full-eval` 启动失败；首次等待放宽到 20s，待重新手动触发验证 1200 句全量。详见 **[夜间 CI 启动超时修复](docs/20261127-1430-夜间CI启动超时修复-豆包.md)**。
+- **v0.9.206 夜间 CI 启动超时修复**：GitHub runner 上 GTK harness 首行 5s 超时，v0.9.205 的 `addon-full-eval` 启动失败；首次等待放宽到 20s；已手动触发验证 1200 句全量成功，耗时 8m49s，Top1 30.25%。详见 **[夜间 CI 启动超时修复](docs/20261127-1430-夜间CI启动超时修复-豆包.md)**。
 - **v0.9.205 addon 夜间全量 CI**：GitHub Actions 新增 `addon-full-eval`，每周/手动在真实 fcitx5 + Xvfb + GTK3 环境跑 1200 句 addon 上屏评测，上传 `report.md`/`summary.json`；push 常规 CI 仍只跑 8 句验收。详见 **[addon 夜间全量 CI](docs/20261127-1422-addon夜间全量CI-豆包.md)**。
 - **v0.9.204 addon 候选池 Top-k/MRR**：新增评测专用候选转储（`PINYINIME_EVAL_CAND`，仅评测启用），按实际显示顺序导出候选；1200 句 addon 实测 Top1 **30.25%**、Top5 **45.17%**、Top10 **49.83%**、MRR **0.3689**，字级 86.24%。Top5 比 Top1 高 14.92pp，说明主要瓶颈是重排而非召回。详见 **[addon 候选池 Top-k 与 MRR 评测](docs/20261127-1322-addon候选池Top-k与MRR评测-豆包.md)**，进度/下一步见 **[当前开发进度](docs/20261127-1322-当前开发进度-豆包.md)**、**[下一步待实现](docs/20261127-1322-下一步待实现-豆包.md)**。
 - **v0.9.203 addon 逐键消歧修复**：addon 每键对半截拼音做 `disambiguate_if_needed`，长句 `xian` 被拆成 `xi'an` 并锁死；改为仅 <=4 字母短缩写消歧后，1200 句 addon 从 **28.00 / 80.31** 提升到 **30.25 / 86.24**，P95 从 754ms 降到 599ms、P99 从 1757ms 降到 647ms。详见 **[addon 逐键消歧修复与长句提分](docs/20261127-1233-addon逐键消歧修复与长句提分-豆包.md)**。

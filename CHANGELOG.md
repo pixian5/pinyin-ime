@@ -5,7 +5,7 @@
 ### 夜间 CI GTK 启动超时修复
 - v0.9.205 的 `addon-full-eval` 在 GitHub runner 上等待 GTK harness 首行 5s 超时；本地 chroot 首行通常 1s 内到。
 - `scripts/eval_addon_batch.py` 首次等待放宽到 20s，后续 9 次仍 5s，总上限约 65s。
-- 待重新手动触发 `workflow_dispatch` 验证 1200 句能跑完；若仍失败，上传 app/fcitx5/Xvfb 日志。
+- 2026-11-27 手动 `workflow_dispatch` 运行 `45953471461` 成功：1200 句耗时 8m49s，Top1 30.25%、Top5 45.17%、Top10 49.83%、MRR 0.3689；报告 artifact 已生成。
 
 ## v0.9.205 (2026-11-27)
 
