@@ -140,6 +140,8 @@ def run_cli(args, rows: list[tuple[str, str]]) -> list[list[str]]:
         cmd = [str(args.cli), str(args.lm), str(args.dict), str(args.nbest),
                "--batch", str(batch), "--top-k", str(topk),
                "--user-data", str(Path(tmp) / "user")]
+        if args.incremental:
+            cmd.append("--incremental")
         env = dict(os.environ)
         if args.lib_path:
             env["LD_LIBRARY_PATH"] = f"{args.lib_path}:{env.get('LD_LIBRARY_PATH', '')}"
@@ -222,6 +224,8 @@ def main() -> int:
     ap.add_argument("--baseline", type=Path, default=None)
     ap.add_argument("--nbest", type=int, default=10,
                     help="传给 CLI 的候选池大小（默认 10；Top-k 固定输出前 10）")
+    ap.add_argument("--incremental", action="store_true",
+                    help="逐键刷新候选，模拟真实输入法（否则整串一次解码）")
     args = ap.parse_args()
 
     if args.selftest:
@@ -248,7 +252,7 @@ def main() -> int:
     summary = {
         "version": (repo / "VERSION").read_text().strip() if (repo / "VERSION").exists() else "unknown",
         "commit": git_commit(repo),
-        "engine": "cli-batch-topk",
+        "engine": "cli-incremental-topk" if args.incremental else "cli-batch-topk",
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "domains": {},
         "overall": {},

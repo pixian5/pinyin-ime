@@ -1830,7 +1830,15 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     rawPreedit.push_back(c);
                 }
             }
-            std::string disambig = disambiguate_if_needed(rawPreedit); // v0.9.183：纯全拼不拆音节
+            // v0.9.203：逐键阶段 rawPreedit 往往只是半截拼音；长句一旦在
+            // 前缀上调用 disambiguate_pinyin，会把合法的 xian 拆成 xi'an 并
+            // 永久锁死（baike 长句实测从 78% 掉到 60%）。这里只对 <=4 的
+            // 极短缩写保留消歧；长输入交给 libime 自己的增量切分。实测 1200
+            // 句：<=4 为 30.25/86.24，<=8 反而降到 30.08/86.18。
+            std::string disambig = rawPreedit;
+            if (rawPreedit.size() <= 4) {
+                disambig = disambiguate_if_needed(rawPreedit);
+            }
             if (disambig != rawPreedit) {
                 // 需要消歧：清空并重新输入拆分后的拼音
                 ctx.clear();

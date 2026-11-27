@@ -169,6 +169,7 @@ void usage(const char *prog) {
         << "  --top1          只输出首选候选（方便管道 | 其他工具）\n"
         << "  --top-k N       输出前 N 个候选（Tab 分隔）\n"
         << "  --no-rerank     关闭字符 trigram 重排序（默认自动查找 data/char_trigram.bin）\n"
+        << "  --incremental   逐键刷新候选（模拟真实输入法，而不是整串一次解码）\n"
         << "  --add-user K=V  添加用户词典条目（如 --add-user myname=张三）后退出\n"
         << "  --list-user     列出所有用户词典条目后退出\n"
         << "  --del-user K    删除用户词典条目（如 --del-user myname）后退出\n"
@@ -942,6 +943,7 @@ int main(int argc, char **argv) {
     bool top1Only = false;       // --top1：只输出首选候选
     int topK = 0;               // --top-k N：输出前N个候选
     bool noRerank = false;       // --no-rerank：关闭字符 trigram 重排序
+    bool incremental = false;    // --incremental：逐键刷新候选，模拟真实输入法
     bool benchmarkMode = false; // --benchmark：内置基准测试
     bool predictMode = false;    // --predict：联想预测
     std::string trainText;       // --train-text：从中文文本训练用户 LM
@@ -1047,6 +1049,8 @@ int main(int argc, char **argv) {
             top1Only = true;
         } else if (a == "--no-rerank") {
             noRerank = true;
+        } else if (a == "--incremental") {
+            incremental = true;
         } else if (a == "--top-k") {
             if (i + 1 >= argc) {
                 std::cerr << "--top-k 缺少参数\n";
@@ -2128,7 +2132,24 @@ int main(int argc, char **argv) {
                 if (hasAlt && joined2 != joined) cands.push_back(joined2);
             } else {
                 for (char ch : line) {
-                    if (is_pinyin_char(ch)) ctx.type(std::string(1, ch));
+                    if (is_pinyin_char(ch)) {
+                        ctx.type(std::string(1, ch));
+                        // v0.9.203：真实 addon 每键都会刷新候选，libime 的增量
+                        // 切分可能与整串一次 type 不同（长句尤其明显）。这里可选
+                        // 逐键取候选，给 CLI 一条和 addon 同路径的评测口径。
+                        if (incremental) {
+                            // 模拟 addon refreshUI：取当前页候选、取整句候选，
+                            // 并对重排池逐个取 candidateFullPinyin。libime 的
+                            // 增量切分会被这些查询固定下来，只 type 不查询时结果
+                            // 仍接近整串解码。
+                            ctx.candidatesToCursor();
+                            const auto &full = ctx.candidates();
+                            size_t pool = std::min(full.size(),
+                                                   static_cast<size_t>(nbest));
+                            for (size_t ci = 0; ci < pool; ++ci)
+                                ctx.candidateFullPinyin(full[ci]);
+                        }
+                    }
                 }
                 cands = collect_candidates(ctx, static_cast<size_t>(nbest));
                 boost_abbreviation(line, cands);
