@@ -3,7 +3,8 @@
 
 ## 【当前开发进度】【下一步待实现】
 
-- 当前源码版本：`0.9.204`（唯一来源见 `VERSION`）。
+- 当前源码版本：`0.9.205`（唯一来源见 `VERSION`）。
+- **v0.9.205 addon 夜间全量 CI**：GitHub Actions 新增 `addon-full-eval`，每周/手动在真实 fcitx5 + Xvfb + GTK3 环境跑 1200 句 addon 上屏评测，上传 `report.md`/`summary.json`；push 常规 CI 仍只跑 8 句验收。详见 **[addon 夜间全量 CI](docs/20261127-1422-addon夜间全量CI-豆包.md)**。
 - **v0.9.204 addon 候选池 Top-k/MRR**：新增评测专用候选转储（`PINYINIME_EVAL_CAND`，仅评测启用），按实际显示顺序导出候选；1200 句 addon 实测 Top1 **30.25%**、Top5 **45.17%**、Top10 **49.83%**、MRR **0.3689**，字级 86.24%。Top5 比 Top1 高 14.92pp，说明主要瓶颈是重排而非召回。详见 **[addon 候选池 Top-k 与 MRR 评测](docs/20261127-1322-addon候选池Top-k与MRR评测-豆包.md)**，进度/下一步见 **[当前开发进度](docs/20261127-1322-当前开发进度-豆包.md)**、**[下一步待实现](docs/20261127-1322-下一步待实现-豆包.md)**。
 - **v0.9.203 addon 逐键消歧修复**：addon 每键对半截拼音做 `disambiguate_if_needed`，长句 `xian` 被拆成 `xi'an` 并锁死；改为仅 <=4 字母短缩写消歧后，1200 句 addon 从 **28.00 / 80.31** 提升到 **30.25 / 86.24**，P95 从 754ms 降到 599ms、P99 从 1757ms 降到 647ms。详见 **[addon 逐键消歧修复与长句提分](docs/20261127-1233-addon逐键消歧修复与长句提分-豆包.md)**。
 - **v0.9.202 addon 全量真机评测**：新增 `scripts/eval_addon_batch.sh`，在 Xvfb + dbus + fcitx5 + GTK3 里逐键敲完 1200 句 clean holdout，addon 真实上屏 **28.00% / 80.31%**（baike 26.33/71.22、news 36.33/88.86、recent 33.33/85.69、wiki 16.00/75.46），P50 505ms / P95 754ms / P99 1757ms。关键发现：addon 与 CLI `--batch` 不是同一路径——同句 CLI batch 首选“文献多见”，而 CLI 交互模式和 addon 都首选“文戏安多”；28/80 是真实逐键基线，30/86 只能作 batch 回归基线。详见 **[addon 全量真机上屏评测与增量输入差异](docs/20261127-1109-addon全量真机上屏评测与增量输入差异-豆包.md)**，进度/下一步见 **[当前开发进度](docs/20261127-1233-当前开发进度-豆包.md)**、**[下一步待实现](docs/20261127-1233-下一步待实现-豆包.md)**。

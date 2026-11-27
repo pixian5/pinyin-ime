@@ -1,5 +1,12 @@
 # pinyin-ime 发布说明
 
+## v0.9.205 (2026-11-27)
+
+### addon 1200 句夜间/手动全量 CI
+- `.github/workflows/ci.yml` 新增 `addon-full-eval` job：`schedule`（每周一 18:00 UTC）和 `workflow_dispatch` 时，在 Ubuntu 24.04 + fcitx5 + Xvfb + GTK3 环境跑 1200 句 addon 真实上屏评测。
+- 复用 `package` 产物，安装 deb 后执行 `scripts/eval_addon_batch.sh`，上传 `report.md` / `summary.json`；不阻塞 push 的四个常规 job。
+- 现有 push 仍只跑 8 句 addon-acceptance；全量 job 需手动触发一次确认耗时和稳定性。
+
 ## v0.9.204 (2026-11-27)
 
 ### addon 候选池 Top-k/MRR 评测
