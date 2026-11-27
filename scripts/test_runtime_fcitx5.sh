@@ -117,6 +117,10 @@ except Exception as e:
 PY
 fi
 
+# 真实上屏参数：默认仍是 nihao→你好；可用环境变量做多短语验收。
+TYPE_INPUT="${PINYINIME_TEST_INPUT:-nihao}"
+TYPE_EXPECT="${PINYINIME_TEST_EXPECT:-你好}"
+
 # 真实上屏测试脚本（GTK3 + fcitx5 GTK im module，有 xdotool 才启用）
 TYPE_PY=""
 if command -v xdotool >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 \
@@ -167,7 +171,7 @@ if [ -n "\$TYPE_PY" ] && [ "\$(cat "$WORK/check.rc" 2>/dev/null)" = "0" ]; then
     sleep 4
     xdotool search --name pinyin-ime-test windowfocus 2>/dev/null || true
     sleep 1
-    xdotool type --delay 120 nihao
+    xdotool type --delay 120 "$TYPE_INPUT"
     sleep 1
     xdotool key space
     for _ in \$(seq 1 30); do
@@ -213,10 +217,10 @@ else
 fi
 
 if [ -f "$WORK/type.enabled" ]; then
-    if grep -q 'TEXT=\[你好\]' "$WORK/type.out" 2>/dev/null; then
-        ok "真实按键上屏：nihao + 空格 → 你好（GTK3 + fcitx5 im module）"
+    if grep -Fq "TEXT=[$TYPE_EXPECT]" "$WORK/type.out" 2>/dev/null; then
+        ok "真实按键上屏：$TYPE_INPUT + 空格 → $TYPE_EXPECT（GTK3 + fcitx5 im module）"
     else
-        bad "真实按键上屏未得到「你好」：$(tr '\n' ' ' < "$WORK/type.out" 2>/dev/null | tail -c 200)"
+        bad "真实按键上屏未得到「$TYPE_EXPECT」：$(tr '\n' ' ' < "$WORK/type.out" 2>/dev/null | tail -c 200)"
     fi
 else
     skip "缺 xdotool 或 python3-gi/GTK3，跳过真实按键上屏"

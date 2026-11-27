@@ -104,6 +104,9 @@ check "警告门禁脚本存在" test -x scripts/warnings_check.sh
 check "覆盖率脚本存在" test -x scripts/coverage.sh
 check "Sanitizer 脚本存在" test -x scripts/sanitizer_test.sh
 check "CLI 功能回归脚本存在" test -x scripts/cli_features_test.sh
+check "addon 多短语验收脚本存在" test -x scripts/test_addon_phrases.sh
+check "运行时冒烟支持短语参数化" grep -q 'PINYINIME_TEST_INPUT' scripts/test_runtime_fcitx5.sh
+check "CI 有 addon 真实上屏 job" grep -q 'addon-acceptance:' .github/workflows/ci.yml
 check "模糊测试脚本存在" test -x scripts/fuzz_test.sh
 check "模糊测试源存在" test -s cpp/fuzz_segment_test.cpp
 # v0.9.194：运行时冒烟 + 升级矩阵

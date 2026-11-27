@@ -112,3 +112,45 @@ jobs:
 
       - name: Run install matrix
         run: sudo bash scripts/test_install.sh --skip-build
+
+  addon-acceptance:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install fcitx5 runtime and test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            dbus \
+            dbus-x11 \
+            fcitx5 \
+            fcitx5-frontend-gtk3 \
+            gir1.2-gtk-3.0 \
+            libime-bin \
+            libime-data \
+            libime-data-language-model \
+            python3-dbus \
+            python3-gi \
+            xdotool \
+            xvfb
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: pinyin-ime-${{ github.sha }}
+          path: dist
+
+      - name: Install deb
+        run: |
+          set -e
+          sudo dpkg -i dist/pinyin-ime_*_amd64.deb || {
+            sudo apt-get -f install -y
+            sudo dpkg -i dist/pinyin-ime_*_amd64.deb
+          }
+
+      - name: Run addon phrase acceptance
+        run: bash scripts/test_addon_phrases.sh

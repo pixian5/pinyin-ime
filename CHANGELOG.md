@@ -1,5 +1,14 @@
 # pinyin-ime 发布说明
 
+## v0.9.200 (2026-11-27)
+
+### addon 多短语真实上屏验收
+- `scripts/test_runtime_fcitx5.sh` 支持 `PINYINIME_TEST_INPUT` / `PINYINIME_TEST_EXPECT`，默认行为仍是 `nihao→你好`。
+- 新增 `scripts/test_addon_phrases.sh`：真实 Xvfb + fcitx5 + GTK3，用 xdotool 逐个输入 8 个短语并按空格上屏，检查整句结果。
+- 覆盖 `nihao→你好`、`shijian→时间`、`zhongguo→中国`、`beifang→北方`、`xianzai→现在`、`zhongguorenmin→中国人民`、`jintiantianqihenhao→今天天气很好`、`qinghuadaxue→清华大学`；本地 chroot **8/8**。
+- GitHub Actions 新增 `addon-acceptance` job：下载 deb、安装 fcitx5/Xvfb/GTK3/xdotool，再跑上述验收；真实用户入口不再只有“编译通过”。
+- 已知限制：仍是 8 句抽样，不是 1200 句 addon 全量评测；addon 与 CLI 的候选窗/翻页键差异仍未做全量对齐。
+
 ## v0.9.199 (2026-11-27)
 
 ### Top-k 评测与交互成本
