@@ -129,6 +129,30 @@ def score(hyps: list[str], refs: list[str]) -> dict:
     }
 
 
+def candidate_metrics(candidates: list[list[str]], refs: list[str]) -> dict:
+    """候选池指标：top-k 句级命中率与 MRR（正确句在候选池中的首个名次）。"""
+    ks = (1, 5, 10)
+    hits = {k: 0 for k in ks}
+    reciprocal = 0.0
+    for cands, ref in zip(candidates, refs):
+        rank = 0
+        for i, cand in enumerate(cands, 1):
+            if cand == ref:
+                rank = i
+                break
+        for k in ks:
+            if rank and rank <= k:
+                hits[k] += 1
+        if rank:
+            reciprocal += 1.0 / rank
+    n = max(len(refs), 1)
+    out = {f"top{k}_sent_acc": round(hits[k] * 100.0 / n, 2) for k in ks}
+    out["mrr"] = round(reciprocal / n, 4)
+    out["candidate_pool_avg"] = round(
+        sum(len(c) for c in candidates) / max(len(candidates), 1), 1)
+    return out
+
+
 def percentile(values: list[float], p: float) -> float:
     if not values:
         return 0.0
@@ -219,6 +243,7 @@ def main() -> int:
     app_log = work / "app.log"
     fcitx_log = work / "fcitx5.log"
     xvfb_log = work / "xvfb.log"
+    cand_path = work / "candidates.tsv"
 
     display_num = find_display()
     display = f":{display_num}"
@@ -232,6 +257,7 @@ def main() -> int:
         "QT_IM_MODULE": "fcitx",
         "XMODIFIERS": "@im=fcitx",
         "NO_AT_BRIDGE": "1",
+        "PINYINIME_EVAL_CAND": str(cand_path),
     })
     env.pop("PYTHONPATH", None)
 
@@ -291,6 +317,7 @@ def main() -> int:
         all_refs: list[str] = []
         errors = []
         latencies = []
+        all_cands: list[list[str]] = []
 
         def cmd(text: str) -> None:
             app.stdin.write(text + "\n")
@@ -298,12 +325,13 @@ def main() -> int:
 
         seq = 0
         for domain, rows in rows_by_domain.items():
-            hyps, refs, lat = [], [], []
+            hyps, refs, lat, cand_lists = [], [], [], []
             for py, ref in rows:
                 seq += 1
                 if seq > 1:
                     cmd(f"CLEAR {seq}")
                     read_until(app_q, f"OK\t{seq}", 5)
+                cand_path.unlink(missing_ok=True)
                 t0 = time.time()
                 subprocess.run(["xdotool", "type", "--clearmodifiers", "--delay",
                                 str(args.type_delay), py], env=env,
@@ -325,6 +353,12 @@ def main() -> int:
                 lat.append((time.time() - t0) * 1000)
                 hyps.append(hyp)
                 refs.append(ref)
+                cands = []
+                if cand_path.exists():
+                    for line in cand_path.read_text(errors="ignore").splitlines():
+                        if line.startswith("CAND\t"):
+                            cands.append(line.split("\t", 1)[1])
+                cand_lists.append(cands)
                 if hyp != ref:
                     errors.append(f"{domain}\t{py}\t期望 {ref}\t实际 {hyp}")
                 if seq % 25 == 0:
@@ -333,16 +367,19 @@ def main() -> int:
             stats["p50_ms"] = percentile(lat, 50)
             stats["p95_ms"] = percentile(lat, 95)
             stats["p99_ms"] = percentile(lat, 99)
+            stats.update(candidate_metrics(cand_lists, refs))
             summary["domains"][domain] = stats
             all_hyps.extend(hyps)
             all_refs.extend(refs)
             latencies.extend(lat)
+            all_cands.extend(cand_lists)
             print(f"[{domain}] {stats}", flush=True)
 
         summary["overall"] = score(all_hyps, all_refs)
         summary["overall"]["p50_ms"] = percentile(latencies, 50)
         summary["overall"]["p95_ms"] = percentile(latencies, 95)
         summary["overall"]["p99_ms"] = percentile(latencies, 99)
+        summary["overall"].update(candidate_metrics(all_cands, all_refs))
         summary["errors"] = len(errors)
 
         out.mkdir(parents=True, exist_ok=True)
@@ -350,14 +387,16 @@ def main() -> int:
                                           encoding="utf-8")
         md = [f"# addon 真实上屏评测 v{summary['version']}", "",
               f"引擎：`{summary['engine']}`（{summary['addon']}）", "",
-              "| 域 | 句数 | 句级首选 | 字级准确率 | P50 | P95 | P99 |",
-              "|---|---|---|---|---|---|---|"]
+              "| 域 | 句数 | Top1 | Top5 | Top10 | MRR | 字级 | P50 | P95 | P99 |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
         for d, s in summary["domains"].items():
-            md.append(f"| {d} | {s['sentences']} | {s['sent_acc']}% | {s['char_acc']}% | "
-                      f"{s['p50_ms']}ms | {s['p95_ms']}ms | {s['p99_ms']}ms |")
+            md.append(f"| {d} | {s['sentences']} | {s['sent_acc']}% | "
+                      f"{s['top5_sent_acc']}% | {s['top10_sent_acc']}% | {s['mrr']} | "
+                      f"{s['char_acc']}% | {s['p50_ms']}ms | {s['p95_ms']}ms | {s['p99_ms']}ms |")
         o = summary["overall"]
-        md.append(f"| **合计** | {o['sentences']} | {o['sent_acc']}% | {o['char_acc']}% | "
-                  f"{o['p50_ms']}ms | {o['p95_ms']}ms | {o['p99_ms']}ms |")
+        md.append(f"| **合计** | {o['sentences']} | {o['sent_acc']}% | "
+                  f"{o['top5_sent_acc']}% | {o['top10_sent_acc']}% | {o['mrr']} | "
+                  f"{o['char_acc']}% | {o['p50_ms']}ms | {o['p95_ms']}ms | {o['p99_ms']}ms |")
         md += ["", f"错误句数：{len(errors)}", "", "## 错例（最多 20 条）", ""]
         md += [f"- {e}" for e in errors[:20]]
         (out / "report.md").write_text("\n".join(md) + "\n", encoding="utf-8")
