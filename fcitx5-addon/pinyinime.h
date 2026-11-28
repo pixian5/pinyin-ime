@@ -154,6 +154,12 @@ public:
     // 空/未启用时保持 libime 原顺序；启用时 selectCandidate 必须先做一次映射。
     std::vector<size_t> displayToRaw_;
     bool rerankActive_ = false;
+    // v0.9.213：长句 shadow 候选空间。active 时显示与选择都走 shadowCands_。
+    bool shadowActive_ = false;
+    bool shadowDirty_ = false;
+    std::vector<std::string> shadowCands_;
+    std::unique_ptr<libime::PinyinContext> shadowCtx_;
+    std::string shadowTyped_;
     // v0.9.175 云拼音：当前拼音串对应的云候选（只在第 0 页追加到本地候选之后）
     std::vector<std::string> cloudWords_;
     // 触发一次后台云查询（同一拼音在引擎层去重，不会重复发请求）
@@ -191,6 +197,9 @@ public:
 
     libime::PinyinIME *ime() { return ime_.get(); }
     pinyin_ime::CharLM *charLM() { return charLM_.get(); }
+    // v0.9.213：长句 shadow 解码器（独立 PinyinIME，避免动主 context）。
+    bool ensureShadowIME();
+    libime::PinyinIME *shadowIME() { return shadowIme_.get(); }
     // v0.9.197：重排池大小与 libime 的 nbest 保持一致（至少 10 个整句候选）
     size_t rerankPool() const {
         return std::max<size_t>(10, config().nbest.value());
@@ -219,6 +228,9 @@ private:
     std::unique_ptr<fcitx::EventSource> cloudRefreshSource_;
     PinyinIMEConfig config_;
     std::unique_ptr<libime::PinyinIME> ime_;
+    std::unique_ptr<libime::PinyinIME> shadowIme_;
+    std::string lmPath_;
+    std::string dictPath_;
     std::unique_ptr<pinyin_ime::CharLM> charLM_;
     std::shared_ptr<pinyinime::CloudPinyinClient> cloud_;
     std::mutex cloudMutex_;

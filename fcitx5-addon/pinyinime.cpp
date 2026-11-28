@@ -78,6 +78,59 @@ void dumpEvalCandidates(const std::string &raw,
     }
 }
 
+// v0.9.213：在独立 shadow PinyinIME 上整串批量解码并重排。
+// 只读 shadow 的词典/LM，不改主 context；返回最多 max 个覆盖整串拼音的候选。
+std::vector<std::string> shadowRerank(
+    libime::PinyinContext *shadow, pinyin_ime::CharLM *lm,
+    const std::string &raw, size_t max) {
+    std::vector<std::string> out;
+    if (!shadow || !lm || raw.empty() || max == 0) return out;
+    const auto &full = shadow->candidates();
+    struct Item {
+        std::string text;
+        float base;
+        float score;
+        size_t order;
+        size_t singleChars;
+    };
+    std::vector<Item> items;
+    items.reserve(full.size());
+    for (size_t i = 0; i < full.size(); ++i) {
+        std::string text = full[i].toString();
+        if (text.empty()) continue;
+        std::string cpy = pinyin_ime::compactPinyin(
+            shadow->candidateFullPinyin(full[i]));
+        if (cpy.size() != raw.size()) continue;
+        size_t singleChars = 0;
+        for (const auto *node : full[i].sentence())
+            if (node && node->word().size() == 3) ++singleChars;
+        float base = full[i].score();
+        float score = base +
+                      pinyin_ime::CharLM::kAlpha * lm->score(text) +
+                      0.4f * static_cast<float>(singleChars);
+        items.push_back({text, base, score, i, singleChars});
+    }
+    if (!items.empty() && items[0].text.size() >= 18) {
+        float baseTop = items[0].base;
+        for (const auto &it : items) baseTop = std::max(baseTop, it.base);
+        for (auto &it : items) {
+            if (it.base < baseTop - pinyin_ime::CharLM::kRerankBaseGate)
+                it.score -= pinyin_ime::CharLM::kRerankBasePenalty;
+        }
+    }
+    std::stable_sort(items.begin(), items.end(),
+                     [](const Item &a, const Item &b) {
+                         if (a.score != b.score) return a.score > b.score;
+                         return a.order < b.order;
+                     });
+    for (auto &it : items) {
+        if (out.size() >= max) break;
+        if (std::find(out.begin(), out.end(), it.text) == out.end())
+            out.push_back(std::move(it.text));
+    }
+    return out;
+}
+
 // 从候选里找第一个存在的文件；找不到返回空串并告警（列出试过的路径）。
 std::string findData(const std::vector<std::string> &candidates,
                      const char *what) {
@@ -347,6 +400,11 @@ void PinyinIMEState::commitText(const std::string &text) {
 
 void PinyinIMEState::reset() {
     context_.clear();
+    shadowActive_ = false;
+    shadowDirty_ = false;
+    shadowCands_.clear();
+    shadowCtx_.reset();
+    shadowTyped_.clear();
     rawInput_.clear();
     page_ = 0;
     boostSwap_ = 0;
@@ -485,6 +543,66 @@ void PinyinIMEState::updateUI() {
     if (!pre.empty()) {
         preeditText.append(pre, preeditFlags);
         preeditText.setCursor(static_cast<int>(cursorPos));
+    }
+
+    // v0.9.213：长句 shadow 候选空间。dirty 时重建；active 时整条 UI 走 shadow。
+    if (shadowDirty_) {
+        shadowDirty_ = false;
+        std::string compact =
+            pinyin_ime::compactPinyin(context_.preedit());
+        if (compact.size() >= 54 && engine_->charLM() &&
+            engine_->ensureShadowIME()) {
+            // 持久 shadow context：跨过 54 字母时整串建一次，之后只增量
+            // type 新字符；退格/消歧导致前缀不符时再整串重建。
+            if (!shadowCtx_ || compact.size() < shadowTyped_.size() ||
+                compact.compare(0, shadowTyped_.size(), shadowTyped_) != 0) {
+                shadowCtx_ =
+                    std::make_unique<libime::PinyinContext>(
+                        engine_->shadowIME());
+                shadowTyped_.clear();
+            }
+            for (size_t ci = shadowTyped_.size(); ci < compact.size(); ++ci)
+                shadowCtx_->type(std::string(1, compact[ci]));
+            shadowTyped_ = compact;
+            shadowCands_ = shadowRerank(shadowCtx_.get(),
+                                        engine_->charLM(), compact, 60);
+            shadowActive_ = !shadowCands_.empty();
+        } else {
+            shadowActive_ = false;
+            shadowCands_.clear();
+            shadowCtx_.reset();
+            shadowTyped_.clear();
+        }
+    }
+    if (shadowActive_ && !shadowCands_.empty()) {
+        const size_t sps = pageSize();
+        maxPage_ = (shadowCands_.size() - 1) / sps;
+        if (page_ > maxPage_) page_ = maxPage_;
+        if (candFocus_ >= sps) candFocus_ = 0;
+        const size_t sbegin = page_ * sps;
+        const size_t send =
+            std::min<size_t>(shadowCands_.size(), sbegin + sps);
+        if (send > sbegin && candFocus_ >= send - sbegin) candFocus_ = 0;
+        inputContext_->inputPanel().reset();
+        inputContext_->inputPanel().setPreedit(preeditText);
+        if (send > sbegin) {
+            auto candidateList = std::make_unique<CommonCandidateList>();
+            for (size_t si = sbegin; si < send; ++si) {
+                candidateList->append<PinyinCandidateWord>(
+                    Text(shadowCands_[si]), this, si);
+            }
+            candidateList->setPageSize(static_cast<int>(sps));
+            candidateList->setSelectionKey(selectionKeys_);
+            candidateList->setCursorIncludeUnselected(true);
+            for (unsigned ci = 0; ci <= candFocus_; ++ci)
+                candidateList->nextCandidate();
+            inputContext_->inputPanel().setCandidateList(
+                std::move(candidateList));
+        }
+        inputContext_->updatePreedit();
+        inputContext_->updateUserInterface(
+            UserInterfaceComponent::InputPanel);
+        return;
     }
 
     // 候选（当前页）——仅在确实有候选时设置；空列表配 cursorIndex=0 会让
@@ -782,6 +900,29 @@ void PinyinIMEState::refreshUI() {
 }
 
 void PinyinIMEState::selectCandidate(size_t idx) {
+    // v0.9.213：shadow 候选直接提交，不经过主 libime context。
+    if (shadowActive_) {
+        if (idx >= shadowCands_.size()) return;
+        std::string pinyin;
+        for (char c : context_.preedit())
+            if (c != '\'' && c != ' ') pinyin.push_back(c);
+        const std::string text = shadowCands_[idx];
+        undoStack_.emplace_back(text, pinyin);
+        if (undoStack_.size() > 32) undoStack_.erase(undoStack_.begin());
+        context_.clear();
+        rawInput_.clear();
+        shadowActive_ = false;
+        shadowDirty_ = false;
+        shadowCands_.clear();
+        shadowCtx_.reset();
+        shadowTyped_.clear();
+        page_ = 0;
+        maxPage_ = 0;
+        candFocus_ = 0;
+        commitText(text);
+        refreshUI();
+        return;
+    }
     const auto &cands = context_.candidatesToCursor();
     // v0.9.175 云候选：占第 0 页尾部槽位，索引区间 [cloudIdxBase_, +cloudWords_.size())，
     // 直接上屏（不进 libime 上下文），并同样记进误上屏撤回栈。
@@ -917,6 +1058,7 @@ void PinyinIMEState::undoLastCommit() {
                 context_.type(std::string(1, c));
             }
         }
+        shadowDirty_ = true;
     }
     refreshUI();
 }
@@ -971,6 +1113,8 @@ bool PinyinIMEEngine::ensureDataLoaded() {
         return false;
     }
 
+    lmPath_ = lmPath;
+    dictPath_ = dictPath;
     ime_ = std::make_unique<libime::PinyinIME>(
         std::make_unique<libime::PinyinDictionary>(),
         std::make_unique<libime::UserLanguageModel>(lmPath.c_str()));
@@ -1030,6 +1174,24 @@ void PinyinIMEEngine::saveUserData() {
     }
     ime_->dict()->save(libime::PinyinDictionary::UserDict,
                        userDictPath_.c_str(), libime::PinyinDictFormat::Binary);
+}
+
+bool PinyinIMEEngine::ensureShadowIME() {
+    if (shadowIme_) return true;
+    if (lmPath_.empty() || dictPath_.empty()) return false;
+    shadowIme_ = std::make_unique<libime::PinyinIME>(
+        std::make_unique<libime::PinyinDictionary>(),
+        std::make_unique<libime::UserLanguageModel>(lmPath_.c_str()));
+    shadowIme_->dict()->load(libime::PinyinDictionary::SystemDict,
+                             dictPath_.c_str(),
+                             libime::PinyinDictFormat::Binary);
+    // 长句专用：与 CLI 的 60 候选池对齐。
+    shadowIme_->setNBest(60);
+    shadowIme_->setPreeditMode(libime::PinyinPreeditMode::Pinyin);
+    if (config().enableFuzzy.value())
+        shadowIme_->setFuzzyFlags(buildFuzzyFlags(config()));
+    FCITX_INFO() << "pinyinime: shadow decoder ready";
+    return true;
 }
 
 void PinyinIMEEngine::reloadConfig() {
@@ -1160,17 +1322,24 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
          event.key().check(FcitxKey_Right, KeyState::Ctrl)) &&
         !ctx.empty()) {
         const auto &ccands = ctx.candidatesToCursor();
-        if (!ccands.empty()) {
-            const size_t begin = state->localBegin();
-            const size_t end =
-                std::min<size_t>(ccands.size(), begin + state->localPageCapacity());
-            if (end > begin) {
-                if (event.key().check(FcitxKey_Left, KeyState::Ctrl)) {
-                    state->candFocus_ = state->candFocus_ > 0 ? state->candFocus_ - 1 : 0;
-                } else {
-                    state->candFocus_ =
-                        std::min<size_t>(state->candFocus_ + 1, end - begin - 1);
-                }
+        size_t begin = 0;
+        size_t end = 0;
+        if (state->shadowActive_) {
+            // v0.9.213：shadow 模式下焦点范围按 shadowCands_ 计算。
+            begin = state->page_ * state->pageSize();
+            end = std::min<size_t>(state->shadowCands_.size(),
+                                   begin + state->pageSize());
+        } else if (!ccands.empty()) {
+            begin = state->localBegin();
+            end = std::min<size_t>(ccands.size(),
+                                   begin + state->localPageCapacity());
+        }
+        if (end > begin) {
+            if (event.key().check(FcitxKey_Left, KeyState::Ctrl)) {
+                state->candFocus_ = state->candFocus_ > 0 ? state->candFocus_ - 1 : 0;
+            } else {
+                state->candFocus_ =
+                    std::min<size_t>(state->candFocus_ + 1, end - begin - 1);
             }
         }
         state->refreshUI();
@@ -1452,6 +1621,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
     if (event.key().check(FcitxKey_BackSpace)) {
         if (!ctx.empty()) {
             ctx.backspace();
+            state->shadowDirty_ = true;
             state->candFocus_ = 0;
             state->refreshUI();
             event.filterAndAccept();
@@ -1774,30 +1944,40 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
             // 必须按「显示顺序」导出：重排/简拼 boost 后，实际空格选的是
             // displayToRaw_[index]，直接倒原始候选会让 top1 对不上上屏结果。
             {
-                const auto &rawCands = ctx.candidatesToCursor();
                 std::vector<std::string> evalCands;
                 evalCands.reserve(20);
-                if (!state->boostInsertWord_.empty() && state->page_ == 0) {
-                    evalCands.push_back(state->boostInsertWord_);
-                }
-                std::vector<size_t> order;
-                if (state->rerankActive_ &&
-                    state->displayToRaw_.size() == rawCands.size()) {
-                    order = state->displayToRaw_;
-                } else {
-                    order.resize(rawCands.size());
-                    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
-                    if (state->boostSwap_ > 0 && state->page_ == 0) {
-                        std::swap(order[0], order[state->boostSwap_]);
+                if (state->shadowActive_) {
+                    // v0.9.213：shadow UI 的候选前 20 条就是真实显示顺序。
+                    for (size_t i = 0;
+                         i < state->shadowCands_.size() && evalCands.size() < 20;
+                         ++i) {
+                        evalCands.push_back(state->shadowCands_[i]);
                     }
-                }
-                for (size_t i = 0; i < order.size() && evalCands.size() < 20; ++i) {
-                    evalCands.push_back(rawCands[order[i]].toString());
-                }
-                if (state->page_ == 0) {
-                    for (const auto &word : state->cloudWords_) {
-                        if (evalCands.size() >= 20) break;
-                        evalCands.push_back(word);
+                } else {
+                    const auto &rawCands = ctx.candidatesToCursor();
+                    if (!state->boostInsertWord_.empty() && state->page_ == 0) {
+                        evalCands.push_back(state->boostInsertWord_);
+                    }
+                    std::vector<size_t> order;
+                    if (state->rerankActive_ &&
+                        state->displayToRaw_.size() == rawCands.size()) {
+                        order = state->displayToRaw_;
+                    } else {
+                        order.resize(rawCands.size());
+                        for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+                        if (state->boostSwap_ > 0 && state->page_ == 0) {
+                            std::swap(order[0], order[state->boostSwap_]);
+                        }
+                    }
+                    for (size_t i = 0;
+                         i < order.size() && evalCands.size() < 20; ++i) {
+                        evalCands.push_back(rawCands[order[i]].toString());
+                    }
+                    if (state->page_ == 0) {
+                        for (const auto &word : state->cloudWords_) {
+                            if (evalCands.size() >= 20) break;
+                            evalCands.push_back(word);
+                        }
                     }
                 }
                 dumpEvalCandidates(compactRaw, evalCands);
@@ -1910,6 +2090,7 @@ void PinyinIMEEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &event) {
                     ctx.type(std::string(1, c));
                 }
             }
+            state->shadowDirty_ = true;
             state->candFocus_ = 0; // 新拼音改变候选，焦点回到首选
             state->refreshUI();
             // v0.9.175: 每次字母输入后触发一次后台云查询（有缓存/已请求则跳过）

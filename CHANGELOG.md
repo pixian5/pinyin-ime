@@ -1,5 +1,17 @@
 # pinyin-ime 发布说明
 
+## v0.9.213 (2026-11-28)
+
+### addon 长句 shadow 独立候选空间
+- 新增 `PinyinIMEEngine::ensureShadowIME()`：惰性创建独立 `PinyinIME`（独立词典 + LM，NBest=60），只在长句首次输入时加载。
+- `PinyinIMEState` 新增持久 `shadowCtx_`/`shadowTyped_`：跨 `compactPinyin >= 54` 时整串 type 一次，之后增量 type；退格/消歧导致前缀不符时重建。
+- `updateUI` 在 shadow active 时直接显示 `shadowCands_`，翻页、数字键、鼠标点击、Ctrl+←/→、空格全部走 shadow 索引；`selectCandidate` 直接提交 shadow 文本，不再混入主 context。
+- `shadowRerank` 过滤覆盖整串拼音的候选，按 `base + 0.25*CharLM + 0.4*单字词数` 重排，沿用 1.0 门限软降权，取前 60。
+- 评测转储在 shadow active 时导出 shadow 前 20 条，修正 Top-k 与真实显示不一致。
+- addon 1200 句真实上屏 **Top1 30.92%→31.75%（+0.83pp）**，字级 86.45%→86.34%，Top5 46.17%→45.17%，P95 603.9→788.9ms；baike +1.67、recent +2.34、news 持平、wiki -0.67。
+- 弯路：每键整串重建 shadow 导致 400 句 Top1 0.5% 并把上一句带入；持久 shadow context 后恢复。NBest100 与 β0.2 均未更优。
+- 验证：CLI 42 例快照 0 差异；8 句短语 8/8；新增 85 字母长句空格上屏、数字键 2 上屏均通过。
+
 ## v0.9.212 (2026-11-28)
 
 ### CLI 单字词重排奖励

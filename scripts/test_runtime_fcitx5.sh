@@ -120,6 +120,8 @@ fi
 # 真实上屏参数：默认仍是 nihao→你好；可用环境变量做多短语验收。
 TYPE_INPUT="${PINYINIME_TEST_INPUT:-nihao}"
 TYPE_EXPECT="${PINYINIME_TEST_EXPECT:-你好}"
+# 可选：用数字键选择其他候选（默认空格选首选）。
+TYPE_SELECT_KEY="${PINYINIME_TEST_SELECT_KEY:-space}"
 
 # 真实上屏测试脚本（GTK3 + fcitx5 GTK im module，有 xdotool 才启用）
 TYPE_PY=""
@@ -140,7 +142,7 @@ print("XID=%d" % win.get_window().get_xid()); sys.stdout.flush()
 def dump():
     print("TEXT=[%s]" % entry.get_text()); sys.stdout.flush()
     Gtk.main_quit(); return False
-GLib.timeout_add(15000, dump)
+GLib.timeout_add(25000, dump)
 Gtk.main()
 PY
     echo "enabled" > "$WORK/type.enabled"
@@ -173,7 +175,7 @@ if [ -n "\$TYPE_PY" ] && [ "\$(cat "$WORK/check.rc" 2>/dev/null)" = "0" ]; then
     sleep 1
     xdotool type --delay 120 "$TYPE_INPUT"
     sleep 1
-    xdotool key space
+    xdotool key "$TYPE_SELECT_KEY"
     for _ in \$(seq 1 30); do
         grep -q "TEXT=" "$WORK/type.out" 2>/dev/null && break
         sleep 1
@@ -218,7 +220,7 @@ fi
 
 if [ -f "$WORK/type.enabled" ]; then
     if grep -Fq "TEXT=[$TYPE_EXPECT]" "$WORK/type.out" 2>/dev/null; then
-        ok "真实按键上屏：$TYPE_INPUT + 空格 → $TYPE_EXPECT（GTK3 + fcitx5 im module）"
+        ok "真实按键上屏：$TYPE_INPUT + $TYPE_SELECT_KEY → $TYPE_EXPECT（GTK3 + fcitx5 im module）"
     else
         bad "真实按键上屏未得到「$TYPE_EXPECT」：$(tr '\n' ' ' < "$WORK/type.out" 2>/dev/null | tail -c 200)"
     fi

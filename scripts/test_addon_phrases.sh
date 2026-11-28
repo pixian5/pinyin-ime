@@ -19,6 +19,8 @@ CASES=(
     "zhongguorenmin|中国人民"
     "jintiantianqihenhao|今天天气很好"
     "qinghuadaxue|清华大学"
+    # v0.9.213：>=54 字母走 shadow 独立候选空间（长句真实上屏回归）。
+    "wangjuchuanzaijiaoxueshijianzhongtongguojiangjiebangzhuxueshengzhangwogaidongzuojichu|王据传在教学实践中通过讲解帮助学生掌握该动作基础"
 )
 
 PASS=0

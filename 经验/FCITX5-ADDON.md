@@ -12,3 +12,7 @@
 - **评测转储要绕开 UI 分页，但不能绕开显示索引**：直接 `ctx.candidatesToCursor()` 是 libime 原始池，空格实际选的是 `displayToRaw_[0]`/boost 后的候选；按显示顺序生成列表，Top1 才能和上屏结果一致。
 - **addon 评测必须确认模型真的加载了**：`findDefault()` 会先找当前目录 `data/char_trigram.bin`，再找 `/usr/share/pinyin-ime/`；评测日志出现 `char_trigram.bin not found, rerank disabled` 时，结果只是无重排基线。全量前先 `PINYINIME_CHAR_LM=/usr/share/pinyin-ime/char_trigram.bin` 固定路径，或看启动日志的 `char rerank model=`。
 - **夜间 job 要复用 package 产物**：独立 schedule run 没有上一次 push 的 artifact，必须在同一 workflow 里 `needs: package`，再下载 `pinyin-ime-${{ github.sha }}` 安装，否则会误以为缺包。
+- **shadow 不能靠单点插入主候选**：把 shadow 首选塞进 `boostInsertWord_` 会打破显示索引/提交时序，v0.9.213 前的两种接法都掉到 0%～2%；必须让 `updateUI` 整段切到独立 `shadowCands_`，并让 `selectCandidate`、翻页、数字键、点击、Ctrl+←/→ 共用同一索引。
+- **shadow 解码要持久 context，不能每键整串重放**：每键新建 `PinyinContext` 整串 type 会让单句 P50 ~500ms，连续输入时事件积压、空格超时，400 句 Top1 0.5% 且把上一句文本带入。跨阈值整串一次，之后增量 type，退格/消歧再重建。
+- **shadow 候选池不是越大越好**：NBest60→100 在 400 句 Top1 无变化，wiki Top5 只 +1 句，P95 反而到 1.0s；先把 60 作为默认，增大前必须看延迟。
+- **长句 shadow 的 Top1 增益不是全域**：v0.9.213 全量 baike +1.67、recent +2.34、news 持平、wiki -0.67；wiki 专名仍需实体词表，候选池/重排救不回来。
