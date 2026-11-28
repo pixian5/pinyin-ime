@@ -550,7 +550,7 @@ void PinyinIMEState::updateUI() {
         shadowDirty_ = false;
         std::string compact =
             pinyin_ime::compactPinyin(context_.preedit());
-        if (compact.size() >= 54 && engine_->charLM() &&
+        if (compact.size() >= 30 && engine_->charLM() &&
             engine_->ensureShadowIME()) {
             // 持久 shadow context：跨过 54 字母时整串建一次，之后只增量
             // type 新字符；退格/消歧导致前缀不符时再整串重建。
@@ -564,9 +564,16 @@ void PinyinIMEState::updateUI() {
             for (size_t ci = shadowTyped_.size(); ci < compact.size(); ++ci)
                 shadowCtx_->type(std::string(1, compact[ci]));
             shadowTyped_ = compact;
-            shadowCands_ = shadowRerank(shadowCtx_.get(),
-                                        engine_->charLM(), compact, 60);
-            shadowActive_ = !shadowCands_.empty();
+            if (compact.size() >= 54) {
+                shadowCands_ = shadowRerank(shadowCtx_.get(),
+                                            engine_->charLM(), compact, 60);
+                shadowActive_ = !shadowCands_.empty();
+            } else {
+                // v0.9.214：30~53 字母只预热 shadow 上下文，不显示；
+                // 到 54 时不再整串解码，避免首次长句 500ms 卡顿。
+                shadowCands_.clear();
+                shadowActive_ = false;
+            }
         } else {
             shadowActive_ = false;
             shadowCands_.clear();
